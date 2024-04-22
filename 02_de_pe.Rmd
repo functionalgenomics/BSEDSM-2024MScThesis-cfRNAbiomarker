@@ -1,0 +1,392 @@
+---
+title: Differential expression analysis of preeclampsia data
+author:
+- name: XXXX YYYYY
+  affiliation:
+  - &id Barcelona School of Economics
+  email: XXXX.YYYY@bse.eu
+- name: XXXX YYYYY
+  affiliation: *id
+  email: XXXX.YYYY@bse.eu
+date: "`r format(Sys.time(), '%B %e, %Y')`"
+abstract: >
+  Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of the preeclampsia data.
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+    fig_captions: yes
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: _bibliography.bib
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(kableExtra)
+
+
+knitr::opts_chunk$set(
+  collapse=TRUE,
+  comment="",
+  fig.align="center",
+  fig.wide=TRUE,
+  cache=TRUE,
+  cache.path="_cache/__DE_pe",
+  cache.extra=R.version.string,
+  autodep=TRUE
+)
+
+source(file.path("_scripts", "labelPanel.R")) ## for the labelPanel() function
+source(file.path("_scripts", "myplotbcv.R")) ## for the myplotbcv() function
+source(file.path("_scripts", "plotvolcano.R")) ## for the plotvolcano() function
+source(file.path("_scripts", "plotma.R")) ## for the plotma() function
+```
+
+# Importing processed and filtered data
+
+We start by importing the previously filtered and normalized RNA-seq data.
+
+```{r, message=FALSE}
+library(SummarizedExperiment)
+library(edgeR)
+
+dgeM.filt <- readRDS(file.path("_processed_data", "dgeM.filt.rds"))
+seM.filt <- readRDS(file.path("_processed_data", "seM.filt.rds"))
+dgeD.filt <- readRDS(file.path("_processed_data", "dgeD.filt.rds"))
+seD.filt <- readRDS(file.path("_processed_data", "seD.filt.rds"))
+dgeM.filt.training <- readRDS(file.path("_processed_data",
+                                        "dgeM.filt.training.rds"))
+seM.filt.training <- readRDS(file.path("_processed_data",
+                                       "seM.filt.training.rds"))
+dgeM.filt.testing <- readRDS(file.path("_processed_data",
+                                       "dgeM.filt.testing.rds"))
+seM.filt.testing <- readRDS(file.path("_processed_data",
+                                      "seM.filt.testing.rds"))
+dgeD.filt.subset <- readRDS(file.path("_processed_data",
+                                      "dgeD.filt.subset.rds"))
+seD.filt.subset <- readRDS(file.path("_processed_data",
+                                     "seD.filt.subset.rds"))
+```
+
+# Moufarrej et al. (2022) training data
+
+Design matrices.
+
+```{r, message=FALSE}
+mod <- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.training))
+mod0 <- model.matrix(~ SamplingGA, colData(seM.filt.training))
+```
+
+Estimate surrogate variables (SVs).
+
+```{r, message=FALSE}
+library(sva)
+
+IQRs <- apply(assays(seM.filt.training)$logCPM, 1, IQR)
+mask <- IQRs > quantile(IQRs, prob=0.9)
+sv <- sva(assays(seM.filt.training)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+mod <- cbind(mod, sv$sv)
+```
+
+Fit linear models using voom [@law2014voom] with sample weights. Figure
+\@ref(fig:voomMtraining) shows the mean-variance trend of the data. Because we
+may have multiple measurements from the same mother, we use a mixed-effects
+models with the mother identifier as a blocking factor.
+
+```{r voomMtraining, echo=FALSE, fig.height=4, fig.width=6, dpi=100, fig.cap="Mean-variance trend in the training data from Moufarrej et al. (2022)."}
+blockingf <- factor(as.character(seM.filt.training$MotherID))
+fit.training <- voomLmFit(dgeM.filt.training, mod, block=blockingf,
+                          sample.weights=TRUE, plot=TRUE)
+```
+
+Calculate moderated _t_-statistics using an empirical Bayes procedure and
+examine the extent of differential expression (DE) with an FDR < 5%.
+
+```{r}
+fit.training <- eBayes(fit.training, robust=TRUE)
+res.training <- decideTests(fit.training, p.value=0.05)
+summary(res.training)
+```
+
+Fetch summary DE statistics for all genes.
+
+```{r}
+tt.training <- topTable(fit.training, coef="Preeclampsiayes", n=Inf,
+                        sort.by="p")
+```
+
+Display the p-value distribution in Figure \@ref(fig:pvaldisttraining).
+
+```{r pvaldisttraining, echo=FALSE, fig.height=5, fig.width=5, dpi=100, fig.cap="P-value distribution for the null hypothesis of no-DE."}
+par(mar=c(5, 4, 1, 1))
+hist(tt.training$P.Value, main="", xlab="P-value", las=1)
+```
+
+Select DE genes with FDR < 5%.
+
+```{r}
+mask <- tt.training$adj.P.Val < 0.05
+DEgenes.training <- rownames(tt.training)[mask]
+length(DEgenes.training)
+```
+
+Display volcano and MA plots in Figure \@ref(fig:maplottraining).
+
+```{r maplottraining, echo=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot training data from Moufarrej et al. (2022)."}
+par(mfrow=c(1, 2))
+plotvolcano(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
+plotma(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
+```
+
+# Moufarrej et al. (2022) testing data
+
+Design matrices.
+
+```{r, message=FALSE}
+mod <- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.testing))
+mod0 <- model.matrix(~ SamplingGA, colData(seM.filt.testing))
+```
+
+Estimate surrogate variables (SVs).
+
+```{r, message=FALSE}
+library(sva)
+
+IQRs <- apply(assays(seM.filt.testing)$logCPM, 1, IQR)
+mask <- IQRs > quantile(IQRs, prob=0.9)
+sv <- sva(assays(seM.filt.testing)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+mod <- cbind(mod, sv$sv)
+```
+
+Fit linear models using voom [@law2014voom] with sample weights. Figure
+\@ref(fig:voomMtraining) shows the mean-variance trend of the data. Because we
+may have multiple measurements from the same mother, we use a mixed-effects
+models with the mother identifier as a blocking factor.
+
+
+```{r voomMtesting, echo=FALSE, fig.height=4, fig.width=6, dpi=100, fig.cap="Mean-variance trend in the testing data from Moufarrej et al. (2022)."}
+blockingf <- factor(as.character(seM.filt.testing$MotherID))
+fit.testing <- voomLmFit(dgeM.filt.testing, mod, block=blockingf,
+                         sample.weights=TRUE, plot=TRUE)
+```
+
+Calculate moderated _t_-statistics using an empirical Bayes procedure and
+examine the extent of differential expression (DE) with an FDR < 5%.
+
+```{r}
+fit.testing <- eBayes(fit.testing, robust=TRUE)
+res.testing <- decideTests(fit.testing, p.value=0.05)
+summary(res.testing)
+```
+
+Fetch summary DE statistics for all genes.
+
+```{r}
+tt.testing <- topTable(fit.testing, coef="Preeclampsiayes", n=Inf,
+                       sort.by="p")
+```
+
+Display the p-value distribution in Figure \@ref(fig:pvaldisttesting).
+
+```{r pvaldisttesting, echo=FALSE, fig.height=5, fig.width=5, dpi=100, fig.cap="P-value distribution for the null hypothesis of no-DE."}
+par(mar=c(5, 4, 1, 1))
+hist(tt.testing$P.Value, main="", xlab="P-value", las=1)
+```
+
+Select DE genes with FDR < 5%.
+
+```{r}
+mask <- tt.testing$adj.P.Val < 0.05
+DEgenes.testing <- rownames(tt.testing)[mask]
+length(DEgenes.testing)
+```
+
+Display MA-plot in Figure \@ref(fig:maplottesting).
+
+```{r maplottesting, echo=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot testing data from Moufarrej et al. (2022)."}
+par(mfrow=c(1, 2))
+plotvolcano(tt.testing, highlight=DEgenes.testing, FDRcutoff=0.05)
+plotma(tt.testing, highlight=DEgenes.testing, FDRcutoff=0.05)
+```
+
+# Del Vecchio et al. (2021) subset data
+
+Design matrices.
+
+```{r, message=FALSE}
+mod <- model.matrix(~ Preeclampsia + SamplingGA, colData(seD.filt.subset))
+mod0 <- model.matrix(~ SamplingGA, colData(seD.filt.subset))
+```
+
+Estimate surrogate variables (SVs).
+
+```{r, message=FALSE}
+library(sva)
+
+IQRs <- apply(assays(seD.filt.subset)$logCPM, 1, IQR)
+mask <- IQRs > quantile(IQRs, prob=0.9)
+sv <- sva(assays(seD.filt.subset)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+mod <- cbind(mod, sv$sv)
+```
+
+Fit linear models using voom [@law2014voom] with sample weights. Figure
+\@ref(fig:voomMtraining) shows the mean-variance trend of the data. Because we
+may have multiple measurements from the same mother, we use a mixed-effects
+models with the mother identifier as a blocking factor.
+
+
+```{r voomdelvecchio, echo=FALSE, fig.height=4, fig.width=6, dpi=100, fig.cap="Mean-variance trend in the data from Del Vecchio et al. (2021)."}
+blockingf <- factor(as.character(seD.filt.subset$MotherID))
+fit.delvecchio <- voomLmFit(dgeD.filt.subset, mod, block=blockingf,
+                            sample.weights=TRUE, plot=TRUE)
+```
+
+Calculate moderated _t_-statistics using an empirical Bayes procedure and
+examine the extent of differential expression (DE) with an FDR < 10%.
+
+```{r}
+fit.delvecchio <- eBayes(fit.delvecchio, robust=TRUE)
+res.delvecchio <- decideTests(fit.delvecchio, p.value=0.05)
+summary(res.delvecchio)
+```
+
+Fetch summary DE statistics for all genes.
+
+```{r}
+tt.delvecchio <- topTable(fit.delvecchio, coef="Preeclampsiayes", n=Inf,
+                          sort.by="p")
+```
+
+Display the p-value distribution in Figure \@ref(fig:pvaldistdelvecchio).
+
+```{r pvaldistdelvecchio, echo=FALSE, fig.height=5, fig.width=5, dpi=100, fig.cap="P-value distribution for the null hypothesis of no-DE."}
+par(mar=c(5, 4, 1, 1))
+hist(tt.delvecchio$P.Value, main="", xlab="P-value", las=1)
+```
+
+Select DE genes.
+
+```{r}
+mask <- tt.delvecchio$adj.P.Val < 0.05
+DEgenes.delvecchio <- rownames(tt.delvecchio)[mask]
+length(DEgenes.delvecchio)
+```
+
+Display MA-plot in Figure \@ref(fig:maplotdelvecchio).
+
+```{r maplotdelvecchio, echo=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot data from Del Vecchio et al. (2021)."}
+par(mfrow=c(1, 2))
+plotvolcano(tt.delvecchio, highlight=DEgenes.delvecchio, FDRcutoff=0.05)
+plotma(tt.delvecchio, highlight=DEgenes.delvecchio, FDRcutoff=0.05)
+```
+
+# Comparison of DE genes across datasets
+
+```{r decomparison, echo=FALSE, warning=FALSE, fig.height=4, fig.width=12, dpi=100, fig.cap="Comparison DE analyis across datasets."}
+par(mfrow=c(1, 3), mar=c(4, 5, 2, 1))
+traininglfc <- tt.training$logFC
+names(traininglfc) <- rownames(tt.training)
+testinglfc <- tt.testing$logFC
+names(testinglfc) <- rownames(tt.testing)
+delvecchiolfc <- tt.delvecchio$logFC
+names(delvecchiolfc) <- rownames(tt.delvecchio)
+
+## (a) training vs testing
+commongenes <- intersect(names(traininglfc), names(testinglfc))
+plot(traininglfc[commongenes], testinglfc[commongenes], pch=19, cex=0.7,
+     col="gray", xlab="", ylab="", main="", las=1, cex.lab=1.5, cex.axis=1.2)
+mtext("Moufarrej-training", side=1, line=2.2, cex=1.3)
+mtext(expression(paste(log[2], " fold change")), side=1, line=3.7, cex=1.3)
+mtext("Moufarrej-testing", side=2, line=3.7, cex=1.3)
+mtext(expression(paste(log[2], " fold change")), side=2, line=2.2, cex=1.3)
+abline(0, 1, col="gray", lwd=2, lty=3)
+abline(v=0, lwd=2, col="gray", lty=3)
+abline(h=0, lwd=2, col="gray", lty=3)
+rug(traininglfc, side=1, col="gray")
+rug(testinglfc, side=2, col="gray")
+commonDEgenes <- intersect(DEgenes.training, DEgenes.testing)
+points(traininglfc[commonDEgenes], testinglfc[commonDEgenes], pch=19,
+       col="darkred")
+fit <- lm(testinglfc[commonDEgenes] ~ traininglfc[commonDEgenes])
+abline(fit, lwd=2, col="darkred")
+r2 <- sprintf("%.2f", summary(fit)$r.squared)
+rhotest <- cor.test(traininglfc[commonDEgenes], testinglfc[commonDEgenes])
+rho <- sprintf("%.2f", rhotest$estimate)
+pv <- ifelse(summary(fit)$coefficients[2, 4] < 0.001, "0.001",
+                          sprintf("%.3f", summary(fit)$coefficients[2, 4]))
+rp <- vector('expression', 3)
+rp[1] <- substitute(expression(italic(r) == RHO), list(RHO=rho))[2]
+rp[2] <- substitute(expression(italic(R)^2 == RSQUARED), list(RSQUARED=r2))[2]
+rp[3] <- substitute(expression(italic(P) < PVALUE), list(PVALUE=pv))[2]
+legend("topleft", legend=rp, bty="n", text.col="darkred", cex=0.8)
+
+## (b) training vs Del Vecchio
+commongenes <- intersect(names(traininglfc), names(delvecchiolfc))
+plot(traininglfc[commongenes], delvecchiolfc[commongenes], pch=19, cex=0.7,
+     col="gray", xlab="", ylab="", main="", las=1, cex.lab=1.5, cex.axis=1.2)
+mtext("Moufarrej-training", side=1, line=2.2, cex=1.3)
+mtext(expression(paste(log[2], " fold change")), side=1, line=3.7, cex=1.3)
+mtext("Del Vecchio", side=2, line=3.7, cex=1.3)
+mtext(expression(paste(log[2], " fold change")), side=2, line=2.2, cex=1.3)
+abline(0, 1, col="gray", lwd=2, lty=3)
+abline(v=0, lwd=2, col="gray", lty=3)
+abline(h=0, lwd=2, col="gray", lty=3)
+rug(traininglfc, side=1, col="gray")
+rug(delvecchiolfc, side=2, col="gray")
+commonDEgenes <- intersect(DEgenes.training, DEgenes.delvecchio)
+points(traininglfc[commonDEgenes], delvecchiolfc[commonDEgenes], pch=19,
+       col="darkred")
+## fit <- lm(delvecchiolfc[commonDEgenes] ~ traininglfc[commonDEgenes])
+## abline(fit, lwd=2, col="darkred")
+## r2 <- sprintf("%.2f", summary(fit)$r.squared)
+## rhotest <- cor.test(traininglfc[commonDEgenes], delvecchiolfc[commonDEgenes])
+## rho <- sprintf("%.2f", rhotest$estimate)
+## pv <- ifelse(summary(fit)$coefficients[2, 4] < 0.001, "0.001",
+                          ## sprintf("%.3f", summary(fit)$coefficients[2, 4]))
+## rp <- vector('expression', 3)
+## rp[1] <- substitute(expression(italic(r) == RHO), list(RHO=rho))[2]
+## rp[2] <- substitute(expression(italic(R)^2 == RSQUARED), list(RSQUARED=r2))[2]
+## rp[3] <- substitute(expression(italic(P) < PVALUE), list(PVALUE=pv))[2]
+## legend("topleft", legend=rp, bty="n", text.col="darkred", cex=0.8)
+
+## (c) testing vs Del Vecchio
+commongenes <- intersect(names(testinglfc), names(delvecchiolfc))
+plot(testinglfc[commongenes], delvecchiolfc[commongenes], pch=19, cex=0.7,
+     col="gray", xlab="", ylab="", main="", las=1, cex.lab=1.5, cex.axis=1.2)
+mtext("Moufarrej-testing", side=1, line=2.2, cex=1.3)
+mtext(expression(paste(log[2], " fold change")), side=1, line=3.7, cex=1.3)
+mtext("Del Vecchio", side=2, line=3.7, cex=1.3)
+mtext(expression(paste(log[2], " fold change")), side=2, line=2.2, cex=1.3)
+abline(0, 1, col="gray", lwd=2, lty=3)
+abline(v=0, lwd=2, col="gray", lty=3)
+abline(h=0, lwd=2, col="gray", lty=3)
+rug(testinglfc, side=1, col="gray")
+rug(delvecchiolfc, side=2, col="gray")
+commonDEgenes <- intersect(DEgenes.testing, DEgenes.delvecchio)
+points(testinglfc[commonDEgenes], delvecchiolfc[commonDEgenes], pch=19,
+       col="darkred")
+## fit <- lm(delvecchiolfc[commonDEgenes] ~ testinglfc[commonDEgenes])
+## abline(fit, lwd=2, col="darkred")
+## r2 <- sprintf("%.2f", summary(fit)$r.squared)
+## rhotest <- cor.test(testinglfc[commonDEgenes], delvecchiolfc[commonDEgenes])
+## rho <- sprintf("%.2f", rhotest$estimate)
+## pv <- ifelse(summary(fit)$coefficients[2, 4] < 0.001, "0.001",
+                          ## sprintf("%.3f", summary(fit)$coefficients[2, 4]))
+## rp <- vector('expression', 3)
+## rp[1] <- substitute(expression(italic(r) == RHO), list(RHO=rho))[2]
+## rp[2] <- substitute(expression(italic(R)^2 == RSQUARED), list(RSQUARED=r2))[2]
+## rp[3] <- substitute(expression(italic(P) < PVALUE), list(PVALUE=pv))[2]
+## legend("topleft", legend=rp, bty="n", text.col="darkred", cex=0.8)
+```
+
+# Session information
+
+```{r, child="_session-info.Rmd"}
+```
+
+# References

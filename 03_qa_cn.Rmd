@@ -1,0 +1,70 @@
+---
+title: Quality assessment of cancer data
+author:
+- name: XXXX YYYYY
+  affiliation:
+  - &id Barcelona School of Economics
+  email: XXXX.YYYY@bse.eu
+- name: XXXX YYYYY
+  affiliation: *id
+  email: XXXX.YYYY@bse.eu
+date: "`r format(Sys.time(), '%B %e, %Y')`"
+abstract: >
+  Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+    fig_captions: yes
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: _bibliography.bib
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(kableExtra)
+
+
+knitr::opts_chunk$set(
+  collapse=TRUE,
+  comment="",
+  fig.align="center",
+  fig.wide=TRUE,
+  cache=TRUE,
+  cache.path="_cache/__QA_cn",
+  cache.extra=R.version.string,
+  autodep=TRUE
+)
+
+source(file.path("_scripts", "labelPanel.R")) ## for the labelPanel() function
+source(file.path("_scripts", "myplotbcv.R")) ## for the myplotbcv() function
+```
+
+# Read molecular and phenotype data
+
+Read the molecular and phenotype data stored in serialized `SummarizedExperiment`
+objects.
+
+```{r, message=FALSE}
+library(SummarizedExperiment)
+
+seR <- readRDS(file.path("_raw_data", "se.Roskams22.GENCODEv44.hg38.rds"))
+dim(seR)
+seB <- readRDS(file.path("_raw_data", "se.Block22.GENCODEv44.hg38.rds"))
+dim(seB)
+```
+
+# Filtering of lowly-expressed genes and normalization
+
+# Dispersion estimates and hypervariable genes
+
+# Session information
+
+```{r, child="_session-info.Rmd"}
+```
+
+# References
+
+

@@ -1,0 +1,27 @@
+name: cfRNAanalysis
+output_dir: "docs"
+navbar:
+  title: "Biomarker Discovery in cfRNA data"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "QA Preeclampsia"
+      href: 01_qa_pe.html
+    - text: "DE Preeclampsia"
+      href: 02_de_pe.html
+    - text: "QA Cancer"
+      href: 03_qa_cn.html
+    - text: "DE Cancer"
+      href: 04_de_cn.html
+    - text: "Prediction preeclampsia"
+      href: 05_pr_pe.html
+    - text: "Prediction cancer"
+      href: 06_pr_cn.html
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    fig_captions: yes
+    theme: cosmo
+

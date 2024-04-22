@@ -1,0 +1,50 @@
+---
+title: Biomarker prediction in preeclampsia data
+author:
+- name: XXXX YYYYY
+  affiliation:
+  - &id Barcelona School of Economics
+  email: XXXX.YYYY@bse.eu
+- name: XXXX YYYYY
+  affiliation: *id
+  email: XXXX.YYYY@bse.eu
+date: "`r format(Sys.time(), '%B %e, %Y')`"
+abstract: >
+  Here we perform a prediction of candidate biomarkers in preeclampsia cfRNA sequencing data.
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+    fig_captions: yes
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: _bibliography.bib
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(kableExtra)
+
+
+knitr::opts_chunk$set(
+  collapse=TRUE,
+  comment="",
+  fig.align="center",
+  fig.wide=TRUE,
+  cache=TRUE,
+  cache.path="_cache/__PR_pe",
+  cache.extra=R.version.string,
+  autodep=TRUE
+)
+```
+
+# ???
+
+# Session information
+
+```{r, child="_session-info.Rmd"}
+```
+
+# References
+

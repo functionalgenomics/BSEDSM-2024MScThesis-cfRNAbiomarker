@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+<meta name="date" content="2024-04-23" />
+
+<title>Differential expression analysis of preeclampsia data</title>
+
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       </style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+  p.abstract{
+    text-align: center;
+    font-weight: bold;
+  }
+  div.abstract{
+    margin: auto;
+    width: 90%;
+  }
+</style>
+
+
+<style type="text/css">
+/* for pandoc --citeproc since 2.11 */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 828px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 246px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+<script>
+function toggle_visibility(id1) {
+  var e = document.getElementById(id1);
+  e.style.display = ((e.style.display!="none") ? "none" : "block");
+}
+</script>
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Biomarker Discovery in cfRNA data</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="01_qa_pe.html">QA Preeclampsia</a>
+</li>
+<li>
+  <a href="02_de_pe.html">DE Preeclampsia</a>
+</li>
+<li>
+  <a href="03_qa_cn.html">QA Cancer</a>
+</li>
+<li>
+  <a href="04_de_cn.html">DE Cancer</a>
+</li>
+<li>
+  <a href="05_pr_pe.html">Prediction preeclampsia</a>
+</li>
+<li>
+  <a href="06_pr_cn.html">Prediction cancer</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">Differential expression analysis of preeclampsia data</h1>
+<p class="author-name">XXXX YYYYY<span class="affil-mark">1*</span> and XXXX YYYYY<span class="affil-mark">1*</span></p>
+<p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
+<p class="author-email"><span class="affil-mark">*</span><a href="mailto:XXXX.YYYY@bse.eu">XXXX.YYYY@bse.eu</a><br><span class="affil-mark">*</span><a href="mailto:XXXX.YYYY@bse.eu">XXXX.YYYY@bse.eu</a></p>
+<h4 class="date">April 23, 2024</h4>
+<h4 class="abstract">Abstract</h4>
+<p>Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of the preeclampsia data.</p>
+
+</div>
+
+
+<div id="importing-processed-and-filtered-data" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> Importing processed and filtered data</h1>
+<p>We start by importing the previously filtered and normalized RNA-seq data.</p>
+<pre class="r"><code>library(SummarizedExperiment)
+Warning: package &#39;GenomeInfoDb&#39; was built under R version 4.3.3
+library(edgeR)
+
+dgeM.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeM.filt.rds&quot;))
+seM.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seM.filt.rds&quot;))
+dgeD.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeD.filt.rds&quot;))
+seD.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seD.filt.rds&quot;))
+dgeM.filt.training &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                        &quot;dgeM.filt.training.rds&quot;))
+seM.filt.training &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                       &quot;seM.filt.training.rds&quot;))
+dgeM.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                       &quot;dgeM.filt.testing.rds&quot;))
+seM.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                      &quot;seM.filt.testing.rds&quot;))
+dgeD.filt.subset &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                      &quot;dgeD.filt.subset.rds&quot;))
+seD.filt.subset &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                     &quot;seD.filt.subset.rds&quot;))</code></pre>
+</div>
+<div id="moufarrej-et-al.-2022-training-data" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> Moufarrej et al. (2022) training data</h1>
+<p>Design matrices.</p>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.training))
+mod0 &lt;- model.matrix(~ SamplingGA, colData(seM.filt.training))</code></pre>
+<p>Estimate surrogate variables (SVs).</p>
+<pre class="r"><code>library(sva)
+
+IQRs &lt;- apply(assays(seM.filt.training)$logCPM, 1, IQR)
+mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
+sv &lt;- sva(assays(seM.filt.training)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+Number of significant surrogate variables is:  9 
+Iteration (out of 5 ):1  2  3  4  5  
+mod &lt;- cbind(mod, sv$sv)</code></pre>
+<p>Fit linear models using voom <span class="citation">(<a href="#ref-law2014voom">Law et al. 2014</a>)</span> with sample weights. Figure
+<a href="#fig:voomMtraining">1</a> shows the mean-variance trend of the data. Because we
+may have multiple measurements from the same mother, we use a mixed-effects
+models with the mother identifier as a blocking factor.</p>
+<pre><code>First sample weights (min/max) 0.3037266/2.0773512
+First intra-block correlation  0.1731733
+Final sample weights (min/max) 0.2754689/1.9840891
+Final intra-block correlation  0.1735809</code></pre>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomMtraining"></span>
+<img src="02_de_pe_files/figure-html/voomMtraining-1.png" alt="Mean-variance trend in the training data from Moufarrej et al. (2022)." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 1: <span class="caption-title">Mean-variance trend in the training data from Moufarrej et al. (2022)</span><br>
+</p>
+</div>
+<p>Calculate moderated <em>t</em>-statistics using an empirical Bayes procedure and
+examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
+<pre class="r"><code>fit.training &lt;- eBayes(fit.training, robust=TRUE)
+res.training &lt;- decideTests(fit.training, p.value=0.05)
+summary(res.training)
+       (Intercept) Preeclampsiayes SamplingGA                              
+Down             0             452        198 2270 2460 2537 1404 1435  509
+NotSig           0            4306       4983  647 1170 1367 2552 2585 4174
+Up            5344             586        163 2427 1714 1440 1388 1324  661
+                     
+Down     94  357  257
+NotSig 5043 4570 4918
+Up      207  417  169</code></pre>
+<p>Fetch summary DE statistics for all genes.</p>
+<pre class="r"><code>tt.training &lt;- topTable(fit.training, coef=&quot;Preeclampsiayes&quot;, n=Inf,
+                        sort.by=&quot;p&quot;)</code></pre>
+<p>Display the p-value distribution in Figure <a href="#fig:pvaldisttraining">2</a>.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:pvaldisttraining"></span>
+<img src="02_de_pe_files/figure-html/pvaldisttraining-1.png" alt="P-value distribution for the null hypothesis of no-DE." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 2: <span class="caption-title">P-value distribution for the null hypothesis of no-DE</span><br>
+</p>
+</div>
+<p>Select DE genes with FDR &lt; 5%.</p>
+<pre class="r"><code>mask &lt;- tt.training$adj.P.Val &lt; 0.05
+DEgenes.training &lt;- rownames(tt.training)[mask]
+length(DEgenes.training)
+[1] 1038</code></pre>
+<p>Display volcano and MA plots in Figure <a href="#fig:maplottraining">3</a>.</p>
+<pre><code>Loading required package: plotrix</code></pre>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplottraining"></span>
+<img src="02_de_pe_files/figure-html/maplottraining-1.png" alt="MA-plot training data from Moufarrej et al. (2022)." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 3: <span class="caption-title">MA-plot training data from Moufarrej et al. (2022)</span><br>
+</p>
+</div>
+</div>
+<div id="moufarrej-et-al.-2022-testing-data" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> Moufarrej et al. (2022) testing data</h1>
+<p>Design matrices.</p>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.testing))
+mod0 &lt;- model.matrix(~ SamplingGA, colData(seM.filt.testing))</code></pre>
+<p>Estimate surrogate variables (SVs).</p>
+<pre class="r"><code>library(sva)
+
+IQRs &lt;- apply(assays(seM.filt.testing)$logCPM, 1, IQR)
+mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
+sv &lt;- sva(assays(seM.filt.testing)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+Number of significant surrogate variables is:  4 
+Iteration (out of 5 ):1  2  3  4  5  
+mod &lt;- cbind(mod, sv$sv)</code></pre>
+<p>Fit linear models using voom <span class="citation">(<a href="#ref-law2014voom">Law et al. 2014</a>)</span> with sample weights. Figure
+<a href="#fig:voomMtraining">1</a> shows the mean-variance trend of the data. Because we
+may have multiple measurements from the same mother, we use a mixed-effects
+models with the mother identifier as a blocking factor.</p>
+<pre><code>First sample weights (min/max) 0.264178/2.012873
+First intra-block correlation  0.5989793
+Final sample weights (min/max) 0.2608448/2.0264314
+Final intra-block correlation  0.5983968</code></pre>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomMtesting"></span>
+<img src="02_de_pe_files/figure-html/voomMtesting-1.png" alt="Mean-variance trend in the testing data from Moufarrej et al. (2022)." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 4: <span class="caption-title">Mean-variance trend in the testing data from Moufarrej et al. (2022)</span><br>
+</p>
+</div>
+<p>Calculate moderated <em>t</em>-statistics using an empirical Bayes procedure and
+examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
+<pre class="r"><code>fit.testing &lt;- eBayes(fit.testing, robust=TRUE)
+res.testing &lt;- decideTests(fit.testing, p.value=0.05)
+summary(res.testing)
+       (Intercept) Preeclampsiayes SamplingGA                    
+Down             1            1193          0 2455 2112 1838  467
+NotSig          12            3201       5344  541 1374 1775 4652
+Up            5331             950          0 2348 1858 1731  225</code></pre>
+<p>Fetch summary DE statistics for all genes.</p>
+<pre class="r"><code>tt.testing &lt;- topTable(fit.testing, coef=&quot;Preeclampsiayes&quot;, n=Inf,
+                       sort.by=&quot;p&quot;)</code></pre>
+<p>Display the p-value distribution in Figure <a href="#fig:pvaldisttesting">5</a>.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:pvaldisttesting"></span>
+<img src="02_de_pe_files/figure-html/pvaldisttesting-1.png" alt="P-value distribution for the null hypothesis of no-DE." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 5: <span class="caption-title">P-value distribution for the null hypothesis of no-DE</span><br>
+</p>
+</div>
+<p>Select DE genes with FDR &lt; 5%.</p>
+<pre class="r"><code>mask &lt;- tt.testing$adj.P.Val &lt; 0.05
+DEgenes.testing &lt;- rownames(tt.testing)[mask]
+length(DEgenes.testing)
+[1] 2143</code></pre>
+<p>Display MA-plot in Figure <a href="#fig:maplottesting">6</a>.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplottesting"></span>
+<img src="02_de_pe_files/figure-html/maplottesting-1.png" alt="MA-plot testing data from Moufarrej et al. (2022)." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 6: <span class="caption-title">MA-plot testing data from Moufarrej et al. (2022)</span><br>
+</p>
+</div>
+</div>
+<div id="del-vecchio-et-al.-2021-subset-data" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> Del Vecchio et al. (2021) subset data</h1>
+<p>Design matrices.</p>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seD.filt.subset))
+mod0 &lt;- model.matrix(~ SamplingGA, colData(seD.filt.subset))</code></pre>
+<p>Estimate surrogate variables (SVs).</p>
+<pre class="r"><code>library(sva)
+
+IQRs &lt;- apply(assays(seD.filt.subset)$logCPM, 1, IQR)
+mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
+sv &lt;- sva(assays(seD.filt.subset)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+Number of significant surrogate variables is:  8 
+Iteration (out of 5 ):1  2  3  4  5  
+mod &lt;- cbind(mod, sv$sv)</code></pre>
+<p>Fit linear models using voom <span class="citation">(<a href="#ref-law2014voom">Law et al. 2014</a>)</span> with sample weights. Figure
+<a href="#fig:voomMtraining">1</a> shows the mean-variance trend of the data. Because we
+may have multiple measurements from the same mother, we use a mixed-effects
+models with the mother identifier as a blocking factor.</p>
+<pre><code>First sample weights (min/max) 0.3205418/1.4709069
+First intra-block correlation  0.1008092
+Final sample weights (min/max) 0.2889614/1.4599017
+Final intra-block correlation  0.100881</code></pre>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomdelvecchio"></span>
+<img src="02_de_pe_files/figure-html/voomdelvecchio-1.png" alt="Mean-variance trend in the data from Del Vecchio et al. (2021)." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 7: <span class="caption-title">Mean-variance trend in the data from Del Vecchio et al. (2021)</span><br>
+</p>
+</div>
+<p>Calculate moderated <em>t</em>-statistics using an empirical Bayes procedure and
+examine the extent of differential expression (DE) with an FDR &lt; 10%.</p>
+<pre class="r"><code>fit.delvecchio &lt;- eBayes(fit.delvecchio, robust=TRUE)
+res.delvecchio &lt;- decideTests(fit.delvecchio, p.value=0.05)
+summary(res.delvecchio)
+       (Intercept) Preeclampsiayes SamplingGA                              
+Down             0               2          1 1686  880  138 1066  161   44
+NotSig           0            7309       7304 4102 5057 6698 5461 7122 7240
+Up            7313               2          8 1525 1376  477  786   30   29
+                
+Down    337   17
+NotSig 6491 7234
+Up      485   62</code></pre>
+<p>Fetch summary DE statistics for all genes.</p>
+<pre class="r"><code>tt.delvecchio &lt;- topTable(fit.delvecchio, coef=&quot;Preeclampsiayes&quot;, n=Inf,
+                          sort.by=&quot;p&quot;)</code></pre>
+<p>Display the p-value distribution in Figure <a href="#fig:pvaldistdelvecchio">8</a>.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:pvaldistdelvecchio"></span>
+<img src="02_de_pe_files/figure-html/pvaldistdelvecchio-1.png" alt="P-value distribution for the null hypothesis of no-DE." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 8: <span class="caption-title">P-value distribution for the null hypothesis of no-DE</span><br>
+</p>
+</div>
+<p>Select DE genes.</p>
+<pre class="r"><code>mask &lt;- tt.delvecchio$adj.P.Val &lt; 0.05
+DEgenes.delvecchio &lt;- rownames(tt.delvecchio)[mask]
+length(DEgenes.delvecchio)
+[1] 4</code></pre>
+<p>Display MA-plot in Figure <a href="#fig:maplotdelvecchio">9</a>.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplotdelvecchio"></span>
+<img src="02_de_pe_files/figure-html/maplotdelvecchio-1.png" alt="MA-plot data from Del Vecchio et al. (2021)." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 9: <span class="caption-title">MA-plot data from Del Vecchio et al. (2021)</span><br>
+</p>
+</div>
+</div>
+<div id="comparison-of-de-genes-across-datasets" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> Comparison of DE genes across datasets</h1>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:decomparison"></span>
+<img src="02_de_pe_files/figure-html/decomparison-1.png" alt="Comparison DE analyis across datasets." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 10: <span class="caption-title">Comparison DE analyis across datasets</span><br>
+</p>
+</div>
+</div>
+<div id="session-information" class="section level1" number="6">
+<h1><span class="header-section-number">6</span> Session information</h1>
+<pre class="r"><code>sessionInfo()
+R version 4.3.2 (2023-10-31)
+Platform: x86_64-apple-darwin20 (64-bit)
+Running under: macOS Ventura 13.6.6
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: Europe/Paris
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] plotrix_3.8-4               sva_3.50.0                 
+ [3] BiocParallel_1.36.0         genefilter_1.84.0          
+ [5] mgcv_1.9-1                  nlme_3.1-164               
+ [7] edgeR_4.0.16                limma_3.58.1               
+ [9] SummarizedExperiment_1.32.0 Biobase_2.62.0             
+[11] GenomicRanges_1.54.1        GenomeInfoDb_1.38.8        
+[13] IRanges_2.36.0              S4Vectors_0.40.2           
+[15] BiocGenerics_0.48.1         MatrixGenerics_1.14.0      
+[17] matrixStats_1.3.0           kableExtra_1.4.0           
+[19] knitr_1.45                  BiocStyle_2.30.0           
+
+loaded via a namespace (and not attached):
+ [1] viridisLite_0.4.2       blob_1.2.4              Biostrings_2.70.3      
+ [4] bitops_1.0-7            fastmap_1.1.1           RCurl_1.98-1.14        
+ [7] XML_3.99-0.16.1         digest_0.6.35           lifecycle_1.0.4        
+[10] survival_3.5-8          statmod_1.5.0           KEGGREST_1.42.0        
+[13] RSQLite_2.3.6           magrittr_2.0.3          compiler_4.3.2         
+[16] rlang_1.1.3             sass_0.4.9              tools_4.3.2            
+[19] yaml_2.3.8              S4Arrays_1.2.1          bit_4.0.5              
+[22] DelayedArray_0.28.0     xml2_1.3.6              abind_1.4-5            
+[25] grid_4.3.2              xtable_1.8-4            colorspace_2.1-0       
+[28] scales_1.3.0            cli_3.6.2               rmarkdown_2.26         
+[31] crayon_1.5.2            rstudioapi_0.16.0       httr_1.4.7             
+[34] DBI_1.2.2               cachem_1.0.8            stringr_1.5.1          
+[37] zlibbioc_1.48.2         splines_4.3.2           parallel_4.3.2         
+[40] AnnotationDbi_1.64.1    BiocManager_1.30.22     XVector_0.42.0         
+[43] vctrs_0.6.5             Matrix_1.6-5            jsonlite_1.8.8         
+[46] bookdown_0.39           bit64_4.0.5             magick_2.8.3           
+[49] systemfonts_1.0.6       locfit_1.5-9.9          jquerylib_0.1.4        
+[52] annotate_1.80.0         glue_1.7.0              codetools_0.2-20       
+[55] stringi_1.8.3           munsell_0.5.1           htmltools_0.5.8.1      
+[58] GenomeInfoDbData_1.2.11 R6_2.5.1                evaluate_0.23          
+[61] lattice_0.22-6          highr_0.10              png_0.1-8              
+[64] memoise_2.0.1           bslib_0.7.0             Rcpp_1.0.12            
+[67] svglite_2.1.3           SparseArray_1.2.4       xfun_0.43              </code></pre>
+</div>
+<div id="references" class="section level1 unnumbered">
+<h1>References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="ref-law2014voom" class="csl-entry">
+Law, Charity W, Yunshun Chen, Wei Shi, and Gordon K Smyth. 2014. <span>“Voom: Precision Weights Unlock Linear Model Analysis Tools for RNA-Seq Read Counts.”</span> <em>Genome Biology</em> 15: 1–17.
+</div>
+</div>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": {
+      styles: {
+        ".MathJax_Display": {
+           "text-align": "center",
+           padding: "0px 150px 0px 65px",
+           margin: "0px 0px 0.5em"
+        },
+        "@media screen and (max-width: 991px)": {
+            ".MathJax_Display": {
+               "text-align": "center",
+               padding: "0 0 0 0"
+            }
+         }
+      }
+    }
+  });
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+<script type="text/javascript">
+$(document).ready(function ()  {
+  
+  // Map "enter" keypress to the same action as a cursor click
+  function navigateLink(e) {
+    if (e.key === "Enter") {
+      $(this).trigger("click");
+    }
+  }
+
+  var toc_items = document.querySelectorAll(".tocify-item");
+  for (var i = 0; i < toc_items.length; i++) {
+    // The link role tells screen readers this is for navigation
+    toc_items.item(i).setAttribute("role", "link");
+    // tabindex = 0 allows selection via keyboard tab presses
+    toc_items.item(i).setAttribute("tabindex", "0");
+    // Listen for "Enter" keypress when item is selected
+    toc_items.item(i).addEventListener("keydown", navigateLink);
+  }
+});
+</script>
+
+</body>
+</html>

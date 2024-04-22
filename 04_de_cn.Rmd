@@ -1,0 +1,68 @@
+---
+title: Differential expression analysis of cancer data
+author:
+- name: XXXX YYYYY
+  affiliation:
+  - &id Barcelona School of Economics
+  email: XXXX.YYYY@bse.eu
+- name: XXXX YYYYY
+  affiliation: *id
+  email: XXXX.YYYY@bse.eu
+date: "`r format(Sys.time(), '%B %e, %Y')`"
+abstract: >
+  Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of cancer data.
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+    fig_captions: yes
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: _bibliography.bib
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(kableExtra)
+
+
+knitr::opts_chunk$set(
+  collapse=TRUE,
+  comment="",
+  fig.align="center",
+  fig.wide=TRUE,
+  cache=TRUE,
+  cache.path="_cache/__DE_cn",
+  cache.extra=R.version.string,
+  autodep=TRUE
+)
+
+source(file.path("_scripts", "labelPanel.R")) ## for the labelPanel() function
+source(file.path("_scripts", "myplotbcv.R")) ## for the myplotbcv() function
+source(file.path("_scripts", "plotvolcano.R")) ## for the plotvolcano() function
+source(file.path("_scripts", "plotma.R")) ## for the plotma() function
+```
+
+# Importing processed and filtered data
+
+We start by importing the previously filtered and normalized RNA-seq data.
+
+```{r, message=FALSE}
+library(SummarizedExperiment)
+library(edgeR)
+```
+
+# Roskams et al. (2022) data
+
+# Block et al. (2022) data
+
+# Comparison of DE genes across datasets
+
+# Session information
+
+```{r, child="_session-info.Rmd"}
+```
+
+# References
+
