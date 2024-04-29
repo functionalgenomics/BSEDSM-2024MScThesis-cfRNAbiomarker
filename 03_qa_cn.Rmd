@@ -1,13 +1,13 @@
 ---
 title: Quality assessment of cancer data
 author:
-- name: XXXX YYYYY
+- name: Berta Canal Simón
   affiliation:
   - &id Barcelona School of Economics
-  email: XXXX.YYYY@bse.eu
-- name: XXXX YYYYY
+  email: berta.canal@bse.eu
+- name: Adam Olivares Canal
   affiliation: *id
-  email: XXXX.YYYY@bse.eu
+  email: adam.olivares@bse.eu
 date: "`r format(Sys.time(), '%B %e, %Y')`"
 abstract: >
   Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.
@@ -25,7 +25,7 @@ bibliography: _bibliography.bib
 ```{r setup, echo=FALSE, cache=FALSE}
 library(knitr)
 library(kableExtra)
-
+library(VIM)
 
 knitr::opts_chunk$set(
   collapse=TRUE,
@@ -56,9 +56,291 @@ seB <- readRDS(file.path("_raw_data", "se.Block22.GENCODEv44.hg38.rds"))
 dim(seB)
 ```
 
-# Filtering of lowly-expressed genes and normalization
+# Filtering of lowly-expresseB genes and normalization
+
+We will use the edgeR package for processing the raw counts and doing some exploratory analyses. We start by building the corresponding DGEList objects with the corresponding row and column data.
+
+```{r}
+library(edgeR)
+
+dgeR <- DGEList(counts=assay(seR), genes=rowData(seR), samples=colData(seR))
+dgeB <- DGEList(counts=assay(seB), genes=rowData(seB), samples=colData(seB))
+```
+
+Filter lowly expressed genes using the function `filterByExpr()` and the
+`Tumor` phenotype column as grouping factor. We need to filter both,
+the `SummarizedExperiment` and `DGEList` types of objects, to keep them
+parallel to each other.
+
+In the article, they sequenced plasma samples of eight hepatocellular carcinoma (HCC) and ten multiple myeloma (MM) patients, 12 patients of their respective precancerous conditions, and 20 non-cancer (NC) donors. For convenience, in the project will discern between those patients with and without cancer (yes and no levels), disregarding the type of tumor.
+```{r}
+seR@colData@listData[["Tumor"]] <- factor(seR$Disease != "NC", labels = c("no", "yes"))
+dgeR$samples$Tumor <- factor(seR$Disease != "NC", labels = c("no", "yes"))
+
+seB@colData@listData[["Tumor"]] <- as.factor(seB$Tumor)
+dgeB$samples$Tumor <- as.factor(dgeB$samples$Tumor)
+
+mask <- filterByExpr(dgeR, group=seR$Tumor)
+sum(mask)
+seR.filt <- seR[mask, ]
+dim(seR.filt)
+dgeR.filt <- dgeR[mask, , keep.lib.sizes=FALSE]
+dim(dgeR.filt)
+
+mask <- filterByExpr(dgeB, group=seB$Tumor)
+sum(mask)
+seB.filt <- seB[mask, ]
+dim(seB.filt)
+dgeB.filt <- dgeB[mask, , keep.lib.sizes=FALSE]
+dim(dgeB.filt)
+```
+
+Calculate normalization factors on the filtered data.
+
+```{r}
+dgeR.filt <- calcNormFactors(dgeR.filt)
+assays(seR.filt, withDimnames=FALSE)$logCPM <- cpm(dgeR.filt, log=TRUE)
+
+dgeB.filt <- calcNormFactors(dgeB.filt)
+assays(seB.filt)$logCPM <- cpm(dgeB.filt, log=TRUE)
+```
+
+Change the name of the data from articles [@Roskams2022] and [@Vorperian2022] to _training_ and _testing_ for simplicity.
+```{r}
+seR.filt.training <- seR.filt
+dgeR.filt.training <- dgeR.filt
+
+seB.filt.testing <- seB.filt
+dgeB.filt.testing <- dgeB.filt
+```
+
+Figure \@ref(fig:mdsplot) below shows samples dissimilarity labeled by
+the diagnosis of preeclampsia in each of the three datasets.
+
+```{r mdsplot, echo=FALSE, fig.height=4, fig.width=12, out.width="800px", fig.cap="Sample dissimilarity labeled by the diagnosis of preeclampsia. Multidimensional scaling (MDS) plot of sample dissimilarity for the training (a) and testing (b) data from the study by @moufarrej2022early, and for the data from the study by [@delvecchio2021cell]."}
+tumorcolors <- c("skyblue", "darkred")
+par(mfrow=c(1, 2), mar=c(4, 5, 2, 1))
+xx <- plotMDS(dgeR.filt.training, labels=rep("", ncol(seR.filt.training)), las=1)
+points(xx$x, xx$y, col=tumorcolors[as.integer(seR.filt.training$Tumor)],
+       pch=19, cex=0.8)
+legend("topleft", c("Control", " Cancer"), fill=tumorcolors,
+       inset=0.01)
+labelPanel("a")
+xx <- plotMDS(dgeB.filt.testing, labels=rep("", ncol(seB.filt.testing)), las=1)
+points(xx$x, xx$y, col=tumorcolors[as.integer(seB.filt.testing$Tumor)],
+       pch=19, cex=0.8)
+legend("topleft", c("Control", "Cancer"), fill=tumorcolors,
+       inset=0.01)
+labelPanel("b")
+```
+
+Save `DGEList` and `SummarizedExperiment` objects including filtered data,
+normalization factors and normalized log CPM units of expression.
+
+### Na imputation of Sex and Age variables
+
+Impute missing Age values by mean
+
+```{r}
+mean.ageB <- mean(dgeB.filt.testing$samples$Age, na.rm = TRUE)
+mean.ageB
+```
+
+```{r}
+is.na.ageB <- which(is.na(dgeB.filt.testing$samples$Age) == TRUE)
+dgeB.filt.testing$samples$Age[is.na.ageB] <- mean.ageB
+```
+
+```{r}
+#is.na.ageB_seB <- which(is.na(seB.filt.testing$Age) == TRUE)
+#dgeB.filt.testing$samples$Age[is.na.ageB] <- mean.ageB
+seB.filt.testing$Age[is.na.ageB] <- mean.ageB
+```
+
+Impute missing values of Sex variable with a KNN imputer (k = 5)
+
+```{r}
+mask <- grepl("Y-linked", dgeB.filt.testing$genes$Description)
+```
+
+```{r}
+counts_Y_linked <- dgeB.filt.testing$counts[mask,]
+counts_Y_linked <- as.data.frame(t(counts_Y_linked))
+```
+
+```{r}
+counts_Y_linked$Sex <- as.factor(dgeB.filt.testing$samples$Sex)
+```
+
+```{r}
+library(VIM)
+data_imputed <- kNN(counts_Y_linked, k=5, variable="Sex")
+```
+
+```{r}
+dgeB.filt.testing$samples$Sex <- data_imputed$Sex
+seB.filt.testing$Sex <- data_imputed$Sex
+```
+
+```{r}
+saveRDS(dgeR.filt, file=file.path("_processed_data", "dgeR.filt.rds"))
+saveRDS(seR.filt, file=file.path("_processed_data", "seR.filt.rds"))
+
+saveRDS(dgeB.filt, file=file.path("_processed_data", "dgeB.filt.rds"))
+saveRDS(seB.filt, file=file.path("_processed_data", "seB.filt.rds"))
+
+saveRDS(dgeR.filt.training,
+        file=file.path("_processed_data", "dgeR.filt.training.rds"))
+saveRDS(seR.filt.training,
+        file=file.path("_processed_data", "seR.filt.training.rds"))
+saveRDS(dgeB.filt.testing,
+        file=file.path("_processed_data", "dgeB.filt.testing.rds"))
+saveRDS(seB.filt.testing,
+        file=file.path("_processed_data", "seB.filt.testing.rds"))
+```
+
 
 # Dispersion estimates and hypervariable genes
+
+We calculate dispersion estimates and biological coefficients of variation
+[@mccarthy2012differential] and use them to identify hypervariable genes for
+different models of increasing complexity that will help us to select the most
+sensible one for the differential expression analysis between
+preeclampsia-affected and unafected mothers.
+
+The four considered models are: (1) a model with the intercept term only,
+(2) a model with `Preeclampsia` as main explanatory variable, (3) a model
+with `Preeclampsia` as main explanatory variable and `SamplingGA` as a
+covariate, and (4) a model with `Preeclampsia` as main explanatory variable,
+and `SamplingGA` and surrogate variables (SVs), calculated with SVA
+[@leek2007capturing] as covariates. The estimation of SVs will be done using
+only the expression values of the top-10% most variable genes.
+
+## Training dataset
+
+```{r, message=FALSE}
+library(sva)
+
+mod <- model.matrix(~ 1, colData(seR.filt.training))
+dgeR.filt.training.interceptonly <- estimateDisp(dgeR.filt.training, design=mod,
+                                                 robust=TRUE)
+summary(dgeR.filt.training.interceptonly$prior.df)
+
+mod <- model.matrix(~ Tumor, colData(seR.filt.training))
+dgeR.filt.training.PE <- estimateDisp(dgeR.filt.training, design=mod,
+                                      robust=TRUE)
+summary(dgeR.filt.training.PE$prior.df)
+
+mod <- model.matrix(~ Tumor + Age + Sex, colData(seR.filt.training))
+dgeR.filt.training.PEGA <- estimateDisp(dgeR.filt.training, design=mod,
+                                        robust=TRUE)
+summary(dgeR.filt.training.PEGA$prior.df)
+
+mod0 <- model.matrix(~ Age + Sex, colData(seR.filt.training))
+IQRs <- apply(assays(seR.filt.training)$logCPM, 1, IQR)
+mask <- IQRs > quantile(IQRs, prob=0.9)
+sv <- sva(assays(seR.filt.training)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+mod <- cbind(mod, sv$sv)
+dgeR.filt.training.PEGASVs <- estimateDisp(dgeR.filt.training,
+                                           design=mod, robust=TRUE)
+summary(dgeR.filt.training.PEGASVs$prior.df)
+```
+
+Figure \@ref(fig:Mtrainingavglogcpmxvbcv) shows, for each considered model, the
+biological coefficient of variation (BCV) as function of the average expression,
+in log CPM units.
+
+```{r Mtrainingavglogcpmxvbcv, echo=FALSE, fig.height=8, fig.width=8, dpi=100, results="hide", fig.cap="Biological coefficient of variation (BCV). BCV values as function of the average gene expression in log-CPM units."}
+rngbcv <- range(sqrt(c(getDispersion(dgeR.filt.training.interceptonly),
+                       getDispersion(dgeR.filt.training.PE),
+                       getDispersion(dgeR.filt.training.PEGA),
+                       getDispersion(dgeR.filt.training.PEGASVs))))
+rngbcv[2] <- ceiling(rngbcv[2])
+par(mfrow=c(2, 2), mar=c(4, 5, 2, 1))
+syms <- mcols(seR.filt.training)$Symbol
+myplotbcv(dgeR.filt.training.interceptonly, "~ 1", rngbcv, syms, cutoffdisp1=1.5,
+          cutoffdisp2=0.8, cutoffA=9)
+myplotbcv(dgeR.filt.training.PE, "~ Tumor", rngbcv, syms, cutoffdisp1=1.4,
+          cutoffdisp2=0.8, cutoffA=9)
+myplotbcv(dgeR.filt.training.PEGA, "~ Tumor + Age + Sex", rngbcv, syms,
+          cutoffdisp1=1.4, cutoffdisp2=0.8, cutoffA=9)
+myplotbcv(dgeR.filt.training.PEGASVs, "~ Tumor + Age + Sex + SVs",
+          rngbcv, syms, cutoffdisp1=0.9, cutoffdisp2=0.8, cutoffA=9)
+```
+
+Table \@ref(tab:hypervargenesMtraining.cn) below shows the top-20 hypervariable genes
+with lowest prior degrees of freedom for the last model.
+
+```{r hypervargenesMtraining.cn, echo=FALSE}
+ord <- order(dgeR.filt.training.PEGASVs$prior.df)
+dtf <- data.frame(prior.df=dgeR.filt.training.PEGASVs$prior.df[ord],
+                  BCV=sqrt(dgeR.filt.training.PEGASVs$tagwise.dispersion[ord]),
+                  Gene=dgeR.filt.training.PEGASVs$genes$Symbol[ord],
+                  Description=dgeR.filt.training.PEGASVs$genes$Description[ord])
+ktab <- kable(dtf[1:20, ], "html", escape=FALSE, row.names=FALSE,
+              caption="Top-20 hypervariable genes for the model umor + Sex + Age + SVs.")
+ktab <- kable_styling(ktab, bootstrap_options=c("striped", "hover", "responsive"),
+                      fixed_thead=TRUE)
+kable_styling(ktab, position="center")
+```
+
+## Testing data
+
+```{r, message=FALSE}
+mod <- model.matrix(~ 1, colData(seB.filt.testing))
+dgeB.filt.testing.interceptonly <- estimateDisp(dgeB.filt.testing, design=mod,
+                                                robust=TRUE)
+summary(dgeB.filt.testing.interceptonly$prior.df)
+mod <- model.matrix(~ Tumor, colData(seB.filt.testing))
+dgeB.filt.testing.PE <- estimateDisp(dgeB.filt.testing, design=mod,
+                                     robust=TRUE)
+summary(dgeB.filt.testing.PE$prior.df)
+mod <- model.matrix(~ Tumor + Age + Sex, colData(seB.filt.testing))
+dgeB.filt.testing.PEGA <- estimateDisp(dgeB.filt.testing, design=mod,
+                                       robust=TRUE)
+summary(dgeB.filt.testing.PEGA$prior.df)
+mod0 <- model.matrix(~ Age + Sex, colData(seB.filt.testing))
+IQRs <- apply(assays(seB.filt.testing)$logCPM, 1, IQR)
+mask <- IQRs > quantile(IQRs, prob=0.9)
+sv <- sva(assays(seB.filt.testing)$logCPM[mask, ],
+          mod=mod, mod0=mod0)
+mod <- cbind(mod, sv$sv)
+dgeB.filt.testing.PEGASVs <- estimateDisp(dgeB.filt.testing,
+                                          design=mod, robust=TRUE)
+summary(dgeB.filt.testing.PEGASVs$prior.df)
+```
+
+```{r Mtestingavglogcpmxvbcv, echo=FALSE, fig.height=8, fig.width=8, dpi=100, results="hide", fig.cap="Biological coefficient of variation (BCV). BCV values as function of the average gene expression in log-CPM units."}
+rngbcv <- range(sqrt(c(getDispersion(dgeB.filt.testing.interceptonly),
+                       getDispersion(dgeB.filt.testing.PE),
+                       getDispersion(dgeB.filt.testing.PEGA),
+                       getDispersion(dgeB.filt.testing.PEGASVs))))
+rngbcv[2] <- ceiling(rngbcv[2])
+par(mfrow=c(2, 2), mar=c(4, 5, 2, 1))
+syms <- mcols(seB.filt.testing)$Symbol
+myplotbcv(dgeB.filt.testing.interceptonly, "~ 1", rngbcv, syms, cutoffdisp1=10.4,
+          cutoffdisp2=0.8, cutoffA=9)
+myplotbcv(dgeB.filt.testing.PE, "~ Tumor", rngbcv, syms, cutoffdisp1=10.4,
+          cutoffdisp2=0.8, cutoffA=9)
+myplotbcv(dgeB.filt.testing.PEGA, "~ Tumor + Age + Sex", rngbcv, syms,
+          cutoffdisp1=10.4, cutoffdisp2=0.8, cutoffA=9)
+myplotbcv(dgeB.filt.testing.PEGASVs, "~ Tumor + Age + Sex + SVs",
+          rngbcv, syms, cutoffdisp1=10.4, cutoffdisp2=0.6, cutoffA=8)
+```
+
+```{r hypervargenesDsubset, echo=FALSE}
+ord <- order(dgeB.filt.testing.PEGASVs$prior.df)
+dtf <- data.frame(prior.df=dgeB.filt.testing.PEGASVs$prior.df[ord],
+                  BCV=sqrt(dgeB.filt.testing.PEGASVs$tagwise.dispersion[ord]),
+                  Gene=dgeB.filt.testing.PEGASVs$genes$Symbol[ord],
+                  Description=dgeB.filt.testing.PEGASVs$genes$Description[ord])
+ktab <- kable(dtf[1:20, ], "html", escape=FALSE, row.names=FALSE,
+              caption="Top-20 hypervariable genes for the model Preeclampsia + SamplingGA + SVs.")
+ktab <- kable_styling(ktab, bootstrap_options=c("striped", "hover", "responsive"),
+                      fixed_thead=TRUE)
+kable_styling(ktab, position="center")
+```
 
 # Session information
 

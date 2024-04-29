@@ -247,7 +247,7 @@ fit.delvecchio <- voomLmFit(dgeD.filt.subset, mod, block=blockingf,
 ```
 
 Calculate moderated _t_-statistics using an empirical Bayes procedure and
-examine the extent of differential expression (DE) with an FDR < 10%.
+examine the extent of differential expression (DE) with an FDR < 5%.
 
 ```{r}
 fit.delvecchio <- eBayes(fit.delvecchio, robust=TRUE)
