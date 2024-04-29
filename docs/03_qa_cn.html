@@ -482,8 +482,7 @@ normalization factors and normalized log CPM units of expression.</p>
 is.na.ageB &lt;- which(is.na(dgeB.filt.testing$samples$Age) == TRUE)
 dgeB.filt.testing$samples$Age[is.na.ageB] &lt;- mean.ageB
 seB.filt.testing$Age[is.na.ageB] &lt;- mean.ageB</code></pre>
-<p>The estimation of missing data for <code>Sex</code> covariate uses a KNN imputer based on the counts for Y-linked genes (genes located on the Y chromosome). Although no Y-linked genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the Y-linked genes.</p>
-<p>Impute missing values of Sex variable with a KNN imputer (k = 5).</p>
+<p>The estimation of missing data for <code>Sex</code> covariate uses a KNN imputer (k = 5) based on the counts for Y-linked genes (genes located on the Y chromosome). Although no Y-linked genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the Y-linked genes.</p>
 <pre class="r"><code>mask &lt;- grepl(&quot;Y-linked&quot;, dgeB.filt.testing$genes$Description)
 counts_Y_linked &lt;- dgeB.filt.testing$counts[mask,]
 counts_Y_linked &lt;- as.data.frame(t(counts_Y_linked))
@@ -516,9 +515,9 @@ different models of increasing complexity that will help us to select the most
 sensible one for the differential expression analysis between
 Cancer-affected and unafected individuals.</p>
 <p>The four considered models are: (1) a model with the intercept term only,
-(2) a model with <code>Cancer</code> as main explanatory variable, (3) a model
+(2) a model with <code>Tumor</code> as main explanatory variable, (3) a model
 with <code>Cancer</code> as main explanatory variable and <code>Age</code> and <code>Sex</code> as
-covariates, and (4) a model with <code>Cancer</code> as main explanatory variable,
+covariates, and (4) a model with <code>Tumor</code> as main explanatory variable,
 and <code>Age</code>, <code>Sex</code> and surrogate variables (SVs), calculated with SVA
 <span class="citation">(<a href="#ref-leek2007capturing">Leek and Storey 2007</a>)</span> as covariates. The estimation of SVs will be done using
 only the expression values of the top-10% most variable genes.</p>

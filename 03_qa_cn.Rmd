@@ -154,9 +154,7 @@ dgeB.filt.testing$samples$Age[is.na.ageB] <- mean.ageB
 seB.filt.testing$Age[is.na.ageB] <- mean.ageB
 ```
 
-The estimation of missing data for `Sex` covariate uses a KNN imputer based on the counts for Y-linked genes (genes located on the Y chromosome). Although no Y-linked genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the Y-linked genes.
-
-Impute missing values of Sex variable with a KNN imputer (k = 5).
+The estimation of missing data for `Sex` covariate uses a KNN imputer (k = 5) based on the counts for Y-linked genes (genes located on the Y chromosome). Although no Y-linked genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the Y-linked genes.
 
 ```{r}
 mask <- grepl("Y-linked", dgeB.filt.testing$genes$Description)
@@ -195,9 +193,9 @@ sensible one for the differential expression analysis between
 Cancer-affected and unafected individuals.
 
 The four considered models are: (1) a model with the intercept term only,
-(2) a model with `Cancer` as main explanatory variable, (3) a model
+(2) a model with `Tumor` as main explanatory variable, (3) a model
 with `Cancer` as main explanatory variable and `Age` and `Sex` as
-covariates, and (4) a model with `Cancer` as main explanatory variable,
+covariates, and (4) a model with `Tumor` as main explanatory variable,
 and `Age`, `Sex` and surrogate variables (SVs), calculated with SVA
 [@leek2007capturing] as covariates. The estimation of SVs will be done using
 only the expression values of the top-10% most variable genes.
