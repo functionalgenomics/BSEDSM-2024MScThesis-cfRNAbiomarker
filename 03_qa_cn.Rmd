@@ -194,7 +194,7 @@ Cancer-affected and unafected individuals.
 
 The four considered models are: (1) a model with the intercept term only,
 (2) a model with `Tumor` as main explanatory variable, (3) a model
-with `Cancer` as main explanatory variable and `Age` and `Sex` as
+with `Tumor` as main explanatory variable and `Age` and `Sex` as
 covariates, and (4) a model with `Tumor` as main explanatory variable,
 and `Age`, `Sex` and surrogate variables (SVs), calculated with SVA
 [@leek2007capturing] as covariates. The estimation of SVs will be done using
