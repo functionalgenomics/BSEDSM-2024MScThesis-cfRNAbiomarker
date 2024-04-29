@@ -1,13 +1,13 @@
 ---
 title: Differential expression analysis of preeclampsia data
 author:
-- name: XXXX YYYYY
+- name: Berta Canal Simón
   affiliation:
   - &id Barcelona School of Economics
-  email: XXXX.YYYY@bse.eu
-- name: XXXX YYYYY
+  email: berta.canal@bse.eu
+- name: Adam Olivares Canal
   affiliation: *id
-  email: XXXX.YYYY@bse.eu
+  email: adam.olivares@bse.eu
 date: "`r format(Sys.time(), '%B %e, %Y')`"
 abstract: >
   Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of the preeclampsia data.
@@ -135,7 +135,7 @@ length(DEgenes.training)
 
 Display volcano and MA plots in Figure \@ref(fig:maplottraining).
 
-```{r maplottraining, echo=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot training data from Moufarrej et al. (2022)."}
+```{r maplottraining, echo=FALSE, message=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot training data from Moufarrej et al. (2022)."}
 par(mfrow=c(1, 2))
 plotvolcano(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
 plotma(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)

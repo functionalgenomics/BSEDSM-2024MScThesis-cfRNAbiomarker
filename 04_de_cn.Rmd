@@ -129,7 +129,7 @@ length(DEgenes.training)
 
 Display volcano and MA plots in Figure \@ref(fig:maplottraining).
 
-```{r maplottraining, echo=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot training data from Roskams et al. (2022)."}
+```{r maplottraining, echo=FALSE, message = FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot training data from Roskams et al. (2022)."}
 par(mfrow=c(1, 2))
 plotvolcano(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
 plotma(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
@@ -216,7 +216,7 @@ names(testinglfc) <- rownames(tt.testing)
 commongenes <- intersect(names(traininglfc), names(testinglfc))
 plot(traininglfc[commongenes], testinglfc[commongenes], pch=19, cex=0.7,
      col="gray", xlab="", ylab="", main="", las=1, cex.lab=1.5, cex.axis=1.2)
-mtext("MRoskams et al. (2022) training", side=1, line=2.2, cex=1.3)
+mtext("Roskams et al. (2022) training", side=1, line=2.2, cex=1.3)
 mtext(expression(paste(log[2], " fold change")), side=1, line=3.7, cex=1.3)
 mtext("Block et al. (2022) testing", side=2, line=3.7, cex=1.3)
 mtext(expression(paste(log[2], " fold change")), side=2, line=2.2, cex=1.3)
