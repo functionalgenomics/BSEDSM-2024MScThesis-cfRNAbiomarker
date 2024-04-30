@@ -10,6 +10,7 @@
 
 
 
+<meta name="date" content="2024-04-30" />
 
 <title>Differential expression analysis of cancer data</title>
 
@@ -74,6 +75,7 @@ if (window.hljs) {
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -92,7 +94,7 @@ div.csl-indent {
 }
 </style>
 
-<link rel="stylesheet" href="/home/adam/R/x86_64-pc-linux-gnu-library/4.4/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -388,7 +390,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">abril 29, 2024</h4>
+<h4 class="date">April 30, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of cancer data.</p>
 
@@ -427,13 +429,13 @@ IQRs &lt;- apply(assays(seR.filt.training)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seR.filt.training)$logCPM[mask, ],
           mod=mod, mod0=mod0)
-Number of significant surrogate variables is:  4 
+Number of significant surrogate variables is:  3 
 Iteration (out of 5 ):1  2  3  4  5  
 mod &lt;- cbind(mod, sv$sv)</code></pre>
 <p>Fit linear models using voom <span class="citation">(<a href="#ref-law2014voom">Law et al. 2014</a>)</span> with sample weights. Figure
 <a href="#fig:voomMtraining">1</a> shows the mean-variance trend of the data.</p>
-<pre><code>First sample weights (min/max) 0.2963583/1.8415110
-Final sample weights (min/max) 0.2817734/1.8327334</code></pre>
+<pre><code>First sample weights (min/max) 0.2307017/2.0943853
+Final sample weights (min/max) 0.2372304/2.0376657</code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomMtraining"></span>
 <img src="04_de_cn_files/figure-html/voomMtraining-1.png" alt="Mean-variance trend in the training data from Roskams et al. (2022)." width="100%"  class="widefigure" />
 <p class="caption">
@@ -445,10 +447,10 @@ examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
 <pre class="r"><code>fit.training &lt;- eBayes(fit.training, robust=TRUE)
 res.training &lt;- decideTests(fit.training, p.value=0.05)
 summary(res.training)
-       (Intercept) Tumoryes  Age Sexmale                    
-Down             0      686    0       1 4473 1464    1 1261
-NotSig          10     7929 8975    8974 1366 5616 8958 6454
-Up            8965      360    0       0 3136 1895   16 1260</code></pre>
+       (Intercept) Tumoryes  Age Sexmale               
+Down             0      263    0       0 4022 1231    5
+NotSig          35     8022 8387    8387 1524 5879 8381
+Up            8352      102    0       0 2841 1277    1</code></pre>
 <p>Fetch summary DE statistics for all genes.</p>
 <pre class="r"><code>tt.training &lt;- topTable(fit.training, coef=&quot;Tumoryes&quot;, n=Inf,
                         sort.by=&quot;p&quot;)</code></pre>
@@ -463,7 +465,7 @@ Figure 2: <span class="caption-title">P-value distribution for the null hypothes
 <pre class="r"><code>mask &lt;- tt.training$adj.P.Val &lt; 0.05
 DEgenes.training &lt;- rownames(tt.training)[mask]
 length(DEgenes.training)
-[1] 1046</code></pre>
+[1] 365</code></pre>
 <p>Display volcano and MA plots in Figure <a href="#fig:maplottraining">3</a>.</p>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplottraining"></span>
 <img src="04_de_cn_files/figure-html/maplottraining-1.png" alt="MA-plot training data from Roskams et al. (2022)." width="100%"  class="widefigure" />
@@ -489,8 +491,8 @@ Iteration (out of 5 ):1  2  3  4  5
 mod &lt;- cbind(mod, sv$sv)</code></pre>
 <p>Fit linear models using voom <span class="citation">(<a href="#ref-law2014voom">Law et al. 2014</a>)</span> with sample weights. Figure
 <a href="#fig:voomMtraining">1</a> shows the mean-variance trend of the data.</p>
-<pre><code>First sample weights (min/max) 0.0698815/4.2793842
-Final sample weights (min/max) 0.08132442/4.68043812</code></pre>
+<pre><code>First sample weights (min/max) 0.1405068/2.7999742
+Final sample weights (min/max) 0.1332589/2.9259419</code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomMtesting"></span>
 <img src="04_de_cn_files/figure-html/voomMtesting-1.png" alt="Mean-variance trend in the testing data from Block et al. (2022)." width="100%"  class="widefigure" />
 <p class="caption">
@@ -503,9 +505,9 @@ examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
 res.testing &lt;- decideTests(fit.testing, p.value=0.05)
 summary(res.testing)
        (Intercept) Tumoryes   Age Sexmale                  
-Down             0     2041     0     151  8135  2311  2232
-NotSig        3429    13242 18586   18352  4477 15865 14668
-Up           15157     3303     0      83  5974   410  1686</code></pre>
+Down             0        0     0       0  7334   565   660
+NotSig        1187    16447 16447   16447  5499 12253 14598
+Up           15260        0     0       0  3614  3629  1189</code></pre>
 <p>Fetch summary DE statistics for all genes.</p>
 <pre class="r"><code>tt.testing &lt;- topTable(fit.testing, coef=&quot;Tumoryes&quot;, n=Inf,
                        sort.by=&quot;p&quot;)</code></pre>
@@ -520,8 +522,16 @@ Figure 5: <span class="caption-title">P-value distribution for the null hypothes
 <pre class="r"><code>mask &lt;- tt.testing$adj.P.Val &lt; 0.05
 DEgenes.testing &lt;- rownames(tt.testing)[mask]
 length(DEgenes.testing)
-[1] 5344</code></pre>
+[1] 0</code></pre>
 <p>Display MA-plot in Figure <a href="#fig:maplottesting">6</a>.</p>
+<pre><code>Warning in max(tt$P.Value[tt$adj.P.Val &lt;= FDRcutoff]): no non-missing arguments
+to max; returning -Inf
+Warning in int_abline(a = a, b = b, h = h, v = v, untf = untf, ...): NaNs
+produced
+Warning in max(tt$P.Value[tt$adj.P.Val &lt;= FDRcutoff]): no non-missing arguments
+to max; returning -Inf
+Warning in text.default(max(tt$logFC) * 0.95,
+-log10(max(tt$P.Value[tt$adj.P.Val &lt;= : NaNs produced</code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplottesting"></span>
 <img src="04_de_cn_files/figure-html/maplottesting-1.png" alt="MA-plot testing data from Block et al. (2022)." width="100%"  class="widefigure" />
 <p class="caption">
@@ -531,79 +541,68 @@ Figure 6: <span class="caption-title">MA-plot testing data from Block et al. (2
 </div>
 <div id="comparison-of-de-genes-across-datasets" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Comparison of DE genes across datasets</h1>
-<div class="figure" style="text-align: center"><span style="display:block;" id="fig:decomparison"></span>
-<img src="04_de_cn_files/figure-html/decomparison-1.png" alt="Comparison DE analyis across datasets." width="100%"  class="widefigure" />
-<p class="caption">
-Figure 7: <span class="caption-title">Comparison DE analyis across datasets</span><br>
-</p>
-</div>
 </div>
 <div id="session-information" class="section level1" number="5">
 <h1><span class="header-section-number">5</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
-R version 4.4.0 (2024-04-24)
-Platform: x86_64-pc-linux-gnu
-Running under: Ubuntu 22.04.4 LTS
+R version 4.3.3 (2024-02-29)
+Platform: aarch64-apple-darwin20 (64-bit)
+Running under: macOS Ventura 13.5.1
 
 Matrix products: default
-BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
-LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+BLAS:   /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
 
 locale:
- [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
- [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=en_US.UTF-8    
- [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=en_US.UTF-8   
- [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
- [9] LC_ADDRESS=C               LC_TELEPHONE=C            
-[11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
 
 time zone: Europe/Madrid
-tzcode source: system (glibc)
+tzcode source: internal
 
 attached base packages:
 [1] stats4    stats     graphics  grDevices utils     datasets  methods  
 [8] base     
 
 other attached packages:
- [1] plotrix_3.8-2               sva_3.51.0                 
- [3] BiocParallel_1.37.1         genefilter_1.85.1          
- [5] mgcv_1.9-1                  nlme_3.1-163               
- [7] edgeR_4.1.26                limma_3.59.10              
- [9] SummarizedExperiment_1.33.3 Biobase_2.63.1             
-[11] GenomicRanges_1.55.4        GenomeInfoDb_1.39.14       
-[13] IRanges_2.37.1              S4Vectors_0.41.7           
-[15] BiocGenerics_0.49.1         MatrixGenerics_1.15.1      
+ [1] plotrix_3.8-4               sva_3.50.0                 
+ [3] BiocParallel_1.36.0         genefilter_1.84.0          
+ [5] mgcv_1.9-1                  nlme_3.1-164               
+ [7] edgeR_4.0.16                limma_3.58.1               
+ [9] SummarizedExperiment_1.32.0 Biobase_2.62.0             
+[11] GenomicRanges_1.54.1        GenomeInfoDb_1.38.8        
+[13] IRanges_2.36.0              S4Vectors_0.40.2           
+[15] BiocGenerics_0.48.1         MatrixGenerics_1.14.0      
 [17] matrixStats_1.3.0           kableExtra_1.4.0           
-[19] knitr_1.46                  BiocStyle_2.31.0           
+[19] knitr_1.45                  BiocStyle_2.30.0           
 
 loaded via a namespace (and not attached):
- [1] viridisLite_0.4.0       blob_1.2.2              Biostrings_2.71.6      
- [4] fastmap_1.1.1           XML_3.99-0.9            digest_0.6.29          
- [7] lifecycle_1.0.1         survival_3.5-8          statmod_1.4.36         
-[10] KEGGREST_1.43.1         RSQLite_2.2.9           magrittr_2.0.2         
-[13] compiler_4.4.0          rlang_1.1.3             sass_0.4.9             
-[16] tools_4.4.0             yaml_2.3.5              S4Arrays_1.3.7         
-[19] bit_4.0.4               DelayedArray_0.29.9     xml2_1.3.3             
-[22] abind_1.4-5             grid_4.4.0              xtable_1.8-4           
-[25] colorspace_2.0-2        scales_1.1.1            tinytex_0.37           
-[28] cli_3.2.0               rmarkdown_2.26          crayon_1.5.0           
-[31] rstudioapi_0.13         httr_1.4.2              DBI_1.1.2              
-[34] cachem_1.0.6            stringr_1.4.0           zlibbioc_1.49.3        
-[37] splines_4.4.0           parallel_4.4.0          AnnotationDbi_1.65.2   
-[40] BiocManager_1.30.22     XVector_0.43.1          vctrs_0.3.8            
-[43] Matrix_1.6-5            jsonlite_1.7.3          bookdown_0.39          
-[46] bit64_4.0.5             systemfonts_1.0.4       locfit_1.5-9.9         
-[49] jquerylib_0.1.4         annotate_1.81.2         codetools_0.2-19       
-[52] stringi_1.7.6           UCSC.utils_0.99.7       munsell_0.5.0          
-[55] htmltools_0.5.8.1       GenomeInfoDbData_1.2.12 R6_2.5.1               
-[58] evaluate_0.15           lattice_0.22-5          highr_0.9              
-[61] png_0.1-7               memoise_2.0.1           bslib_0.7.0            
-[64] Rcpp_1.0.12             svglite_2.1.0           SparseArray_1.3.5      
-[67] xfun_0.43              </code></pre>
+ [1] KEGGREST_1.42.0         xfun_0.43               bslib_0.7.0            
+ [4] lattice_0.22-6          vctrs_0.6.5             tools_4.3.3            
+ [7] bitops_1.0-7            parallel_4.3.3          RSQLite_2.3.6          
+[10] AnnotationDbi_1.64.1    blob_1.2.4              Matrix_1.6-5           
+[13] lifecycle_1.0.4         GenomeInfoDbData_1.2.11 compiler_4.3.3         
+[16] stringr_1.5.1           Biostrings_2.70.3       statmod_1.5.0          
+[19] munsell_0.5.1           codetools_0.2-20        htmltools_0.5.8.1      
+[22] sass_0.4.9              RCurl_1.98-1.14         yaml_2.3.8             
+[25] crayon_1.5.2            jquerylib_0.1.4         cachem_1.0.8           
+[28] DelayedArray_0.28.0     abind_1.4-5             locfit_1.5-9.9         
+[31] digest_0.6.35           stringi_1.8.3           bookdown_0.39          
+[34] splines_4.3.3           fastmap_1.1.1           grid_4.3.3             
+[37] colorspace_2.1-0        cli_3.6.2               SparseArray_1.2.4      
+[40] magrittr_2.0.3          S4Arrays_1.2.1          survival_3.6-4         
+[43] XML_3.99-0.16.1         scales_1.3.0            bit64_4.0.5            
+[46] rmarkdown_2.26          XVector_0.42.0          httr_1.4.7             
+[49] bit_4.0.5               png_0.1-8               memoise_2.0.1          
+[52] evaluate_0.23           viridisLite_0.4.2       rlang_1.1.3            
+[55] Rcpp_1.0.12             DBI_1.2.2               xtable_1.8-4           
+[58] glue_1.7.0              BiocManager_1.30.22     xml2_1.3.6             
+[61] svglite_2.1.3           rstudioapi_0.16.0       annotate_1.80.0        
+[64] jsonlite_1.8.8          R6_2.5.1                systemfonts_1.0.6      
+[67] zlibbioc_1.48.2        </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
-<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
 <div id="ref-law2014voom" class="csl-entry">
 Law, Charity W, Yunshun Chen, Wei Shi, and Gordon K Smyth. 2014. <span>“Voom: Precision Weights Unlock Linear Model Analysis Tools for RNA-Seq Read Counts.”</span> <em>Genome Biology</em> 15: 1–17.
 </div>

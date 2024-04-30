@@ -58,6 +58,23 @@ dim(seB)
 
 # Filtering of lowly-expressed genes and normalization
 
+In [@Roskams2022], they sequenced plasma samples of eight hepatocellular carcinoma (HCC) and ten multiple myeloma (MM) patients, 12 patients of their respective precancerous conditions, and 20 non-cancer (NC) donors. To avoid within group heterogeneity, our study focuses on individuals with hepatocellular carcinoma (HCC) and non-cancer (NC) for the control. Otherwise, our analysis could increase between group variance and thus lead to spurious results.
+
+For [Block et al.], the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma and non-cancer (NC) for the control.
+
+
+```{r}
+mask <- colData(seR)$Disease %in% c('NC', 'HCC')
+subseR <- seR[,mask]
+colData(subseR)$Tumor <- factor(subseR$Disease == 'HCC', labels = c('no', 'yes'))
+```
+
+```{r}
+mask <- (colData(seB)$SampleType == 'HCC' & colData(seB)$Microvesicle == 'no') | colData(seB)$SampleType == 'NHC'
+subseB <- seB[,mask]
+colData(subseB)$Tumor <- factor(subseB$SampleType == 'HCC', labels = c('no', 'yes'))
+```
+
 We will use the [edgeR](https://bioconductor.org/packages/edgeR) package for
 processing the raw counts and doing some exploratory analyses. We start by
 building the corresponding `DGEList` objects with the corresponding row and
@@ -66,8 +83,8 @@ column data.
 ```{r, message = FALSE, warning = FALSE}
 library(edgeR)
 
-dgeR <- DGEList(counts=assay(seR), genes=rowData(seR), samples=colData(seR))
-dgeB <- DGEList(counts=assay(seB), genes=rowData(seB), samples=colData(seB))
+dgeR <- DGEList(counts=assay(subseR), genes=rowData(subseR), samples=colData(subseR))
+dgeB <- DGEList(counts=assay(subseB), genes=rowData(subseB), samples=colData(subseB))
 ```
 
 Filter lowly expressed genes using the function `filterByExpr()` and the
@@ -75,25 +92,17 @@ Filter lowly expressed genes using the function `filterByExpr()` and the
 the `SummarizedExperiment` and `DGEList` types of objects, to keep them
 parallel to each other.
 
-In the article, they sequenced plasma samples of eight hepatocellular carcinoma (HCC) and ten multiple myeloma (MM) patients, 12 patients of their respective precancerous conditions, and 20 non-cancer (NC) donors. For convenience, in the project will discern between those patients with and without cancer (yes and no levels), disregarding the type of tumor.
-
 ```{r}
-seR@colData@listData[["Tumor"]] <- factor(seR$Disease != "NC", labels = c("no", "yes"))
-dgeR$samples$Tumor <- factor(seR$Disease != "NC", labels = c("no", "yes"))
-
-seB@colData@listData[["Tumor"]] <- as.factor(seB$Tumor)
-dgeB$samples$Tumor <- as.factor(dgeB$samples$Tumor)
-
-mask <- filterByExpr(dgeR, group=seR$Tumor)
+mask <- filterByExpr(dgeR, group=subseR$Tumor)
 sum(mask)
-seR.filt <- seR[mask, ]
+seR.filt <- subseR[mask, ]
 dim(seR.filt)
 dgeR.filt <- dgeR[mask, , keep.lib.sizes=FALSE]
 dim(dgeR.filt)
 
-mask <- filterByExpr(dgeB, group=seB$Tumor)
+mask <- filterByExpr(dgeB, group=subseB$Tumor)
 sum(mask)
-seB.filt <- seB[mask, ]
+seB.filt <- subseB[mask, ]
 dim(seB.filt)
 dgeB.filt <- dgeB[mask, , keep.lib.sizes=FALSE]
 dim(dgeB.filt)
