@@ -1,13 +1,13 @@
 ---
 title: Biomarker prediction in cancer data
 author:
-- name: XXXX YYYYY
+- name: Berta Canal Simón
   affiliation:
   - &id Barcelona School of Economics
-  email: XXXX.YYYY@bse.eu
-- name: XXXX YYYYY
+  email: berta.canal@bse.eu
+- name: Adam Olivares Canal
   affiliation: *id
-  email: XXXX.YYYY@bse.eu
+  email: adam.olivares@bse.eu
 date: "`r format(Sys.time(), '%B %e, %Y')`"
 abstract: >
   Here we perform a prediction of candidate biomarkers in cancer cfRNA sequencing data.
@@ -22,9 +22,10 @@ vignette: >
 bibliography: _bibliography.bib
 ---
 
-```{r setup, echo=FALSE, cache=FALSE}
+```{r setup, echo=FALSE, cache=FALSE, message = FALSE}
 library(knitr)
 library(kableExtra)
+library(glmnet)
 
 
 knitr::opts_chunk$set(
@@ -39,7 +40,359 @@ knitr::opts_chunk$set(
 )
 ```
 
-# ???
+# Importing processed and filtered data
+
+We start by importing the previously filtered, normalized RNA-seq data and the differential expressed genes from the training dataset.
+
+```{r, message=FALSE}
+library(SummarizedExperiment)
+library(edgeR)
+
+dgeR.filt <- readRDS(file.path("_processed_data", "dgeR.filt.rds"))
+seR.filt <- readRDS(file.path("_processed_data", "seR.filt.rds"))
+dgeB.filt <- readRDS(file.path("_processed_data", "dgeB.filt.rds"))
+seB.filt <- readRDS(file.path("_processed_data", "seB.filt.rds"))
+
+dgeR.filt.training <- readRDS(file.path("_processed_data",
+                                        "dgeR.filt.training.rds"))
+seR.filt.training <- readRDS(file.path("_processed_data",
+                                       "seR.filt.training.rds"))
+dgeB.filt.testing <- readRDS(file.path("_processed_data",
+                                       "dgeB.filt.testing.rds"))
+seB.filt.testing <- readRDS(file.path("_processed_data",
+                                      "seB.filt.testing.rds"))
+DEgenes.training <- readRDS(file.path("_processed_data", 
+                                      "DEgenes.training.rds"))
+```
+
+Create a subset with the differential expressed genes from the training dataset from @Roskams2022.
+
+```{r}
+dgeR.DEgenes <- dgeR.filt.training$counts[DEgenes.training,]
+```
+
+# Performance metrics 
+
+Given the application of the current paper, the False Negative Rate (FNR) metric is a particularly relevant metric, since it would imply classifying as healthy an individual with cancer. Therefore, that patients will not receive treatment, which will cause serious consequences. Furthermore, it could also be considered the False Positive Rate (FPR), which results in an undesirable situation where a proportion of healthy individuals are categorized as ill. This would subject a healthy patient to unnecessary treatment and its potential side effects. However, since the expected consequences are not that severe, FNR is prioritized in the analysis.
+
+```{r}
+FNR <- function(proba.pred, truth){
+  class.pred <- as.numeric(proba.pred > 0.5)
+  conf <- table(truth, class.pred)
+  print(conf)
+  FNR <- conf[2, 1] / sum(conf[2, 1], conf[2, 2])
+  return(FNR)
+}
+```
+
+```{r}
+FPR <- function(proba.pred, truth){
+  class.pred <- as.numeric(proba.pred > 0.5)
+  conf <- table(truth, class.pred)
+  print(conf)
+  FPR <- conf[1, 2] / sum(conf[1, 1], conf[1, 2])
+  return(FPR)
+}
+```
+
+
+# LASSO-CV (Via cross-validation)
+
+## Fitting the model
+
+Define the function for LASSO where the penalization parameter λ is set through cross-validation (LASSO-CV).
+
+```{r}
+kfoldCV.lasso.logistic <- function(y,x,K=10,seed,criterion='cv') {
+## Perform K-fold cross-validation for LASSO regression estimate 
+  #(lambda set either via cross-val or BIC or EBIC)
+## Input
+## - y: response
+## - x: data.frame with predictors, intercept should not be present
+## - K: number of folds in K-fold cross-validation
+## - seed: random number generator seed (optional)
+## - criterion: the criterion to select the penalization parameter, 
+  #either cross-val or BIC or EBIC
+## Output
+## - pred: cross-validated predictions for y
+## - ssr: residual sum of squares, sum((y-pred)^2)
+  require(glmnet)
+  if (!missing(seed)) set.seed(seed)
+  subset <- rep(1:K,ceiling(nrow(x)/K))[1:nrow(x)]
+  subset <- sample(subset,size=nrow(x),replace=FALSE)
+  pred <- double(nrow(x))
+  pred_0 <- double(nrow(x))
+  cat("Starting cross-validation")
+  if (ncol(x)>0) {  #if there are some covariates
+    for (k in 1:K) {
+        sel <- subset==k
+        pred_0[sel] <- mean(y[!sel])
+        if (criterion=='cv') {
+            fit <- cv.glmnet(x=x[!sel,,drop=FALSE], y=y[!sel], 
+                             alpha = 1, nfolds=10, family = 'binomial')
+            pred[sel] <- predict(fit,newx=x[sel,,drop=FALSE],type='response',
+                                 s='lambda.min')
+        } else if (criterion=='bic'){
+            fit <- lasso.bic.logistic(y=y[!sel],x=x[!sel,,drop=FALSE])
+            pred[sel] <- predict(fit$model,newx=x[sel,,drop=FALSE],
+                                 type='response', s = fit$lambda.opt)
+        } else if (criterion=='ebic'){
+            fit <- lasso.bic.logistic(y=y[!sel],x=x[!sel,,drop=FALSE],extended = TRUE)
+            pred[sel] <- predict(fit$model,newx=x[sel,,drop=FALSE],
+                                 type='response', s = fit$lambda.opt)
+        } else { stop("method.lambda not implemented") }
+        cat(".")
+    }
+  } else { #if there are no covariates, just use the intercept
+    for (k in 1:K) {
+      sel <- subset==k
+      pred[sel] <- mean(y[!sel],na.rm=TRUE)
+    }
+  }
+  cat("\n")
+  return(list(pred=pred, pred_0= pred_0,ssr=sum((pred-y)^2,na.rm=TRUE)))
+}
+```
+
+Convert the dependent variable from the training dataset into a factor variable (with factors 0 and 1) and fit the LASSO-CV model using the previous function.
+
+```{r}
+set.seed(1234)
+t0 <- Sys.time()
+
+tumor.training <- as.numeric(dgeR.filt.training$samples$Tumor)-1
+
+fit.lassocv <- cv.glmnet(x=t(dgeR.DEgenes),y=tumor.training, family ='binomial', nfolds = 10, aplha = 1)
+t1 <- Sys.time()
+cat('\nTime elapsed: ')
+```
+
+```{r}
+print(round(t1-t0,3))
+```
+
+```{r}
+fit.lassocv
+```
+
+```{r}
+plot(fit.lassocv) 
+```
+
+The model selects 25 genes. 
+
+```{r}
+b.lassocv = as.vector(coef(fit.lassocv, s='lambda.min'))
+sum(b.lassocv[-1] != 0)
+```
+
+```{r}
+coef.matrix <- coef(fit.lassocv, s = 'lambda.min')
+non.zero.coefs <- rownames(coef.matrix)[coef.matrix[,1]!= 0 & rownames(coef.matrix)!= '(Intercept)']
+```
+
+```{r}
+#colnames(t(dgeR.DEgenes)[,b.lassocv!=0])
+```
+
+## Model performance
+
+### In-sample AUC
+
+```{r}
+lassocv.pred<- predict(fit.lassocv, newx=t(dgeR.DEgenes), s = fit.lassocv$lambda.min)
+
+(auc.lassoCV.training<- pROC::auc(tumor.training,lassocv.pred[,1]))
+```
+
+### Out-sample AUC using cross-validation
+
+```{r}
+cv.pred.lasso.cv <- kfoldCV.lasso.logistic(y=tumor.training,x=t(dgeR.DEgenes), K=10,seed=1,criterion="cv")
+
+(auc.lassocv.test <- pROC::auc(tumor.training,cv.pred.lasso.cv$pred))
+```
+
+```{r}
+FNR(cv.pred.lasso.cv$pred,tumor.training)
+```
+```{r}
+FPR(cv.pred.lasso.cv$pred,tumor.training)
+```
+```{r}
+#mcfadden_pseudo_r2(cv.pred.lasso.cv$pred,cv.pred.lasso.cv$pred_0, tumor.training)
+```
+
+### Out-sample AUC using testing dataset from Block et al. (2022)
+
+QUESTION TO ROBERT: Out of the 25 genes selected by LASSO-CV, only 17 appear in the testing dataset (the rest have been excluded in the preprocessing when filtering lowly expressed genes). In order to compute out-sample AUC we need to have the same number of genes. The question is: should we create an object that includes as features the differential expressed genes from the training dataset and assign the corresponding counts from the testing dataset to those genes that are present in the testing dataset and 0 otherwise? (Below we have proceed using this approach) Or should we work with the original data without filtering the lowly expressed genes and normalizing again using all the genes?
+
+```{r}
+mask <- non.zero.coefs %in% rownames(dgeB.filt.testing$counts)
+sum(mask)
+```
+
+Create a matix where all the entries are 0 except for those differential expressed genes from the training dataset that are not disregarded as lowly expressed in the testing dataset (and therefore we assign its corresponding count).
+```{r}
+mask <- DEgenes.training %in% rownames(dgeB.filt.testing$counts)
+
+subset.testing <- matrix(0, nrow = length(DEgenes.training), ncol = ncol(dgeB.filt.testing$counts))
+
+subset.testing[mask, ] <- dgeB.filt.testing$counts[DEgenes.training[mask], ]
+```
+
+Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).
+
+```{r}
+tumor.testing <- as.numeric(dgeB.filt.testing$samples$Tumor)-1
+```
+
+Predict the categories using the previously trained model and compute the out-sample AUC, FNR and FPR.
+
+```{r}
+lassocv.pred2<- predict(fit.lassocv, newx=t(subset.testing),
+                       s = fit.lassocv$lambda.min)
+(auc.lassocv.test2 <- pROC::auc(tumor.testing,lassocv.pred2[,1]))
+```
+
+```{r}
+FNR(lassocv.pred2,tumor.testing)
+```
+
+```{r}
+FPR(lassocv.pred2,tumor.testing)
+```
+
+# Random Forest
+
+```{r, echo = FALSE}
+library(rsample)     
+library(randomForest) 
+library(ranger)      
+library(caret)        
+library(h2o)
+```
+
+```{r, echo = FALSE}
+# Loading package 
+library(caTools) 
+library(randomForest) 
+```
+
+Standardize the training set.
+
+```{r}
+standardized.training <- scale(t(dgeR.DEgenes), scale = TRUE, center = TRUE)
+```
+
+```{r}
+library(randomForest)
+
+# Fitting a random forest model
+model <- randomForest(x = standardized.training, y = as.factor(tumor.training), ntree = 400)
+
+# Summary of the model
+print(model)
+```
+## Model performance
+
+### Out-sample AUC using cross-validation
+
+Create the function.
+
+```{r}
+kfoldCV.randomforest.logistic <- function(y,x,K=10,seed) {
+## Perform K-fold cross-validation for least-squares regression estimate
+## Input
+## - y: response
+## - x: data.frame with predictors, intercept should not be present
+## - K: number of folds in K-fold cross-validation
+## - seed: random number generator seed (optional)
+## Output
+## - pred: cross-validated predictions for y
+## - ssr: residual sum of squares, sum((y-pred)^2)
+  if (!missing(seed)) set.seed(seed)
+  subset <- rep(1:K,ceiling(nrow(x)/K))[1:nrow(x)]
+  subset <- sample(subset,size=nrow(x),replace=FALSE)
+  pred <- double(nrow(x))
+  pred_0 <- double(nrow(x))
+  if (ncol(x)>0) {
+    for (k in 1:K) {
+      sel <- subset==k
+      #fit <- glm(y[!sel] ~ ., data=x[!sel,,drop=FALSE], family = 'binomial')
+      fit <- randomForest(x = x[!sel,,drop=FALSE],
+                          y = as.factor(y[!sel]), ntree = 500)
+      pred[sel] <- predict(fit, newdata=x[sel,,drop=FALSE],
+                           type='response')
+      pred_0[sel] <- mean(y[!sel])
+    }
+  } else {
+    for (k in 1:K) {
+      sel <- subset==k
+      pred[sel] <- mean(y[!sel],na.rm=TRUE)
+    }
+  }
+  return(list(pred=pred, pred_0 =pred_0,
+              ssr=sum((pred-y)^2,na.rm=TRUE)))
+}
+```
+
+Compute AUC, FNR and FPR.
+
+```{r}
+cv.pred.RandomForest <- kfoldCV.randomforest.logistic(y=tumor.training,
+                                x=data.frame(t(dgeR.DEgenes)), K=10,seed=1)
+
+(auc.randomForest.cv <- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
+```
+
+```{r}
+#cv.pred.RandomForest$pred -1
+```
+
+```{r}
+FNR(cv.pred.RandomForest$pred -1,tumor.training)
+```
+
+```{r}
+FPR(cv.pred.RandomForest$pred -1,tumor.training)
+```
+
+### Out-sample AUC using using testing dataset from Block et al. (2022)
+
+Standardize the subset that includes those counts of the differential expressed genes from the training and 0 otherwise.
+
+```{r}
+standardized.testing <- scale(t(subset.testing), scale = TRUE, center = TRUE)
+mask <- which(is.na(standardized.testing))
+standardized.testing[mask] <- 0
+```
+
+```{r}
+# Extracting probabilities for class 1
+predicted_probs2 <- predict(model, standardized.testing, type = "prob")[, 2] 
+
+# Compute AUC
+roc_obj <- pROC::roc(tumor.testing, predicted_probs2)
+auc <- pROC::auc(roc_obj)
+print(paste("AUC:", auc))
+
+# Compute False Negative Rate (FNR)
+threshold <- 0.5  # Threshold for class prediction
+predictions2 <- ifelse(predicted_probs2 > threshold, 1, 0)
+conf_matrix <- table(Actual = tumor.testing, Predicted = predictions2)
+fnr <- conf_matrix[2, 1] / sum(conf_matrix[2, ])
+print(paste("FNR:", fnr))
+```
+
+```{r}
+# Get feature importance
+#model <- randomForest(x = x_train, y = as.factor(y_train), ntree = 500)
+#feature_importance <- randomForest::importance(model)
+#sorted_importance <- feature_importance[order(-feature_importance[, #"MeanDecreaseGini"]),                                        ]
+#print(sorted_importance)
+```
+
 
 # Session information
 

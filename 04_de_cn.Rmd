@@ -72,8 +72,8 @@ seB.filt.testing <- readRDS(file.path("_processed_data",
 Design matrices.
 
 ```{r, message=FALSE}
-mod <- model.matrix(~ Tumor + Age + Sex, colData(seR.filt.training))
-mod0 <- model.matrix(~ Age + Sex, colData(seR.filt.training))
+mod <- model.matrix(~ Tumor + Sex, colData(seR.filt.training))
+mod0 <- model.matrix(~ Sex, colData(seR.filt.training))
 ```
 
 Estimate surrogate variables (SVs).
@@ -135,13 +135,21 @@ plotvolcano(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
 plotma(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
 ```
 
+saveRDS(dgeR.filt, file=file.path("_processed_data", "dgeR.filt.rds"))
+saveRDS(seR.filt, file=file.path("_processed_data", "seR.filt.rds"))
+
+```{r}
+saveRDS(DEgenes.training, file=file.path("_processed_data", "DEgenes.training.rds"))
+```
+
+
 # Block et al. (2022) data
 
 Design matrices.
 
 ```{r, message=FALSE}
-mod <- model.matrix(~ Tumor + Age + Sex, colData(seB.filt.testing))
-mod0 <- model.matrix(~ Age + Sex, colData(seB.filt.testing))
+mod <- model.matrix(~ Tumor + Sex, colData(seB.filt.testing))
+mod0 <- model.matrix(~ Sex, colData(seB.filt.testing))
 ```
 
 Estimate surrogate variables (SVs).
@@ -205,7 +213,7 @@ plotma(tt.testing, highlight=DEgenes.testing, FDRcutoff=0.05)
 
 # Comparison of DE genes across datasets
 
-```{r decomparison, echo=FALSE, warning=FALSE, fig.height=6, fig.width=10, dpi=100, fig.cap="Comparison DE analyis across datasets.", eval = FALSE}
+```{r decomparison, echo=FALSE, warning=FALSE, fig.height=6, fig.width=10, dpi=100, fig.cap="Comparison DE analyis across datasets.", eval=FALSE}
 par(mfrow=c(1, 1), mar=c(5, 5, 5, 5))
 traininglfc <- tt.training$logFC
 names(traininglfc) <- rownames(tt.training)

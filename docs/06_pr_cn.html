@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-04-22" />
+<meta name="date" content="2024-05-02" />
 
 <title>Biomarker prediction in cancer data</title>
 
@@ -70,8 +70,31 @@ if (window.hljs) {
 </style>
 
 
+<style type="text/css">
+/* for pandoc --citeproc since 2.11 */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
 
-<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -364,57 +387,405 @@ function toggle_visibility(id1) {
 
 
 <h1 class="title toc-ignore">Biomarker prediction in cancer data</h1>
-<p class="author-name">XXXX YYYYY<span class="affil-mark">1*</span> and XXXX YYYYY<span class="affil-mark">1*</span></p>
+<p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
-<p class="author-email"><span class="affil-mark">*</span><a href="mailto:XXXX.YYYY@bse.eu">XXXX.YYYY@bse.eu</a><br><span class="affil-mark">*</span><a href="mailto:XXXX.YYYY@bse.eu">XXXX.YYYY@bse.eu</a></p>
-<h4 class="date">April 22, 2024</h4>
+<p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
+<h4 class="date">May 2, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a prediction of candidate biomarkers in cancer cfRNA sequencing data.</p>
 
 </div>
 
 
-<div id="section" class="section level1" number="1">
-<h1><span class="header-section-number">1</span> ???</h1>
+<div id="importing-processed-and-filtered-data" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> Importing processed and filtered data</h1>
+<p>We start by importing the previously filtered, normalized RNA-seq data and the differential expressed genes from the training dataset.</p>
+<pre class="r"><code>library(SummarizedExperiment)
+library(edgeR)
+
+dgeR.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeR.filt.rds&quot;))
+seR.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seR.filt.rds&quot;))
+dgeB.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeB.filt.rds&quot;))
+seB.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seB.filt.rds&quot;))
+
+dgeR.filt.training &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                        &quot;dgeR.filt.training.rds&quot;))
+seR.filt.training &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                       &quot;seR.filt.training.rds&quot;))
+dgeB.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                       &quot;dgeB.filt.testing.rds&quot;))
+seB.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
+                                      &quot;seB.filt.testing.rds&quot;))
+DEgenes.training &lt;- readRDS(file.path(&quot;_processed_data&quot;, 
+                                      &quot;DEgenes.training.rds&quot;))</code></pre>
+<p>Create a subset with the differential expressed genes from the training dataset from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>.</p>
+<pre class="r"><code>dgeR.DEgenes &lt;- dgeR.filt.training$counts[DEgenes.training,]</code></pre>
 </div>
-<div id="session-information" class="section level1" number="2">
-<h1><span class="header-section-number">2</span> Session information</h1>
+<div id="performance-metrics" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> Performance metrics</h1>
+<p>Given the application of the current paper, the False Negative Rate (FNR) metric is a particularly relevant metric, since it would imply classifying as healthy an individual with cancer. Therefore, that patients will not receive treatment, which will cause serious consequences. Furthermore, it could also be considered the False Positive Rate (FPR), which results in an undesirable situation where a proportion of healthy individuals are categorized as ill. This would subject a healthy patient to unnecessary treatment and its potential side effects. However, since the expected consequences are not that severe, FNR is prioritized in the analysis.</p>
+<pre class="r"><code>FNR &lt;- function(proba.pred, truth){
+  class.pred &lt;- as.numeric(proba.pred &gt; 0.5)
+  conf &lt;- table(truth, class.pred)
+  print(conf)
+  FNR &lt;- conf[2, 1] / sum(conf[2, 1], conf[2, 2])
+  return(FNR)
+}</code></pre>
+<pre class="r"><code>FPR &lt;- function(proba.pred, truth){
+  class.pred &lt;- as.numeric(proba.pred &gt; 0.5)
+  conf &lt;- table(truth, class.pred)
+  print(conf)
+  FPR &lt;- conf[1, 2] / sum(conf[1, 1], conf[1, 2])
+  return(FPR)
+}</code></pre>
+</div>
+<div id="lasso-cv-via-cross-validation" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> LASSO-CV (Via cross-validation)</h1>
+<div id="fitting-the-model" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Fitting the model</h2>
+<p>Define the function for LASSO where the penalization parameter λ is set through cross-validation (LASSO-CV).</p>
+<pre class="r"><code>kfoldCV.lasso.logistic &lt;- function(y,x,K=10,seed,criterion=&#39;cv&#39;) {
+## Perform K-fold cross-validation for LASSO regression estimate 
+  #(lambda set either via cross-val or BIC or EBIC)
+## Input
+## - y: response
+## - x: data.frame with predictors, intercept should not be present
+## - K: number of folds in K-fold cross-validation
+## - seed: random number generator seed (optional)
+## - criterion: the criterion to select the penalization parameter, 
+  #either cross-val or BIC or EBIC
+## Output
+## - pred: cross-validated predictions for y
+## - ssr: residual sum of squares, sum((y-pred)^2)
+  require(glmnet)
+  if (!missing(seed)) set.seed(seed)
+  subset &lt;- rep(1:K,ceiling(nrow(x)/K))[1:nrow(x)]
+  subset &lt;- sample(subset,size=nrow(x),replace=FALSE)
+  pred &lt;- double(nrow(x))
+  pred_0 &lt;- double(nrow(x))
+  cat(&quot;Starting cross-validation&quot;)
+  if (ncol(x)&gt;0) {  #if there are some covariates
+    for (k in 1:K) {
+        sel &lt;- subset==k
+        pred_0[sel] &lt;- mean(y[!sel])
+        if (criterion==&#39;cv&#39;) {
+            fit &lt;- cv.glmnet(x=x[!sel,,drop=FALSE], y=y[!sel], 
+                             alpha = 1, nfolds=10, family = &#39;binomial&#39;)
+            pred[sel] &lt;- predict(fit,newx=x[sel,,drop=FALSE],type=&#39;response&#39;,
+                                 s=&#39;lambda.min&#39;)
+        } else if (criterion==&#39;bic&#39;){
+            fit &lt;- lasso.bic.logistic(y=y[!sel],x=x[!sel,,drop=FALSE])
+            pred[sel] &lt;- predict(fit$model,newx=x[sel,,drop=FALSE],
+                                 type=&#39;response&#39;, s = fit$lambda.opt)
+        } else if (criterion==&#39;ebic&#39;){
+            fit &lt;- lasso.bic.logistic(y=y[!sel],x=x[!sel,,drop=FALSE],extended = TRUE)
+            pred[sel] &lt;- predict(fit$model,newx=x[sel,,drop=FALSE],
+                                 type=&#39;response&#39;, s = fit$lambda.opt)
+        } else { stop(&quot;method.lambda not implemented&quot;) }
+        cat(&quot;.&quot;)
+    }
+  } else { #if there are no covariates, just use the intercept
+    for (k in 1:K) {
+      sel &lt;- subset==k
+      pred[sel] &lt;- mean(y[!sel],na.rm=TRUE)
+    }
+  }
+  cat(&quot;\n&quot;)
+  return(list(pred=pred, pred_0= pred_0,ssr=sum((pred-y)^2,na.rm=TRUE)))
+}</code></pre>
+<p>Convert the dependent variable from the training dataset into a factor variable (with factors 0 and 1) and fit the LASSO-CV model using the previous function.</p>
+<pre class="r"><code>set.seed(1234)
+t0 &lt;- Sys.time()
+
+tumor.training &lt;- as.numeric(dgeR.filt.training$samples$Tumor)-1
+
+fit.lassocv &lt;- cv.glmnet(x=t(dgeR.DEgenes),y=tumor.training, family =&#39;binomial&#39;, nfolds = 10, aplha = 1)
+t1 &lt;- Sys.time()
+cat(&#39;\nTime elapsed: &#39;)
+
+Time elapsed: </code></pre>
+<pre class="r"><code>print(round(t1-t0,3))
+Time difference of 0.095 secs</code></pre>
+<pre class="r"><code>fit.lassocv
+
+Call:  cv.glmnet(x = t(dgeR.DEgenes), y = tumor.training, nfolds = 10,      family = &quot;binomial&quot;, aplha = 1) 
+
+Measure: Binomial Deviance 
+
+     Lambda Index Measure      SE Nonzero
+min 0.00687    75   0.825 0.21199      25
+1se 0.04022    37   1.034 0.09675      14</code></pre>
+<pre class="r"><code>plot(fit.lassocv) </code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-9-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p>The model selects 25 genes.</p>
+<pre class="r"><code>b.lassocv = as.vector(coef(fit.lassocv, s=&#39;lambda.min&#39;))
+sum(b.lassocv[-1] != 0)
+[1] 25</code></pre>
+<pre class="r"><code>coef.matrix &lt;- coef(fit.lassocv, s = &#39;lambda.min&#39;)
+non.zero.coefs &lt;- rownames(coef.matrix)[coef.matrix[,1]!= 0 &amp; rownames(coef.matrix)!= &#39;(Intercept)&#39;]</code></pre>
+<pre class="r"><code>#colnames(t(dgeR.DEgenes)[,b.lassocv!=0])</code></pre>
+</div>
+<div id="model-performance" class="section level2" number="3.2">
+<h2><span class="header-section-number">3.2</span> Model performance</h2>
+<div id="in-sample-auc" class="section level3" number="3.2.1">
+<h3><span class="header-section-number">3.2.1</span> In-sample AUC</h3>
+<pre class="r"><code>lassocv.pred&lt;- predict(fit.lassocv, newx=t(dgeR.DEgenes), s = fit.lassocv$lambda.min)
+
+(auc.lassoCV.training&lt;- pROC::auc(tumor.training,lassocv.pred[,1]))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 1</code></pre>
+</div>
+<div id="out-sample-auc-using-cross-validation" class="section level3" number="3.2.2">
+<h3><span class="header-section-number">3.2.2</span> Out-sample AUC using cross-validation</h3>
+<pre class="r"><code>cv.pred.lasso.cv &lt;- kfoldCV.lasso.logistic(y=tumor.training,x=t(dgeR.DEgenes), K=10,seed=1,criterion=&quot;cv&quot;)
+Starting cross-validation..........
+
+(auc.lassocv.test &lt;- pROC::auc(tumor.training,cv.pred.lasso.cv$pred))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.8774</code></pre>
+<pre class="r"><code>FNR(cv.pred.lasso.cv$pred,tumor.training)
+     class.pred
+truth  0  1
+    0 28  2
+    1 10 18
+[1] 0.3571429</code></pre>
+<pre class="r"><code>FPR(cv.pred.lasso.cv$pred,tumor.training)
+     class.pred
+truth  0  1
+    0 28  2
+    1 10 18
+[1] 0.06666667</code></pre>
+<pre class="r"><code>#mcfadden_pseudo_r2(cv.pred.lasso.cv$pred,cv.pred.lasso.cv$pred_0, tumor.training)</code></pre>
+</div>
+<div id="out-sample-auc-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="3.2.3">
+<h3><span class="header-section-number">3.2.3</span> Out-sample AUC using testing dataset from Block et al. (2022)</h3>
+<p>QUESTION TO ROBERT: Out of the 25 genes selected by LASSO-CV, only 17 appear in the testing dataset (the rest have been excluded in the preprocessing when filtering lowly expressed genes). In order to compute out-sample AUC we need to have the same number of genes. The question is: should we create an object that includes as features the differential expressed genes from the training dataset and assign the corresponding counts from the testing dataset to those genes that are present in the testing dataset and 0 otherwise? (Below we have proceed using this approach) Or should we work with the original data without filtering the lowly expressed genes and normalizing again using all the genes?</p>
+<pre class="r"><code>mask &lt;- non.zero.coefs %in% rownames(dgeB.filt.testing$counts)
+sum(mask)
+[1] 17</code></pre>
+<p>Create a matix where all the entries are 0 except for those differential expressed genes from the training dataset that are not disregarded as lowly expressed in the testing dataset (and therefore we assign its corresponding count).</p>
+<pre class="r"><code>mask &lt;- DEgenes.training %in% rownames(dgeB.filt.testing$counts)
+
+subset.testing &lt;- matrix(0, nrow = length(DEgenes.training), ncol = ncol(dgeB.filt.testing$counts))
+
+subset.testing[mask, ] &lt;- dgeB.filt.testing$counts[DEgenes.training[mask], ]</code></pre>
+<p>Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).</p>
+<pre class="r"><code>tumor.testing &lt;- as.numeric(dgeB.filt.testing$samples$Tumor)-1</code></pre>
+<p>Predict the categories using the previously trained model and compute the out-sample AUC, FNR and FPR.</p>
+<pre class="r"><code>lassocv.pred2&lt;- predict(fit.lassocv, newx=t(subset.testing),
+                       s = fit.lassocv$lambda.min)
+(auc.lassocv.test2 &lt;- pROC::auc(tumor.testing,lassocv.pred2[,1]))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.6083</code></pre>
+<pre class="r"><code>FNR(lassocv.pred2,tumor.testing)
+     class.pred
+truth  0  1
+    0  0  6
+    1  1 19
+[1] 0.05</code></pre>
+<pre class="r"><code>FPR(lassocv.pred2,tumor.testing)
+     class.pred
+truth  0  1
+    0  0  6
+    1  1 19
+[1] 1</code></pre>
+</div>
+</div>
+</div>
+<div id="random-forest" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> Random Forest</h1>
+<p>Standardize the training set.</p>
+<pre class="r"><code>standardized.training &lt;- scale(t(dgeR.DEgenes), scale = TRUE, center = TRUE)</code></pre>
+<pre class="r"><code>library(randomForest)
+
+# Fitting a random forest model
+model &lt;- randomForest(x = standardized.training, y = as.factor(tumor.training), ntree = 400)
+
+# Summary of the model
+print(model)
+
+Call:
+ randomForest(x = standardized.training, y = as.factor(tumor.training),      ntree = 400) 
+               Type of random forest: classification
+                     Number of trees: 400
+No. of variables tried at each split: 24
+
+        OOB estimate of  error rate: 29.31%
+Confusion matrix:
+   0  1 class.error
+0 23  7   0.2333333
+1 10 18   0.3571429</code></pre>
+<div id="model-performance-1" class="section level2" number="4.1">
+<h2><span class="header-section-number">4.1</span> Model performance</h2>
+<div id="out-sample-auc-using-cross-validation-1" class="section level3" number="4.1.1">
+<h3><span class="header-section-number">4.1.1</span> Out-sample AUC using cross-validation</h3>
+<p>Create the function.</p>
+<pre class="r"><code>kfoldCV.randomforest.logistic &lt;- function(y,x,K=10,seed) {
+## Perform K-fold cross-validation for least-squares regression estimate
+## Input
+## - y: response
+## - x: data.frame with predictors, intercept should not be present
+## - K: number of folds in K-fold cross-validation
+## - seed: random number generator seed (optional)
+## Output
+## - pred: cross-validated predictions for y
+## - ssr: residual sum of squares, sum((y-pred)^2)
+  if (!missing(seed)) set.seed(seed)
+  subset &lt;- rep(1:K,ceiling(nrow(x)/K))[1:nrow(x)]
+  subset &lt;- sample(subset,size=nrow(x),replace=FALSE)
+  pred &lt;- double(nrow(x))
+  pred_0 &lt;- double(nrow(x))
+  if (ncol(x)&gt;0) {
+    for (k in 1:K) {
+      sel &lt;- subset==k
+      #fit &lt;- glm(y[!sel] ~ ., data=x[!sel,,drop=FALSE], family = &#39;binomial&#39;)
+      fit &lt;- randomForest(x = x[!sel,,drop=FALSE],
+                          y = as.factor(y[!sel]), ntree = 500)
+      pred[sel] &lt;- predict(fit, newdata=x[sel,,drop=FALSE],
+                           type=&#39;response&#39;)
+      pred_0[sel] &lt;- mean(y[!sel])
+    }
+  } else {
+    for (k in 1:K) {
+      sel &lt;- subset==k
+      pred[sel] &lt;- mean(y[!sel],na.rm=TRUE)
+    }
+  }
+  return(list(pred=pred, pred_0 =pred_0,
+              ssr=sum((pred-y)^2,na.rm=TRUE)))
+}</code></pre>
+<p>Compute AUC, FNR and FPR.</p>
+<pre class="r"><code>cv.pred.RandomForest &lt;- kfoldCV.randomforest.logistic(y=tumor.training,
+                                x=data.frame(t(dgeR.DEgenes)), K=10,seed=1)
+
+(auc.randomForest.cv &lt;- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.7226</code></pre>
+<pre class="r"><code>#cv.pred.RandomForest$pred -1</code></pre>
+<pre class="r"><code>FNR(cv.pred.RandomForest$pred -1,tumor.training)
+     class.pred
+truth  0  1
+    0 23  7
+    1  9 19
+[1] 0.3214286</code></pre>
+<pre class="r"><code>FPR(cv.pred.RandomForest$pred -1,tumor.training)
+     class.pred
+truth  0  1
+    0 23  7
+    1  9 19
+[1] 0.2333333</code></pre>
+</div>
+<div id="out-sample-auc-using-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="4.1.2">
+<h3><span class="header-section-number">4.1.2</span> Out-sample AUC using using testing dataset from Block et al. (2022)</h3>
+<p>Standardize the subset that includes those counts of the differential expressed genes from the training and 0 otherwise.</p>
+<pre class="r"><code>standardized.testing &lt;- scale(t(subset.testing), scale = TRUE, center = TRUE)
+mask &lt;- which(is.na(standardized.testing))
+standardized.testing[mask] &lt;- 0</code></pre>
+<pre class="r"><code># Extracting probabilities for class 1
+predicted_probs2 &lt;- predict(model, standardized.testing, type = &quot;prob&quot;)[, 2] 
+
+# Compute AUC
+roc_obj &lt;- pROC::roc(tumor.testing, predicted_probs2)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+auc &lt;- pROC::auc(roc_obj)
+print(paste(&quot;AUC:&quot;, auc))
+[1] &quot;AUC: 0.879166666666667&quot;
+
+# Compute False Negative Rate (FNR)
+threshold &lt;- 0.5  # Threshold for class prediction
+predictions2 &lt;- ifelse(predicted_probs2 &gt; threshold, 1, 0)
+conf_matrix &lt;- table(Actual = tumor.testing, Predicted = predictions2)
+fnr &lt;- conf_matrix[2, 1] / sum(conf_matrix[2, ])
+print(paste(&quot;FNR:&quot;, fnr))
+[1] &quot;FNR: 0.6&quot;</code></pre>
+<pre class="r"><code># Get feature importance
+#model &lt;- randomForest(x = x_train, y = as.factor(y_train), ntree = 500)
+#feature_importance &lt;- randomForest::importance(model)
+#sorted_importance &lt;- feature_importance[order(-feature_importance[, #&quot;MeanDecreaseGini&quot;]),                                        ]
+#print(sorted_importance)</code></pre>
+</div>
+</div>
+</div>
+<div id="session-information" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
-R version 4.3.2 (2023-10-31)
-Platform: x86_64-apple-darwin20 (64-bit)
-Running under: macOS Ventura 13.6.6
+R version 4.3.3 (2024-02-29)
+Platform: aarch64-apple-darwin20 (64-bit)
+Running under: macOS Ventura 13.5.1
 
 Matrix products: default
-BLAS:   /Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/lib/libRblas.0.dylib 
-LAPACK: /Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
+BLAS:   /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
 
 locale:
 [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
 
-time zone: Europe/Paris
+time zone: Europe/Madrid
 tzcode source: internal
 
 attached base packages:
-[1] stats     graphics  grDevices utils     datasets  methods   base     
+[1] stats4    stats     graphics  grDevices utils     datasets  methods  
+[8] base     
 
 other attached packages:
-[1] kableExtra_1.4.0 knitr_1.45       BiocStyle_2.30.0
+ [1] caTools_1.18.2              h2o_3.44.0.3               
+ [3] caret_6.0-94                lattice_0.22-6             
+ [5] ggplot2_3.5.1               ranger_0.16.0              
+ [7] randomForest_4.7-1.1        rsample_1.2.1              
+ [9] edgeR_4.0.16                limma_3.58.1               
+[11] SummarizedExperiment_1.32.0 Biobase_2.62.0             
+[13] GenomicRanges_1.54.1        GenomeInfoDb_1.38.8        
+[15] IRanges_2.36.0              S4Vectors_0.40.2           
+[17] BiocGenerics_0.48.1         MatrixGenerics_1.14.0      
+[19] matrixStats_1.3.0           glmnet_4.1-8               
+[21] Matrix_1.6-5                kableExtra_1.4.0           
+[23] knitr_1.45                  BiocStyle_2.30.0           
 
 loaded via a namespace (and not attached):
- [1] svglite_2.1.3       cli_3.6.2           rlang_1.1.3        
- [4] xfun_0.43           stringi_1.8.3       jsonlite_1.8.8     
- [7] glue_1.7.0          colorspace_2.1-0    htmltools_0.5.8.1  
-[10] sass_0.4.9          scales_1.3.0        rmarkdown_2.26     
-[13] evaluate_0.23       munsell_0.5.1       jquerylib_0.1.4    
-[16] fastmap_1.1.1       yaml_2.3.8          lifecycle_1.0.4    
-[19] bookdown_0.39       BiocManager_1.30.22 stringr_1.5.1      
-[22] compiler_4.3.2      rstudioapi_0.16.0   systemfonts_1.0.6  
-[25] digest_0.6.35       viridisLite_0.4.2   R6_2.5.1           
-[28] magrittr_2.0.3      bslib_0.7.0         tools_4.3.2        
-[31] xml2_1.3.6          cachem_1.0.8       </code></pre>
+ [1] bitops_1.0-7            pROC_1.18.5             rlang_1.1.3            
+ [4] magrittr_2.0.3          furrr_0.3.1             compiler_4.3.3         
+ [7] reshape2_1.4.4          systemfonts_1.0.6       vctrs_0.6.5            
+[10] stringr_1.5.1           pkgconfig_2.0.3         shape_1.4.6.1          
+[13] crayon_1.5.2            fastmap_1.1.1           XVector_0.42.0         
+[16] utf8_1.2.4              rmarkdown_2.26          prodlim_2023.08.28     
+[19] purrr_1.0.2             xfun_0.43               zlibbioc_1.48.2        
+[22] cachem_1.0.8            jsonlite_1.8.8          recipes_1.0.10         
+[25] DelayedArray_0.28.0     parallel_4.3.3          R6_2.5.1               
+[28] bslib_0.7.0             stringi_1.8.3           parallelly_1.37.1      
+[31] rpart_4.1.23            lubridate_1.9.3         jquerylib_0.1.4        
+[34] Rcpp_1.0.12             bookdown_0.39           iterators_1.0.14       
+[37] future.apply_1.11.2     timechange_0.3.0        nnet_7.3-19            
+[40] splines_4.3.3           tidyselect_1.2.1        rstudioapi_0.16.0      
+[43] abind_1.4-5             yaml_2.3.8              timeDate_4032.109      
+[46] codetools_0.2-20        listenv_0.9.1           tibble_3.2.1           
+[49] plyr_1.8.9              withr_3.0.0             evaluate_0.23          
+[52] future_1.33.2           survival_3.6-4          xml2_1.3.6             
+[55] pillar_1.9.0            BiocManager_1.30.22     foreach_1.5.2          
+[58] generics_0.1.3          RCurl_1.98-1.14         munsell_0.5.1          
+[61] scales_1.3.0            globals_0.16.3          class_7.3-22           
+[64] glue_1.7.0              tools_4.3.3             data.table_1.15.4      
+[67] ModelMetrics_1.2.2.2    gower_1.0.1             locfit_1.5-9.9         
+[70] grid_4.3.3              tidyr_1.3.1             ipred_0.9-14           
+[73] colorspace_2.1-0        nlme_3.1-164            GenomeInfoDbData_1.2.11
+[76] cli_3.6.2               fansi_1.0.6             S4Arrays_1.2.1         
+[79] viridisLite_0.4.2       lava_1.8.0              svglite_2.1.3          
+[82] dplyr_1.1.4             gtable_0.3.5            sass_0.4.9             
+[85] digest_0.6.35           SparseArray_1.2.4       htmltools_0.5.8.1      
+[88] lifecycle_1.0.4         hardhat_1.3.1           statmod_1.5.0          
+[91] MASS_7.3-60.0.1        </code></pre>
 </div>
-<div id="references" class="section level1" number="3">
-<h1><span class="header-section-number">3</span> References</h1>
+<div id="references" class="section level1 unnumbered">
+<h1>References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="ref-Roskams2022" class="csl-entry">
+Roskams-Hieter, Breeshey, Hyun Ji Kim, Pavana Anur, Josiah T. Wagner, Rowan Callahan, Elias Spiliotopoulos, Charles Ward Kirschbaum, et al. 2022. <span>“Plasma Cell-Free RNA Profiling Distinguishes Cancers from Pre-Malignant Conditions in Solid and Hematologic Malignancies.”</span> <em>Npj Precision Oncology</em> 6. <a href="https://doi.org/10.1038/s41698-022-00270-y">https://doi.org/10.1038/s41698-022-00270-y</a>.
+</div>
+</div>
 </div>
 
 
