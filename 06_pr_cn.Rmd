@@ -173,10 +173,7 @@ print(round(t1-t0,3))
 
 ```{r}
 fit.lassocv
-```
-
-```{r}
-plot(fit.lassocv) 
+plot(fit.lassocv)
 ```
 
 The model selects 25 genes. 
@@ -266,18 +263,12 @@ FPR(lassocv.pred2,tumor.testing)
 # Random Forest
 
 ```{r, echo = FALSE}
-library(rsample)     
-library(randomForest) 
-library(ranger)      
-library(caret)        
-library(h2o)
-```
-
-```{r, echo = FALSE}
 # Loading package 
 library(caTools) 
 library(randomForest) 
 ```
+
+## Fitting the model
 
 Standardize the training set.
 
@@ -288,12 +279,30 @@ standardized.training <- scale(t(dgeR.DEgenes), scale = TRUE, center = TRUE)
 ```{r}
 library(randomForest)
 
+tumor.training.forest <- as.numeric(dgeR.filt.training$samples$Tumor)
+
 # Fitting a random forest model
-model <- randomForest(x = standardized.training, y = as.factor(tumor.training), ntree = 400)
+model <- randomForest(x = standardized.training, y = as.factor(tumor.training.forest), ntree = 400, importance = TRUE)
 
 # Summary of the model
 print(model)
 ```
+
+
+Calculates how much the model accuracy decreases without a certain predictor (feature)
+
+```{r, results = 'hide'}
+png("plot.png", width = 1200, height = 800)
+varImpPlot <- varImpPlot(model, pch = 16, col = "blue", type = TRUE, main = NULL)
+dev.off()
+```
+
+<figure style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; margin-bottom: 20px;">
+    <img src="/Users/bertacanal/Desktop/cfRNAanalysis/plot.png" style="width: 700px; height: auto;">
+    <figcaption style="text-align: center; margin-top: 20px;">Figure XX: Variance important plot for @Roskams2022.</figcaption>
+</figure>
+
+
 ## Model performance
 
 ### Out-sample AUC using cross-validation
@@ -392,6 +401,8 @@ print(paste("FNR:", fnr))
 #sorted_importance <- feature_importance[order(-feature_importance[, #"MeanDecreaseGini"]),                                        ]
 #print(sorted_importance)
 ```
+
+
 
 
 # Session information

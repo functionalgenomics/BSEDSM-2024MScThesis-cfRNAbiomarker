@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-02" />
+<meta name="date" content="2024-05-05" />
 
 <title>Biomarker prediction in cancer data</title>
 
@@ -390,7 +390,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 2, 2024</h4>
+<h4 class="date">May 5, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a prediction of candidate biomarkers in cancer cfRNA sequencing data.</p>
 
@@ -514,9 +514,9 @@ Measure: Binomial Deviance
 
      Lambda Index Measure      SE Nonzero
 min 0.00687    75   0.825 0.21199      25
-1se 0.04022    37   1.034 0.09675      14</code></pre>
-<pre class="r"><code>plot(fit.lassocv) </code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-9-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+1se 0.04022    37   1.034 0.09675      14
+plot(fit.lassocv)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-8-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <p>The model selects 25 genes.</p>
 <pre class="r"><code>b.lassocv = as.vector(coef(fit.lassocv, s=&#39;lambda.min&#39;))
 sum(b.lassocv[-1] != 0)
@@ -597,31 +597,46 @@ truth  0  1
 </div>
 <div id="random-forest" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Random Forest</h1>
+<div id="fitting-the-model-1" class="section level2" number="4.1">
+<h2><span class="header-section-number">4.1</span> Fitting the model</h2>
 <p>Standardize the training set.</p>
 <pre class="r"><code>standardized.training &lt;- scale(t(dgeR.DEgenes), scale = TRUE, center = TRUE)</code></pre>
 <pre class="r"><code>library(randomForest)
 
+tumor.training.forest &lt;- as.numeric(dgeR.filt.training$samples$Tumor)
+
 # Fitting a random forest model
-model &lt;- randomForest(x = standardized.training, y = as.factor(tumor.training), ntree = 400)
+model &lt;- randomForest(x = standardized.training, y = as.factor(tumor.training.forest), ntree = 400, importance = TRUE)
 
 # Summary of the model
 print(model)
 
 Call:
- randomForest(x = standardized.training, y = as.factor(tumor.training),      ntree = 400) 
+ randomForest(x = standardized.training, y = as.factor(tumor.training.forest),      ntree = 400, importance = TRUE) 
                Type of random forest: classification
                      Number of trees: 400
 No. of variables tried at each split: 24
 
-        OOB estimate of  error rate: 29.31%
+        OOB estimate of  error rate: 31.03%
 Confusion matrix:
-   0  1 class.error
-0 23  7   0.2333333
-1 10 18   0.3571429</code></pre>
-<div id="model-performance-1" class="section level2" number="4.1">
-<h2><span class="header-section-number">4.1</span> Model performance</h2>
-<div id="out-sample-auc-using-cross-validation-1" class="section level3" number="4.1.1">
-<h3><span class="header-section-number">4.1.1</span> Out-sample AUC using cross-validation</h3>
+   1  2 class.error
+1 22  8   0.2666667
+2 10 18   0.3571429</code></pre>
+<p>Calculates how much the model accuracy decreases without a certain predictor (feature)</p>
+<pre class="r"><code>png(&quot;plot.png&quot;, width = 1200, height = 800)
+varImpPlot &lt;- varImpPlot(model, pch = 16, col = &quot;blue&quot;, type = TRUE, main = NULL)
+dev.off()</code></pre>
+<figure style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; margin-bottom: 20px;">
+<img src="plot.png" style="width: 700px; height: auto;">
+<figcaption style="text-align: center; margin-top: 20px;">
+Figure XX: Variance important plot for <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>.
+</figcaption>
+</figure>
+</div>
+<div id="model-performance-1" class="section level2" number="4.2">
+<h2><span class="header-section-number">4.2</span> Model performance</h2>
+<div id="out-sample-auc-using-cross-validation-1" class="section level3" number="4.2.1">
+<h3><span class="header-section-number">4.2.1</span> Out-sample AUC using cross-validation</h3>
 <p>Create the function.</p>
 <pre class="r"><code>kfoldCV.randomforest.logistic &lt;- function(y,x,K=10,seed) {
 ## Perform K-fold cross-validation for least-squares regression estimate
@@ -679,8 +694,8 @@ truth  0  1
     1  9 19
 [1] 0.2333333</code></pre>
 </div>
-<div id="out-sample-auc-using-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="4.1.2">
-<h3><span class="header-section-number">4.1.2</span> Out-sample AUC using using testing dataset from Block et al. (2022)</h3>
+<div id="out-sample-auc-using-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="4.2.2">
+<h3><span class="header-section-number">4.2.2</span> Out-sample AUC using using testing dataset from Block et al. (2022)</h3>
 <p>Standardize the subset that includes those counts of the differential expressed genes from the training and 0 otherwise.</p>
 <pre class="r"><code>standardized.testing &lt;- scale(t(subset.testing), scale = TRUE, center = TRUE)
 mask &lt;- which(is.na(standardized.testing))
@@ -694,7 +709,7 @@ Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
 auc &lt;- pROC::auc(roc_obj)
 print(paste(&quot;AUC:&quot;, auc))
-[1] &quot;AUC: 0.879166666666667&quot;
+[1] &quot;AUC: 0.791666666666667&quot;
 
 # Compute False Negative Rate (FNR)
 threshold &lt;- 0.5  # Threshold for class prediction
@@ -755,29 +770,29 @@ loaded via a namespace (and not attached):
 [16] utf8_1.2.4              rmarkdown_2.26          prodlim_2023.08.28     
 [19] purrr_1.0.2             xfun_0.43               zlibbioc_1.48.2        
 [22] cachem_1.0.8            jsonlite_1.8.8          recipes_1.0.10         
-[25] DelayedArray_0.28.0     parallel_4.3.3          R6_2.5.1               
-[28] bslib_0.7.0             stringi_1.8.3           parallelly_1.37.1      
-[31] rpart_4.1.23            lubridate_1.9.3         jquerylib_0.1.4        
-[34] Rcpp_1.0.12             bookdown_0.39           iterators_1.0.14       
-[37] future.apply_1.11.2     timechange_0.3.0        nnet_7.3-19            
-[40] splines_4.3.3           tidyselect_1.2.1        rstudioapi_0.16.0      
-[43] abind_1.4-5             yaml_2.3.8              timeDate_4032.109      
-[46] codetools_0.2-20        listenv_0.9.1           tibble_3.2.1           
-[49] plyr_1.8.9              withr_3.0.0             evaluate_0.23          
-[52] future_1.33.2           survival_3.6-4          xml2_1.3.6             
-[55] pillar_1.9.0            BiocManager_1.30.22     foreach_1.5.2          
-[58] generics_0.1.3          RCurl_1.98-1.14         munsell_0.5.1          
-[61] scales_1.3.0            globals_0.16.3          class_7.3-22           
-[64] glue_1.7.0              tools_4.3.3             data.table_1.15.4      
-[67] ModelMetrics_1.2.2.2    gower_1.0.1             locfit_1.5-9.9         
-[70] grid_4.3.3              tidyr_1.3.1             ipred_0.9-14           
-[73] colorspace_2.1-0        nlme_3.1-164            GenomeInfoDbData_1.2.11
-[76] cli_3.6.2               fansi_1.0.6             S4Arrays_1.2.1         
-[79] viridisLite_0.4.2       lava_1.8.0              svglite_2.1.3          
-[82] dplyr_1.1.4             gtable_0.3.5            sass_0.4.9             
-[85] digest_0.6.35           SparseArray_1.2.4       htmltools_0.5.8.1      
-[88] lifecycle_1.0.4         hardhat_1.3.1           statmod_1.5.0          
-[91] MASS_7.3-60.0.1        </code></pre>
+[25] highr_0.10              DelayedArray_0.28.0     parallel_4.3.3         
+[28] R6_2.5.1                bslib_0.7.0             stringi_1.8.3          
+[31] parallelly_1.37.1       rpart_4.1.23            lubridate_1.9.3        
+[34] jquerylib_0.1.4         Rcpp_1.0.12             bookdown_0.39          
+[37] iterators_1.0.14        future.apply_1.11.2     timechange_0.3.0       
+[40] nnet_7.3-19             splines_4.3.3           tidyselect_1.2.1       
+[43] rstudioapi_0.16.0       abind_1.4-5             yaml_2.3.8             
+[46] timeDate_4032.109       codetools_0.2-20        listenv_0.9.1          
+[49] tibble_3.2.1            plyr_1.8.9              withr_3.0.0            
+[52] evaluate_0.23           future_1.33.2           survival_3.6-4         
+[55] xml2_1.3.6              pillar_1.9.0            BiocManager_1.30.22    
+[58] foreach_1.5.2           generics_0.1.3          RCurl_1.98-1.14        
+[61] munsell_0.5.1           scales_1.3.0            globals_0.16.3         
+[64] class_7.3-22            glue_1.7.0              tools_4.3.3            
+[67] data.table_1.15.4       ModelMetrics_1.2.2.2    gower_1.0.1            
+[70] locfit_1.5-9.9          grid_4.3.3              tidyr_1.3.1            
+[73] ipred_0.9-14            colorspace_2.1-0        nlme_3.1-164           
+[76] GenomeInfoDbData_1.2.11 cli_3.6.2               fansi_1.0.6            
+[79] S4Arrays_1.2.1          viridisLite_0.4.2       lava_1.8.0             
+[82] svglite_2.1.3           dplyr_1.1.4             gtable_0.3.5           
+[85] sass_0.4.9              digest_0.6.35           SparseArray_1.2.4      
+[88] htmltools_0.5.8.1       lifecycle_1.0.4         hardhat_1.3.1          
+[91] statmod_1.5.0           MASS_7.3-60.0.1        </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>

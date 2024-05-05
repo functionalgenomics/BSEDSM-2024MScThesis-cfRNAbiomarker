@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-02" />
+<meta name="date" content="2024-05-05" />
 
 <title>Quality assessment of cancer data</title>
 
@@ -392,7 +392,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 2, 2024</h4>
+<h4 class="date">May 5, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.</p>
 
@@ -450,7 +450,7 @@ seB$Sex &lt;- data.imputed$Sex</code></pre>
 <h1><span class="header-section-number">3</span> Filtering of lowly-expressed genes and normalization</h1>
 <p>In <span class="citation">(<a href="#ref-Roskams2022">Roskams-Hieter et al. 2022</a>)</span>, they sequenced plasma samples of eight hepatocellular carcinoma (HCC) and ten multiple myeloma (MM) patients, 12 patients of their respective precancerous conditions, and 20 non-cancer (NC) donors. To avoid within group heterogeneity, our study focuses on individuals with hepatocellular carcinoma (HCC) and non-cancer (NC) for the control. Otherwise, our analysis could increase between group variance and thus lead to spurious results.</p>
 <p>NOTA: See abstract from the paper and suplementary tables to modify this paragraph.</p>
-<p>For [Block et al.], the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma (i.e. with Microvesicle == ‘no’) and non-cancer (NC) for the control.</p>
+<p>For <span class="citation">(<a href="#ref-Block2022">Block et al. 2022</a>)</span>, the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma (i.e. with Microvesicle == ‘no’) and non-cancer (NC) for the control.</p>
 <pre class="r"><code>table(colData(seR)$Disease)
 
 Cirr  HCC MGUS   MM   NC 
