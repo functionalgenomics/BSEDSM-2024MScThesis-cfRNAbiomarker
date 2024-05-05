@@ -61,14 +61,14 @@ dgeB.filt.testing <- readRDS(file.path("_processed_data",
                                        "dgeB.filt.testing.rds"))
 seB.filt.testing <- readRDS(file.path("_processed_data",
                                       "seB.filt.testing.rds"))
-DEgenes.training <- readRDS(file.path("_processed_data", 
-                                      "DEgenes.training.rds"))
+DEgenes.trainingR <- readRDS(file.path("_processed_data", 
+                                      "DEgenes.trainingR.rds"))
 ```
 
 Create a subset with the differential expressed genes from the training dataset from @Roskams2022.
 
 ```{r}
-dgeR.DEgenes <- dgeR.filt.training$counts[DEgenes.training,]
+dgeR.DEgenes <- dgeR.filt.training$counts[DEgenes.trainingR,]
 ```
 
 # Performance metrics 
@@ -231,11 +231,11 @@ sum(mask)
 
 Create a matix where all the entries are 0 except for those differential expressed genes from the training dataset that are not disregarded as lowly expressed in the testing dataset (and therefore we assign its corresponding count).
 ```{r}
-mask <- DEgenes.training %in% rownames(dgeB.filt.testing$counts)
+mask <- DEgenes.trainingR %in% rownames(dgeB.filt.testing$counts)
 
-subset.testing <- matrix(0, nrow = length(DEgenes.training), ncol = ncol(dgeB.filt.testing$counts))
+subset.testing <- matrix(0, nrow = length(DEgenes.trainingR), ncol = ncol(dgeB.filt.testing$counts))
 
-subset.testing[mask, ] <- dgeB.filt.testing$counts[DEgenes.training[mask], ]
+subset.testing[mask, ] <- dgeB.filt.testing$counts[DEgenes.trainingR[mask], ]
 ```
 
 Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).

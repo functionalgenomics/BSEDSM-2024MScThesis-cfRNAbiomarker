@@ -416,10 +416,10 @@ dgeB.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
                                        &quot;dgeB.filt.testing.rds&quot;))
 seB.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
                                       &quot;seB.filt.testing.rds&quot;))
-DEgenes.training &lt;- readRDS(file.path(&quot;_processed_data&quot;, 
-                                      &quot;DEgenes.training.rds&quot;))</code></pre>
+DEgenes.trainingR &lt;- readRDS(file.path(&quot;_processed_data&quot;, 
+                                      &quot;DEgenes.trainingR.rds&quot;))</code></pre>
 <p>Create a subset with the differential expressed genes from the training dataset from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>.</p>
-<pre class="r"><code>dgeR.DEgenes &lt;- dgeR.filt.training$counts[DEgenes.training,]</code></pre>
+<pre class="r"><code>dgeR.DEgenes &lt;- dgeR.filt.training$counts[DEgenes.trainingR,]</code></pre>
 </div>
 <div id="performance-metrics" class="section level1" number="2">
 <h1><span class="header-section-number">2</span> Performance metrics</h1>
@@ -513,14 +513,14 @@ Call:  cv.glmnet(x = t(dgeR.DEgenes), y = tumor.training, nfolds = 10,      fami
 Measure: Binomial Deviance 
 
      Lambda Index Measure      SE Nonzero
-min 0.00687    75   0.825 0.21199      25
-1se 0.04022    37   1.034 0.09675      14
+min 0.01586    57  0.9413 0.18648      18
+1se 0.06708    26  1.1224 0.06989       9
 plot(fit.lassocv)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-8-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <p>The model selects 25 genes.</p>
 <pre class="r"><code>b.lassocv = as.vector(coef(fit.lassocv, s=&#39;lambda.min&#39;))
 sum(b.lassocv[-1] != 0)
-[1] 25</code></pre>
+[1] 18</code></pre>
 <pre class="r"><code>coef.matrix &lt;- coef(fit.lassocv, s = &#39;lambda.min&#39;)
 non.zero.coefs &lt;- rownames(coef.matrix)[coef.matrix[,1]!= 0 &amp; rownames(coef.matrix)!= &#39;(Intercept)&#39;]</code></pre>
 <pre class="r"><code>#colnames(t(dgeR.DEgenes)[,b.lassocv!=0])</code></pre>
@@ -544,19 +544,19 @@ Starting cross-validation..........
 (auc.lassocv.test &lt;- pROC::auc(tumor.training,cv.pred.lasso.cv$pred))
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
-Area under the curve: 0.8774</code></pre>
+Area under the curve: 0.8369</code></pre>
 <pre class="r"><code>FNR(cv.pred.lasso.cv$pred,tumor.training)
      class.pred
 truth  0  1
-    0 28  2
+    0 26  4
     1 10 18
 [1] 0.3571429</code></pre>
 <pre class="r"><code>FPR(cv.pred.lasso.cv$pred,tumor.training)
      class.pred
 truth  0  1
-    0 28  2
+    0 26  4
     1 10 18
-[1] 0.06666667</code></pre>
+[1] 0.1333333</code></pre>
 <pre class="r"><code>#mcfadden_pseudo_r2(cv.pred.lasso.cv$pred,cv.pred.lasso.cv$pred_0, tumor.training)</code></pre>
 </div>
 <div id="out-sample-auc-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="3.2.3">
@@ -564,13 +564,13 @@ truth  0  1
 <p>QUESTION TO ROBERT: Out of the 25 genes selected by LASSO-CV, only 17 appear in the testing dataset (the rest have been excluded in the preprocessing when filtering lowly expressed genes). In order to compute out-sample AUC we need to have the same number of genes. The question is: should we create an object that includes as features the differential expressed genes from the training dataset and assign the corresponding counts from the testing dataset to those genes that are present in the testing dataset and 0 otherwise? (Below we have proceed using this approach) Or should we work with the original data without filtering the lowly expressed genes and normalizing again using all the genes?</p>
 <pre class="r"><code>mask &lt;- non.zero.coefs %in% rownames(dgeB.filt.testing$counts)
 sum(mask)
-[1] 17</code></pre>
+[1] 16</code></pre>
 <p>Create a matix where all the entries are 0 except for those differential expressed genes from the training dataset that are not disregarded as lowly expressed in the testing dataset (and therefore we assign its corresponding count).</p>
-<pre class="r"><code>mask &lt;- DEgenes.training %in% rownames(dgeB.filt.testing$counts)
+<pre class="r"><code>mask &lt;- DEgenes.trainingR %in% rownames(dgeB.filt.testing$counts)
 
-subset.testing &lt;- matrix(0, nrow = length(DEgenes.training), ncol = ncol(dgeB.filt.testing$counts))
+subset.testing &lt;- matrix(0, nrow = length(DEgenes.trainingR), ncol = ncol(dgeB.filt.testing$counts))
 
-subset.testing[mask, ] &lt;- dgeB.filt.testing$counts[DEgenes.training[mask], ]</code></pre>
+subset.testing[mask, ] &lt;- dgeB.filt.testing$counts[DEgenes.trainingR[mask], ]</code></pre>
 <p>Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).</p>
 <pre class="r"><code>tumor.testing &lt;- as.numeric(dgeB.filt.testing$samples$Tumor)-1</code></pre>
 <p>Predict the categories using the previously trained model and compute the out-sample AUC, FNR and FPR.</p>
@@ -579,7 +579,7 @@ subset.testing[mask, ] &lt;- dgeB.filt.testing$counts[DEgenes.training[mask], ]<
 (auc.lassocv.test2 &lt;- pROC::auc(tumor.testing,lassocv.pred2[,1]))
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
-Area under the curve: 0.6083</code></pre>
+Area under the curve: 0.6</code></pre>
 <pre class="r"><code>FNR(lassocv.pred2,tumor.testing)
      class.pred
 truth  0  1
@@ -615,13 +615,13 @@ Call:
  randomForest(x = standardized.training, y = as.factor(tumor.training.forest),      ntree = 400, importance = TRUE) 
                Type of random forest: classification
                      Number of trees: 400
-No. of variables tried at each split: 24
+No. of variables tried at each split: 19
 
-        OOB estimate of  error rate: 31.03%
+        OOB estimate of  error rate: 24.14%
 Confusion matrix:
    1  2 class.error
 1 22  8   0.2666667
-2 10 18   0.3571429</code></pre>
+2  6 22   0.2142857</code></pre>
 <p>Calculates how much the model accuracy decreases without a certain predictor (feature)</p>
 <pre class="r"><code>png(&quot;plot.png&quot;, width = 1200, height = 800)
 varImpPlot &lt;- varImpPlot(model, pch = 16, col = &quot;blue&quot;, type = TRUE, main = NULL)
@@ -679,20 +679,20 @@ Figure XX: Variance important plot for <span class="citation">Roskams-Hieter et 
 (auc.randomForest.cv &lt;- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
-Area under the curve: 0.7226</code></pre>
+Area under the curve: 0.6893</code></pre>
 <pre class="r"><code>#cv.pred.RandomForest$pred -1</code></pre>
 <pre class="r"><code>FNR(cv.pred.RandomForest$pred -1,tumor.training)
      class.pred
 truth  0  1
-    0 23  7
+    0 21  9
     1  9 19
 [1] 0.3214286</code></pre>
 <pre class="r"><code>FPR(cv.pred.RandomForest$pred -1,tumor.training)
      class.pred
 truth  0  1
-    0 23  7
+    0 21  9
     1  9 19
-[1] 0.2333333</code></pre>
+[1] 0.3</code></pre>
 </div>
 <div id="out-sample-auc-using-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="4.2.2">
 <h3><span class="header-section-number">4.2.2</span> Out-sample AUC using using testing dataset from Block et al. (2022)</h3>
@@ -709,7 +709,7 @@ Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
 auc &lt;- pROC::auc(roc_obj)
 print(paste(&quot;AUC:&quot;, auc))
-[1] &quot;AUC: 0.791666666666667&quot;
+[1] &quot;AUC: 0.7875&quot;
 
 # Compute False Negative Rate (FNR)
 threshold &lt;- 0.5  # Threshold for class prediction
@@ -717,7 +717,7 @@ predictions2 &lt;- ifelse(predicted_probs2 &gt; threshold, 1, 0)
 conf_matrix &lt;- table(Actual = tumor.testing, Predicted = predictions2)
 fnr &lt;- conf_matrix[2, 1] / sum(conf_matrix[2, ])
 print(paste(&quot;FNR:&quot;, fnr))
-[1] &quot;FNR: 0.6&quot;</code></pre>
+[1] &quot;FNR: 0.65&quot;</code></pre>
 <pre class="r"><code># Get feature importance
 #model &lt;- randomForest(x = x_train, y = as.factor(y_train), ntree = 500)
 #feature_importance &lt;- randomForest::importance(model)

@@ -1,13 +1,13 @@
 ---
 title: Biomarker prediction in preeclampsia data
 author:
-- name: XXXX YYYYY
+- name: Berta Canal Simón
   affiliation:
   - &id Barcelona School of Economics
-  email: XXXX.YYYY@bse.eu
-- name: XXXX YYYYY
+  email: berta.canal@bse.eu
+- name: Adam Olivares Canal
   affiliation: *id
-  email: XXXX.YYYY@bse.eu
+  email: adam.olivares@bse.eu
 date: "`r format(Sys.time(), '%B %e, %Y')`"
 abstract: >
   Here we perform a prediction of candidate biomarkers in preeclampsia cfRNA sequencing data.
@@ -39,7 +39,37 @@ knitr::opts_chunk$set(
 )
 ```
 
-# ???
+# Importing processed and filtered data
+
+We start by importing the previously filtered and normalized RNA-seq data.
+
+```{r, message=FALSE}
+library(SummarizedExperiment)
+library(edgeR)
+
+dgeM.filt <- readRDS(file.path("_processed_data", "dgeM.filt.rds"))
+seM.filt <- readRDS(file.path("_processed_data", "seM.filt.rds"))
+dgeD.filt <- readRDS(file.path("_processed_data", "dgeD.filt.rds"))
+seD.filt <- readRDS(file.path("_processed_data", "seD.filt.rds"))
+dgeM.filt.training <- readRDS(file.path("_processed_data",
+                                        "dgeM.filt.training.rds"))
+seM.filt.training <- readRDS(file.path("_processed_data",
+                                       "seM.filt.training.rds"))
+dgeM.filt.testing <- readRDS(file.path("_processed_data",
+                                       "dgeM.filt.testing.rds"))
+seM.filt.testing <- readRDS(file.path("_processed_data",
+                                      "seM.filt.testing.rds"))
+dgeD.filt.subset <- readRDS(file.path("_processed_data",
+                                      "dgeD.filt.subset.rds"))
+seD.filt.subset <- readRDS(file.path("_processed_data",
+                                     "seD.filt.subset.rds"))
+DEgenes.trainingM <- readRDS(file.path("_processed_data", 
+                                      "DEgenes.trainingM.rds"))
+DEgenes.testingM <- readRDS(file.path("_processed_data", 
+                                      "DEgenes.testingM.rds"))
+DEgenes.testingD <- readRDS(file.path("_processed_data", 
+                                      "DEgenes.testingD.rds"))
+```
 
 
 # Session information

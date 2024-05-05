@@ -133,6 +133,10 @@ DEgenes.training <- rownames(tt.training)[mask]
 length(DEgenes.training)
 ```
 
+```{r}
+saveRDS(DEgenes.training, file=file.path("_processed_data", "DEgenes.trainingM.rds"))
+```
+
 Display volcano and MA plots in Figure \@ref(fig:maplottraining).
 
 ```{r maplottraining, echo=FALSE, message=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot training data from Moufarrej et al. (2022)."}
@@ -205,6 +209,10 @@ DEgenes.testing <- rownames(tt.testing)[mask]
 length(DEgenes.testing)
 ```
 
+```{r}
+saveRDS(DEgenes.testing, file=file.path("_processed_data", "DEgenes.testingM.rds"))
+```
+
 Display MA-plot in Figure \@ref(fig:maplottesting).
 
 ```{r maplottesting, echo=FALSE, fig.height=5, fig.width=10, dpi=100, fig.cap="MA-plot testing data from Moufarrej et al. (2022)."}
@@ -275,6 +283,10 @@ Select DE genes.
 mask <- tt.delvecchio$adj.P.Val < 0.05
 DEgenes.delvecchio <- rownames(tt.delvecchio)[mask]
 length(DEgenes.delvecchio)
+```
+
+```{r}
+saveRDS(DEgenes.delvecchio, file=file.path("_processed_data", "DEgenes.testingD.rds"))
 ```
 
 Display MA-plot in Figure \@ref(fig:maplotdelvecchio).
