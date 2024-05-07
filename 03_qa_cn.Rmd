@@ -110,11 +110,18 @@ colData(seR.subset)$Tumor <- factor(seR.subset$Disease == 'HCC', labels = c('no'
 ```
 
 ```{r}
-table(colData(seB)$SampleType)
-mask <- (colData(seB)$SampleType == 'HCC' & colData(seB)$Microvesicle == 'no') | colData(seB)$SampleType == 'NHC'
+table(seB$SampleType)
+table(seB$SampleType, seB$Tissue)
+## ROBERT 07.05.24 SELECCIONEM MOSTRES DE PLASMA DE PACIENTS AMB HCC I D'INDIVIDUS CONTROLS
+## mask <- (colData(seB)$SampleType == 'HCC' & colData(seB)$Microvesicle == 'no') | colData(seB)$SampleType == 'NHC'
+mask <- (seB$SampleType == "HCC" &
+         (seB$Tissue %in% c("plasma", "plasma_vesicles"))) |
+        seB$SampleType == "NHC"
 seB.subset <- seB[,mask]
 dim(seB.subset)
-colData(seB.subset)$Tumor <- factor(seB.subset$SampleType == 'HCC', labels = c('no', 'yes'))
+colData(seB.subset)$Tumor <- factor(seB.subset$SampleType == 'HCC',
+                                    labels = c('no', 'yes'))
+table(seB.subset$SampleType)
 ```
 
 We will use the [edgeR](https://bioconductor.org/packages/edgeR) package for
@@ -125,8 +132,10 @@ column data.
 ```{r, message = FALSE, warning = FALSE}
 library(edgeR)
 
-dgeR <- DGEList(counts=assay(seR.subset), genes=rowData(seR.subset), samples=colData(seR.subset))
-dgeB <- DGEList(counts=assay(seB.subset), genes=rowData(seB.subset), samples=colData(seB.subset))
+dgeR <- DGEList(counts=assay(seR.subset), genes=rowData(seR.subset),
+                samples=colData(seR.subset))
+dgeB <- DGEList(counts=assay(seB.subset), genes=rowData(seB.subset),
+                samples=colData(seB.subset))
 ```
 
 Filter lowly expressed genes using the function `filterByExpr()` and the
