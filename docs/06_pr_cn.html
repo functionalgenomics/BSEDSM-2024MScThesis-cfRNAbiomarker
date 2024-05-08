@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-05" />
+<meta name="date" content="2024-05-08" />
 
 <title>Biomarker prediction in cancer data</title>
 
@@ -390,7 +390,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 5, 2024</h4>
+<h4 class="date">May 8, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a prediction of candidate biomarkers in cancer cfRNA sequencing data.</p>
 
@@ -419,7 +419,13 @@ seB.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
 DEgenes.trainingR &lt;- readRDS(file.path(&quot;_processed_data&quot;, 
                                       &quot;DEgenes.trainingR.rds&quot;))</code></pre>
 <p>Create a subset with the differential expressed genes from the training dataset from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>.</p>
-<pre class="r"><code>dgeR.DEgenes &lt;- dgeR.filt.training$counts[DEgenes.trainingR,]</code></pre>
+<p>Train-testing subset creation: Intersection between differential expressed genes from training set from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span> and lowly expressed genes from testing set.</p>
+<pre class="r"><code>set.seed(111)
+mask.lowly.testing &lt;- rownames(dgeB.filt.testing$counts)
+intersection.genes &lt;- intersect(mask.lowly.testing,DEgenes.trainingR)
+dgeR.DEgenes &lt;- dgeR.filt.training$counts[intersection.genes,]
+dgeR.filt.training$counts &lt;- dgeR.filt.training$counts[intersection.genes,]
+dgeB.filt.testing$counts &lt;- dgeB.filt.testing$counts[intersection.genes,]</code></pre>
 </div>
 <div id="performance-metrics" class="section level1" number="2">
 <h1><span class="header-section-number">2</span> Performance metrics</h1>
@@ -505,7 +511,7 @@ cat(&#39;\nTime elapsed: &#39;)
 
 Time elapsed: </code></pre>
 <pre class="r"><code>print(round(t1-t0,3))
-Time difference of 0.095 secs</code></pre>
+Time difference of 0.116 secs</code></pre>
 <pre class="r"><code>fit.lassocv
 
 Call:  cv.glmnet(x = t(dgeR.DEgenes), y = tumor.training, nfolds = 10,      family = &quot;binomial&quot;, aplha = 1) 
@@ -513,17 +519,18 @@ Call:  cv.glmnet(x = t(dgeR.DEgenes), y = tumor.training, nfolds = 10,      fami
 Measure: Binomial Deviance 
 
      Lambda Index Measure      SE Nonzero
-min 0.01586    57  0.9413 0.18648      18
-1se 0.06708    26  1.1224 0.06989       9
+min 0.00789    72  0.8182 0.20171      26
+1se 0.04844    33  1.0152 0.07286      11
 plot(fit.lassocv)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-8-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
-<p>The model selects 25 genes.</p>
+<p>The model selects 26 genes.</p>
 <pre class="r"><code>b.lassocv = as.vector(coef(fit.lassocv, s=&#39;lambda.min&#39;))
 sum(b.lassocv[-1] != 0)
-[1] 18</code></pre>
+[1] 26</code></pre>
 <pre class="r"><code>coef.matrix &lt;- coef(fit.lassocv, s = &#39;lambda.min&#39;)
 non.zero.coefs &lt;- rownames(coef.matrix)[coef.matrix[,1]!= 0 &amp; rownames(coef.matrix)!= &#39;(Intercept)&#39;]</code></pre>
-<pre class="r"><code>#colnames(t(dgeR.DEgenes)[,b.lassocv!=0])</code></pre>
+<pre class="r"><code>mask &lt;- rownames(assay(seR.filt.training)) %in% non.zero.coefs
+selected.genes &lt;- rowData(seR.filt.training)$Symbol[mask]</code></pre>
 </div>
 <div id="model-performance" class="section level2" number="3.2">
 <h2><span class="header-section-number">3.2</span> Model performance</h2>
@@ -544,59 +551,67 @@ Starting cross-validation..........
 (auc.lassocv.test &lt;- pROC::auc(tumor.training,cv.pred.lasso.cv$pred))
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
-Area under the curve: 0.8369</code></pre>
+Area under the curve: 0.8238</code></pre>
 <pre class="r"><code>FNR(cv.pred.lasso.cv$pred,tumor.training)
      class.pred
 truth  0  1
-    0 26  4
-    1 10 18
-[1] 0.3571429</code></pre>
+    0 25  5
+    1  9 19
+[1] 0.3214286</code></pre>
 <pre class="r"><code>FPR(cv.pred.lasso.cv$pred,tumor.training)
      class.pred
 truth  0  1
-    0 26  4
-    1 10 18
-[1] 0.1333333</code></pre>
+    0 25  5
+    1  9 19
+[1] 0.1666667</code></pre>
 <pre class="r"><code>#mcfadden_pseudo_r2(cv.pred.lasso.cv$pred,cv.pred.lasso.cv$pred_0, tumor.training)</code></pre>
 </div>
 <div id="out-sample-auc-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="3.2.3">
 <h3><span class="header-section-number">3.2.3</span> Out-sample AUC using testing dataset from Block et al. (2022)</h3>
-<p>QUESTION TO ROBERT: Out of the 25 genes selected by LASSO-CV, only 17 appear in the testing dataset (the rest have been excluded in the preprocessing when filtering lowly expressed genes). In order to compute out-sample AUC we need to have the same number of genes. The question is: should we create an object that includes as features the differential expressed genes from the training dataset and assign the corresponding counts from the testing dataset to those genes that are present in the testing dataset and 0 otherwise? (Below we have proceed using this approach) Or should we work with the original data without filtering the lowly expressed genes and normalizing again using all the genes?</p>
-<pre class="r"><code>mask &lt;- non.zero.coefs %in% rownames(dgeB.filt.testing$counts)
-sum(mask)
-[1] 16</code></pre>
-<p>Create a matix where all the entries are 0 except for those differential expressed genes from the training dataset that are not disregarded as lowly expressed in the testing dataset (and therefore we assign its corresponding count).</p>
-<pre class="r"><code>mask &lt;- DEgenes.trainingR %in% rownames(dgeB.filt.testing$counts)
-
-subset.testing &lt;- matrix(0, nrow = length(DEgenes.trainingR), ncol = ncol(dgeB.filt.testing$counts))
-
-subset.testing[mask, ] &lt;- dgeB.filt.testing$counts[DEgenes.trainingR[mask], ]</code></pre>
 <p>Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).</p>
 <pre class="r"><code>tumor.testing &lt;- as.numeric(dgeB.filt.testing$samples$Tumor)-1</code></pre>
 <p>Predict the categories using the previously trained model and compute the out-sample AUC, FNR and FPR.</p>
-<pre class="r"><code>lassocv.pred2&lt;- predict(fit.lassocv, newx=t(subset.testing),
+<pre class="r"><code>lassocv.pred2&lt;- predict(fit.lassocv, newx=t(dgeB.filt.testing$counts),
                        s = fit.lassocv$lambda.min)
 (auc.lassocv.test2 &lt;- pROC::auc(tumor.testing,lassocv.pred2[,1]))
 Setting levels: control = 0, case = 1
-Setting direction: controls &lt; cases
-Area under the curve: 0.6</code></pre>
+Setting direction: controls &gt; cases
+Area under the curve: 0.5614</code></pre>
 <pre class="r"><code>FNR(lassocv.pred2,tumor.testing)
      class.pred
 truth  0  1
     0  0  6
-    1  1 19
-[1] 0.05</code></pre>
+    1  6 13
+[1] 0.3157895</code></pre>
 <pre class="r"><code>FPR(lassocv.pred2,tumor.testing)
      class.pred
 truth  0  1
     0  0  6
-    1  1 19
+    1  6 13
 [1] 1</code></pre>
 </div>
 </div>
 </div>
 <div id="random-forest" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Random Forest</h1>
+<pre><code>
+Attaching package: &#39;caTools&#39;
+The following object is masked from &#39;package:IRanges&#39;:
+
+    runmean
+The following object is masked from &#39;package:S4Vectors&#39;:
+
+    runmean
+randomForest 4.7-1.1
+Type rfNews() to see new features/changes/bug fixes.
+
+Attaching package: &#39;randomForest&#39;
+The following object is masked from &#39;package:Biobase&#39;:
+
+    combine
+The following object is masked from &#39;package:BiocGenerics&#39;:
+
+    combine</code></pre>
 <div id="fitting-the-model-1" class="section level2" number="4.1">
 <h2><span class="header-section-number">4.1</span> Fitting the model</h2>
 <p>Standardize the training set.</p>
@@ -615,13 +630,13 @@ Call:
  randomForest(x = standardized.training, y = as.factor(tumor.training.forest),      ntree = 400, importance = TRUE) 
                Type of random forest: classification
                      Number of trees: 400
-No. of variables tried at each split: 19
+No. of variables tried at each split: 23
 
-        OOB estimate of  error rate: 24.14%
+        OOB estimate of  error rate: 29.31%
 Confusion matrix:
    1  2 class.error
 1 22  8   0.2666667
-2  6 22   0.2142857</code></pre>
+2  9 19   0.3214286</code></pre>
 <p>Calculates how much the model accuracy decreases without a certain predictor (feature)</p>
 <pre class="r"><code>png(&quot;plot.png&quot;, width = 1200, height = 800)
 varImpPlot &lt;- varImpPlot(model, pch = 16, col = &quot;blue&quot;, type = TRUE, main = NULL)
@@ -674,32 +689,29 @@ Figure XX: Variance important plot for <span class="citation">Roskams-Hieter et 
 }</code></pre>
 <p>Compute AUC, FNR and FPR.</p>
 <pre class="r"><code>cv.pred.RandomForest &lt;- kfoldCV.randomforest.logistic(y=tumor.training,
-                                x=data.frame(t(dgeR.DEgenes)), K=10,seed=1)
+                                x=standardized.training, K=10,seed=1)
 
 (auc.randomForest.cv &lt;- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
-Area under the curve: 0.6893</code></pre>
-<pre class="r"><code>#cv.pred.RandomForest$pred -1</code></pre>
+Area under the curve: 0.7226</code></pre>
 <pre class="r"><code>FNR(cv.pred.RandomForest$pred -1,tumor.training)
      class.pred
 truth  0  1
-    0 21  9
+    0 23  7
     1  9 19
 [1] 0.3214286</code></pre>
 <pre class="r"><code>FPR(cv.pred.RandomForest$pred -1,tumor.training)
      class.pred
 truth  0  1
-    0 21  9
+    0 23  7
     1  9 19
-[1] 0.3</code></pre>
+[1] 0.2333333</code></pre>
 </div>
 <div id="out-sample-auc-using-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="4.2.2">
 <h3><span class="header-section-number">4.2.2</span> Out-sample AUC using using testing dataset from Block et al. (2022)</h3>
 <p>Standardize the subset that includes those counts of the differential expressed genes from the training and 0 otherwise.</p>
-<pre class="r"><code>standardized.testing &lt;- scale(t(subset.testing), scale = TRUE, center = TRUE)
-mask &lt;- which(is.na(standardized.testing))
-standardized.testing[mask] &lt;- 0</code></pre>
+<pre class="r"><code>standardized.testing &lt;- scale(t(dgeB.filt.testing$counts), scale = TRUE, center = TRUE)</code></pre>
 <pre class="r"><code># Extracting probabilities for class 1
 predicted_probs2 &lt;- predict(model, standardized.testing, type = &quot;prob&quot;)[, 2] 
 
@@ -709,15 +721,15 @@ Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
 auc &lt;- pROC::auc(roc_obj)
 print(paste(&quot;AUC:&quot;, auc))
-[1] &quot;AUC: 0.7875&quot;
+[1] &quot;AUC: 0.614035087719298&quot;
 
 # Compute False Negative Rate (FNR)
-threshold &lt;- 0.5  # Threshold for class prediction
+threshold &lt;- 0.5
 predictions2 &lt;- ifelse(predicted_probs2 &gt; threshold, 1, 0)
 conf_matrix &lt;- table(Actual = tumor.testing, Predicted = predictions2)
 fnr &lt;- conf_matrix[2, 1] / sum(conf_matrix[2, ])
 print(paste(&quot;FNR:&quot;, fnr))
-[1] &quot;FNR: 0.65&quot;</code></pre>
+[1] &quot;FNR: 0.473684210526316&quot;</code></pre>
 <pre class="r"><code># Get feature importance
 #model &lt;- randomForest(x = x_train, y = as.factor(y_train), ntree = 500)
 #feature_importance &lt;- randomForest::importance(model)
@@ -748,51 +760,36 @@ attached base packages:
 [8] base     
 
 other attached packages:
- [1] caTools_1.18.2              h2o_3.44.0.3               
- [3] caret_6.0-94                lattice_0.22-6             
- [5] ggplot2_3.5.1               ranger_0.16.0              
- [7] randomForest_4.7-1.1        rsample_1.2.1              
- [9] edgeR_4.0.16                limma_3.58.1               
-[11] SummarizedExperiment_1.32.0 Biobase_2.62.0             
-[13] GenomicRanges_1.54.1        GenomeInfoDb_1.38.8        
-[15] IRanges_2.36.0              S4Vectors_0.40.2           
-[17] BiocGenerics_0.48.1         MatrixGenerics_1.14.0      
-[19] matrixStats_1.3.0           glmnet_4.1-8               
-[21] Matrix_1.6-5                kableExtra_1.4.0           
-[23] knitr_1.45                  BiocStyle_2.30.0           
+ [1] randomForest_4.7-1.1        caTools_1.18.2             
+ [3] edgeR_4.0.16                limma_3.58.1               
+ [5] SummarizedExperiment_1.32.0 Biobase_2.62.0             
+ [7] GenomicRanges_1.54.1        GenomeInfoDb_1.38.8        
+ [9] IRanges_2.36.0              S4Vectors_0.40.2           
+[11] BiocGenerics_0.48.1         MatrixGenerics_1.14.0      
+[13] matrixStats_1.3.0           glmnet_4.1-8               
+[15] Matrix_1.6-5                kableExtra_1.4.0           
+[17] knitr_1.45                  BiocStyle_2.30.0           
 
 loaded via a namespace (and not attached):
- [1] bitops_1.0-7            pROC_1.18.5             rlang_1.1.3            
- [4] magrittr_2.0.3          furrr_0.3.1             compiler_4.3.3         
- [7] reshape2_1.4.4          systemfonts_1.0.6       vctrs_0.6.5            
-[10] stringr_1.5.1           pkgconfig_2.0.3         shape_1.4.6.1          
-[13] crayon_1.5.2            fastmap_1.1.1           XVector_0.42.0         
-[16] utf8_1.2.4              rmarkdown_2.26          prodlim_2023.08.28     
-[19] purrr_1.0.2             xfun_0.43               zlibbioc_1.48.2        
-[22] cachem_1.0.8            jsonlite_1.8.8          recipes_1.0.10         
-[25] highr_0.10              DelayedArray_0.28.0     parallel_4.3.3         
-[28] R6_2.5.1                bslib_0.7.0             stringi_1.8.3          
-[31] parallelly_1.37.1       rpart_4.1.23            lubridate_1.9.3        
-[34] jquerylib_0.1.4         Rcpp_1.0.12             bookdown_0.39          
-[37] iterators_1.0.14        future.apply_1.11.2     timechange_0.3.0       
-[40] nnet_7.3-19             splines_4.3.3           tidyselect_1.2.1       
-[43] rstudioapi_0.16.0       abind_1.4-5             yaml_2.3.8             
-[46] timeDate_4032.109       codetools_0.2-20        listenv_0.9.1          
-[49] tibble_3.2.1            plyr_1.8.9              withr_3.0.0            
-[52] evaluate_0.23           future_1.33.2           survival_3.6-4         
-[55] xml2_1.3.6              pillar_1.9.0            BiocManager_1.30.22    
-[58] foreach_1.5.2           generics_0.1.3          RCurl_1.98-1.14        
-[61] munsell_0.5.1           scales_1.3.0            globals_0.16.3         
-[64] class_7.3-22            glue_1.7.0              tools_4.3.3            
-[67] data.table_1.15.4       ModelMetrics_1.2.2.2    gower_1.0.1            
-[70] locfit_1.5-9.9          grid_4.3.3              tidyr_1.3.1            
-[73] ipred_0.9-14            colorspace_2.1-0        nlme_3.1-164           
-[76] GenomeInfoDbData_1.2.11 cli_3.6.2               fansi_1.0.6            
-[79] S4Arrays_1.2.1          viridisLite_0.4.2       lava_1.8.0             
-[82] svglite_2.1.3           dplyr_1.1.4             gtable_0.3.5           
-[85] sass_0.4.9              digest_0.6.35           SparseArray_1.2.4      
-[88] htmltools_0.5.8.1       lifecycle_1.0.4         hardhat_1.3.1          
-[91] statmod_1.5.0           MASS_7.3-60.0.1        </code></pre>
+ [1] shape_1.4.6.1           xfun_0.43               bslib_0.7.0            
+ [4] lattice_0.22-6          tools_4.3.3             bitops_1.0-7           
+ [7] highr_0.10              lifecycle_1.0.4         GenomeInfoDbData_1.2.11
+[10] compiler_4.3.3          stringr_1.5.1           statmod_1.5.0          
+[13] munsell_0.5.1           codetools_0.2-20        htmltools_0.5.8.1      
+[16] sass_0.4.9              RCurl_1.98-1.14         yaml_2.3.8             
+[19] crayon_1.5.2            jquerylib_0.1.4         cachem_1.0.8           
+[22] DelayedArray_0.28.0     iterators_1.0.14        abind_1.4-5            
+[25] foreach_1.5.2           locfit_1.5-9.9          digest_0.6.35          
+[28] stringi_1.8.3           bookdown_0.39           splines_4.3.3          
+[31] fastmap_1.1.1           grid_4.3.3              colorspace_2.1-0       
+[34] cli_3.6.2               SparseArray_1.2.4       magrittr_2.0.3         
+[37] S4Arrays_1.2.1          survival_3.6-4          scales_1.3.0           
+[40] rmarkdown_2.26          XVector_0.42.0          evaluate_0.23          
+[43] viridisLite_0.4.2       rlang_1.1.3             Rcpp_1.0.12            
+[46] glue_1.7.0              BiocManager_1.30.22     xml2_1.3.6             
+[49] pROC_1.18.5             svglite_2.1.3           rstudioapi_0.16.0      
+[52] jsonlite_1.8.8          plyr_1.8.9              R6_2.5.1               
+[55] systemfonts_1.0.6       zlibbioc_1.48.2        </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>

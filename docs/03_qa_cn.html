@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-05" />
+<meta name="date" content="2024-05-08" />
 
 <title>Quality assessment of cancer data</title>
 
@@ -392,7 +392,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 5, 2024</h4>
+<h4 class="date">May 8, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.</p>
 
@@ -412,42 +412,8 @@ seB &lt;- readRDS(file.path(&quot;_raw_data&quot;, &quot;se.Block22.GENCODEv44.h
 dim(seB)
 [1] 37928    41</code></pre>
 </div>
-<div id="data-imputation" class="section level1" number="2">
-<h1><span class="header-section-number">2</span> Data imputation</h1>
-<div id="testing-dataset" class="section level2" number="2.1">
-<h2><span class="header-section-number">2.1</span> Testing dataset</h2>
-<div id="variable-age" class="section level3" number="2.1.1">
-<h3><span class="header-section-number">2.1.1</span> Variable ‘Age’</h3>
-<p>Impute missing age values by mean.</p>
-<pre class="r"><code>mean.ageB &lt;- mean(seB$Age, na.rm = TRUE)
-is.na.ageB &lt;- which(is.na(seB$Age) == TRUE)
-seB$Age[is.na.ageB] &lt;- mean.ageB</code></pre>
-</div>
-<div id="variable-sex" class="section level3" number="2.1.2">
-<h3><span class="header-section-number">2.1.2</span> Variable ‘Sex’</h3>
-<p>The estimation of missing data for <code>Sex</code> covariate uses a KNN imputer (k = 5) based on the counts for MSY genes (genes from the male-specific region of the Y chromosome). Although no MSY genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the MSY genes.</p>
-<p>Note that from the 34 MSY genes, only 33 are present in our datasets.</p>
-<pre class="r"><code>MSY_genes &lt;- readRDS(&quot;MSYgenes.rds&quot;)
-length(MSY_genes)
-[1] 34
-mask &lt;- rownames(seB) %in% MSY_genes
-sum(mask)
-[1] 33
-
-counts.MSY &lt;- seB[mask,]
-seB$Sex &lt;- as.factor(seB$Sex)
-assay.counts.MSY &lt;- assay(counts.MSY)
-dataframe.counts.MSY &lt;- as.data.frame(t(assay.counts.MSY))
-
-dataframe.counts.MSY$Sex &lt;- seB$Sex
-
-data.imputed &lt;- kNN(dataframe.counts.MSY, k=5, variable=&quot;Sex&quot;)
-seB$Sex &lt;- data.imputed$Sex</code></pre>
-</div>
-</div>
-</div>
-<div id="filtering-of-lowly-expressed-genes-and-normalization" class="section level1" number="3">
-<h1><span class="header-section-number">3</span> Filtering of lowly-expressed genes and normalization</h1>
+<div id="filtering-of-lowly-expressed-genes-and-normalization" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> Filtering of lowly-expressed genes and normalization</h1>
 <p>In <span class="citation">(<a href="#ref-Roskams2022">Roskams-Hieter et al. 2022</a>)</span>, they sequenced plasma samples of eight hepatocellular carcinoma (HCC) and ten multiple myeloma (MM) patients, 12 patients of their respective precancerous conditions, and 20 non-cancer (NC) donors. To avoid within group heterogeneity, our study focuses on individuals with hepatocellular carcinoma (HCC) and non-cancer (NC) for the control. Otherwise, our analysis could increase between group variance and thus lead to spurious results.</p>
 <p>NOTA: See abstract from the paper and suplementary tables to modify this paragraph.</p>
 <p>For <span class="citation">(<a href="#ref-Block2022">Block et al. 2022</a>)</span>, the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma (i.e. with Microvesicle == ‘no’) and non-cancer (NC) for the control.</p>
@@ -460,23 +426,39 @@ seR.subset &lt;- seR[,mask]
 dim(seR.subset)
 [1] 37928    58
 colData(seR.subset)$Tumor &lt;- factor(seR.subset$Disease == &#39;HCC&#39;, labels = c(&#39;no&#39;, &#39;yes&#39;))</code></pre>
-<pre class="r"><code>table(colData(seB)$SampleType)
+<pre class="r"><code>table(seB$SampleType)
 
 HCC LCS NHC NLS 
  25   9   6   1 
-mask &lt;- (colData(seB)$SampleType == &#39;HCC&#39; &amp; colData(seB)$Microvesicle == &#39;no&#39;) | colData(seB)$SampleType == &#39;NHC&#39;
+table(seB$SampleType, seB$Tissue)
+     
+      normal_liver plasma plasma_vesicles tumor_liver
+  HCC            0     14               5           6
+  LCS            0      9               0           0
+  NHC            0      6               0           0
+  NLS            1      0               0           0
+mask &lt;- (seB$SampleType == &quot;HCC&quot; &amp;
+         (seB$Tissue %in% c(&quot;plasma&quot;, &quot;plasma_vesicles&quot;))) |
+        seB$SampleType == &quot;NHC&quot;
 seB.subset &lt;- seB[,mask]
 dim(seB.subset)
-[1] 37928    26
-colData(seB.subset)$Tumor &lt;- factor(seB.subset$SampleType == &#39;HCC&#39;, labels = c(&#39;no&#39;, &#39;yes&#39;))</code></pre>
+[1] 37928    25
+colData(seB.subset)$Tumor &lt;- factor(seB.subset$SampleType == &#39;HCC&#39;,
+                                    labels = c(&#39;no&#39;, &#39;yes&#39;))
+table(seB.subset$SampleType)
+
+HCC NHC 
+ 19   6 </code></pre>
 <p>We will use the <a href="https://bioconductor.org/packages/edgeR">edgeR</a> package for
 processing the raw counts and doing some exploratory analyses. We start by
 building the corresponding <code>DGEList</code> objects with the corresponding row and
 column data.</p>
 <pre class="r"><code>library(edgeR)
 
-dgeR &lt;- DGEList(counts=assay(seR.subset), genes=rowData(seR.subset), samples=colData(seR.subset))
-dgeB &lt;- DGEList(counts=assay(seB.subset), genes=rowData(seB.subset), samples=colData(seB.subset))</code></pre>
+dgeR &lt;- DGEList(counts=assay(seR.subset), genes=rowData(seR.subset),
+                samples=colData(seR.subset))
+dgeB &lt;- DGEList(counts=assay(seB.subset), genes=rowData(seB.subset),
+                samples=colData(seB.subset))</code></pre>
 <p>Filter lowly expressed genes using the function <code>filterByExpr()</code> and the
 <code>Tumor</code> phenotype column as grouping factor. We need to filter both,
 the <code>SummarizedExperiment</code> and <code>DGEList</code> types of objects, to keep them
@@ -493,13 +475,13 @@ dim(dgeR.filt)
 
 mask &lt;- filterByExpr(dgeB, group=seB.subset$Tumor)
 sum(mask)
-[1] 16447
+[1] 15613
 seB.filt &lt;- seB.subset[mask, ]
 dim(seB.filt)
-[1] 16447    26
+[1] 15613    25
 dgeB.filt &lt;- dgeB[mask, , keep.lib.sizes=FALSE]
 dim(dgeB.filt)
-[1] 16447    26</code></pre>
+[1] 15613    25</code></pre>
 <p>Calculate normalization factors on the filtered data.</p>
 <pre class="r"><code>dgeR.filt &lt;- calcNormFactors(dgeR.filt)
 assays(seR.filt, withDimnames=FALSE)$logCPM &lt;- cpm(dgeR.filt, log=TRUE)
@@ -520,6 +502,66 @@ the diagnosis of cancer in each of the two datasets.</p>
 Figure 1: <span class="caption-title">Sample dissimilarity labeled by the diagnosis of cancer</span><br>Multidimensional scaling (MDS) plot of sample dissimilarity for the training (a) and testing (b) data from the study by <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>, and for the data from the study by <span class="citation">Block et al. (<a href="#ref-Block2022">2022</a>)</span>.
 </p>
 </div>
+</div>
+<div id="data-imputation" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> Data imputation</h1>
+<div id="testing-dataset" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Testing dataset</h2>
+<div id="variable-age" class="section level3" number="3.1.1">
+<h3><span class="header-section-number">3.1.1</span> Variable ‘Age’</h3>
+<p>Impute missing age values by mean.</p>
+<pre class="r"><code>mean.ageB &lt;- mean(seB.filt.testing$Age, na.rm = TRUE)
+mask &lt;- is.na(seB.filt.testing$Age)
+seB.filt.testing$Age[mask] &lt;- round(mean.ageB,3)</code></pre>
+</div>
+<div id="variable-sex" class="section level3" number="3.1.2">
+<h3><span class="header-section-number">3.1.2</span> Variable ‘Sex’</h3>
+<p>The estimation of missing data for <code>Sex</code> covariate uses a KNN imputer (k = 5) based on the counts for MSY genes (genes from the male-specific region of the Y chromosome). Although no MSY genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the MSY genes.</p>
+<p>Note that from the 34 MSY genes, only 33 are present in our datasets.</p>
+<div id="version-with-msy-genes-only" class="section level4" number="3.1.2.1">
+<h4><span class="header-section-number">3.1.2.1</span> Version with MSY genes only</h4>
+<pre class="r"><code># Also include text for XIE genes.
+MSY.genes &lt;- readRDS(&quot;MSYgenes.rds&quot;)
+XIE.genes &lt;- readRDS(&quot;XIEgenes.rds&quot;)
+length(MSY.genes)
+[1] 34
+length(XIE.genes)
+[1] 66
+mask &lt;- rownames(seB.filt.testing) %in% MSY.genes
+sum(mask)
+[1] 8
+
+counts.MSY &lt;- seB.filt.testing[mask,]
+seB.filt.testing$Sex &lt;- as.factor(seB.filt.testing$Sex)
+assay.counts.MSY &lt;- assay(counts.MSY)
+dataframe.counts.MSY &lt;- as.data.frame(t(assay.counts.MSY))
+
+dataframe.counts.MSY$Sex &lt;- seB.filt.testing$Sex
+
+data.imputed.MSY &lt;- kNN(dataframe.counts.MSY, k=3, variable=&quot;Sex&quot;)
+seB.filt.testing$Sex &lt;- data.imputed.MSY$Sex</code></pre>
+<pre class="r"><code>data.imputed.MSY$Sum &lt;- rowSums(data.imputed.MSY[,1:8])</code></pre>
+</div>
+<div id="version-with-xie-genes-only" class="section level4" number="3.1.2.2">
+<h4><span class="header-section-number">3.1.2.2</span> Version with XIE genes only</h4>
+<pre class="r"><code># Also include text for XIE genes.
+#MSY.genes &lt;- readRDS(&quot;MSYgenes.rds&quot;)
+#XIE.genes &lt;- readRDS(&quot;XIEgenes.rds&quot;)
+#length(MSY.genes)
+#length(XIE.genes)
+#mask &lt;- rownames(seB.filt.testing) %in% XIE.genes
+#sum(mask)
+
+#counts.XIE &lt;- seB.filt.testing[mask,]
+#seB.filt.testing$Sex &lt;- as.factor(seB.filt.testing$Sex)
+#assay.counts.XIE &lt;- assay(counts.XIE)
+#dataframe.counts.XIE &lt;- as.data.frame(t(assay.counts.XIE))
+
+#dataframe.counts.XIE$Sex &lt;- seB.filt.testing$Sex
+
+#data.imputed.XIE &lt;- kNN(dataframe.counts.XIE, k=3, variable=&quot;Sex&quot;)
+#seB.filt.testing$Sex &lt;- data.imputed.XIE$Sex</code></pre>
+<pre class="r"><code>#dataframe.counts.XIE$Sum &lt;- rowSums(dataframe.counts.XIE[,1:39])</code></pre>
 <p>Save <code>DGEList</code> and <code>SummarizedExperiment</code> objects including filtered data,
 normalization factors and normalized log CPM units of expression.</p>
 <pre class="r"><code>saveRDS(dgeR.filt, file=file.path(&quot;_processed_data&quot;, &quot;dgeR.filt.rds&quot;))
@@ -536,6 +578,9 @@ saveRDS(dgeB.filt.testing,
         file=file.path(&quot;_processed_data&quot;, &quot;dgeB.filt.testing.rds&quot;))
 saveRDS(seB.filt.testing,
         file=file.path(&quot;_processed_data&quot;, &quot;seB.filt.testing.rds&quot;))</code></pre>
+</div>
+</div>
+</div>
 </div>
 <div id="dispersion-estimates-and-hypervariable-genes" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Dispersion estimates and hypervariable genes</h1>
@@ -910,32 +955,32 @@ dgeB.filt.testing.interceptonly &lt;- estimateDisp(dgeB.filt.testing, design=mod
                                                 robust=TRUE)
 summary(dgeB.filt.testing.interceptonly$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  8.559   8.559   8.559   8.650   8.789   8.880 
+  11.80   11.80   11.80   11.99   12.31   12.47 
 mod &lt;- model.matrix(~ Tumor, colData(seB.filt.testing))
 dgeB.filt.testing.PE &lt;- estimateDisp(dgeB.filt.testing, design=mod,
                                      robust=TRUE)
 summary(dgeB.filt.testing.PE$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  9.215   9.215   9.215   9.309   9.453   9.543 
+  13.67   13.67   13.67   13.89   14.30   14.41 
 mod &lt;- model.matrix(~ Tumor + Sex, colData(seB.filt.testing))
 dgeB.filt.testing.PEGA &lt;- estimateDisp(dgeB.filt.testing, design=mod,
                                        robust=TRUE)
 summary(dgeB.filt.testing.PEGA$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  9.159   9.159   9.159   9.255   9.400   9.484 
+  14.38   14.38   14.38   14.63   15.13   15.18 
 mod0 &lt;- model.matrix(~ Sex, colData(seB.filt.testing))
 IQRs &lt;- apply(assays(seB.filt.testing)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seB.filt.testing)$logCPM[mask, ],
           mod=mod, mod0=mod0)
-Number of significant surrogate variables is:  3 
+Number of significant surrogate variables is:  2 
 Iteration (out of 5 ):1  2  3  4  5  
 mod &lt;- cbind(mod, sv$sv)
 dgeB.filt.testing.PEGASVs &lt;- estimateDisp(dgeB.filt.testing,
                                           design=mod, robust=TRUE)
 summary(dgeB.filt.testing.PEGASVs$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  1.836  18.471  18.471  17.936  18.471  18.471 </code></pre>
+  4.579  31.138  31.138  30.376  31.138  31.138 </code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:Mtestingavglogcpmxvbcv"></span>
 <img src="03_qa_cn_files/figure-html/Mtestingavglogcpmxvbcv-1.png" alt="Biological coefficient of variation (BCV). BCV values as function of the average gene expression in log-CPM units." width="100%"  class="widefigure" />
 <p class="caption">
@@ -965,108 +1010,52 @@ Description
 <tbody>
 <tr>
 <td style="text-align:right;">
-1.835719
+4.579091
 </td>
 <td style="text-align:right;">
-1.743625
+1.615303
 </td>
 <td style="text-align:left;">
-RNU1-4
+PRG4
 </td>
 <td style="text-align:left;">
-RNA, U1 small nuclear 4
+proteoglycan 4
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+4.579091
 </td>
 <td style="text-align:right;">
-1.177137
+1.143039
 </td>
 <td style="text-align:left;">
-RNU1-3
+ALB
 </td>
 <td style="text-align:left;">
-RNA, U1 small nuclear 3
+albumin
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+4.579091
 </td>
 <td style="text-align:right;">
-1.366714
+1.203413
 </td>
 <td style="text-align:left;">
-RNVU1-18
+PPBP
 </td>
 <td style="text-align:left;">
-RNA, variant U1 small nuclear 18
+pro-platelet basic protein
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+4.579091
 </td>
 <td style="text-align:right;">
-1.193963
-</td>
-<td style="text-align:left;">
-RN7SKP203
-</td>
-<td style="text-align:left;">
-RN7SK pseudogene 203
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-1.835719
-</td>
-<td style="text-align:right;">
-1.202255
-</td>
-<td style="text-align:left;">
-IGKC
-</td>
-<td style="text-align:left;">
-immunoglobulin kappa constant
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-1.835719
-</td>
-<td style="text-align:right;">
-1.184031
-</td>
-<td style="text-align:left;">
-AFP
-</td>
-<td style="text-align:left;">
-alpha fetoprotein
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-1.835719
-</td>
-<td style="text-align:right;">
-1.126490
-</td>
-<td style="text-align:left;">
-LCN2
-</td>
-<td style="text-align:left;">
-lipocalin 2
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-1.835719
-</td>
-<td style="text-align:right;">
-1.426448
+1.286772
 </td>
 <td style="text-align:left;">
 MUC5B
@@ -1077,170 +1066,226 @@ mucin 5B, oligomeric mucus/gel-forming
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+4.777921
 </td>
 <td style="text-align:right;">
-1.087557
+1.285881
 </td>
 <td style="text-align:left;">
-RN7SKP71
+SNORD17
 </td>
 <td style="text-align:left;">
-RN7SK pseudogene 71
+small nucleolar RNA, C/D box 17
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.167056
+1.128590
 </td>
 <td style="text-align:left;">
-RNU4-2
+CFH
 </td>
 <td style="text-align:left;">
-RNA, U4 small nuclear 2
+complement factor H
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.364120
+1.341406
 </td>
 <td style="text-align:left;">
-RN7SKP255
+CRP
 </td>
 <td style="text-align:left;">
-RN7SK pseudogene 255
+C-reactive protein
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.122366
+1.171850
 </td>
 <td style="text-align:left;">
-RNU5A-1
+F5
 </td>
 <td style="text-align:left;">
-RNA, U5A small nuclear 1
+coagulation factor V
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.148268
+1.347031
 </td>
 <td style="text-align:left;">
-RNU5B-1
+CPS1
 </td>
 <td style="text-align:left;">
-RNA, U5B small nuclear 1
+carbamoyl-phosphate synthase 1
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.366013
+1.054619
 </td>
 <td style="text-align:left;">
-HBA1
+APOB
 </td>
 <td style="text-align:left;">
-hemoglobin subunit alpha 1
+apolipoprotein B
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.167847
+1.313924
 </td>
 <td style="text-align:left;">
-SNORD3B-1
+CP
 </td>
 <td style="text-align:left;">
-small nucleolar RNA, C/D box 3B-1
+ceruloplasmin
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.292112
+1.350498
 </td>
 <td style="text-align:left;">
-MYH4
+CLDN1
 </td>
 <td style="text-align:left;">
-myosin heavy chain 4
+claudin 1
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.073720
+1.212169
 </td>
 <td style="text-align:left;">
-SLC4A1
+PF4V1
 </td>
 <td style="text-align:left;">
-solute carrier family 4 member 1 (Diego blood group)
+platelet factor 4 variant 1
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.835719
+5.895835
 </td>
 <td style="text-align:right;">
-1.394278
+1.154580
 </td>
 <td style="text-align:left;">
-ALAS2
+FGB
 </td>
 <td style="text-align:left;">
-5’-aminolevulinate synthase 2
+fibrinogen beta chain
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.904091
+5.895835
 </td>
 <td style="text-align:right;">
-1.038351
+1.184251
 </td>
 <td style="text-align:left;">
-SNORD3A
+TMEM271
 </td>
 <td style="text-align:left;">
-small nucleolar RNA, C/D box 3A
+transmembrane protein 271
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-1.943778
+5.895835
 </td>
 <td style="text-align:right;">
-1.085167
+1.245340
 </td>
 <td style="text-align:left;">
-RNU4-1
+HMX1
 </td>
 <td style="text-align:left;">
-RNA, U4 small nuclear 1
+H6 family homeobox 1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.895835
+</td>
+<td style="text-align:right;">
+1.232104
+</td>
+<td style="text-align:left;">
+FGG
+</td>
+<td style="text-align:left;">
+fibrinogen gamma chain
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.895835
+</td>
+<td style="text-align:right;">
+1.295402
+</td>
+<td style="text-align:left;">
+TAF11L4
+</td>
+<td style="text-align:left;">
+TATA-box binding protein associated factor 11 like 4
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.895835
+</td>
+<td style="text-align:right;">
+1.276243
+</td>
+<td style="text-align:left;">
+ORM1
+</td>
+<td style="text-align:left;">
+orosomucoid 1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.895835
+</td>
+<td style="text-align:right;">
+1.243108
+</td>
+<td style="text-align:left;">
+ITIH2
+</td>
+<td style="text-align:left;">
+inter-alpha-trypsin inhibitor heavy chain 2
 </td>
 </tr>
 </tbody>

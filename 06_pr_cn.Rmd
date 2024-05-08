@@ -67,9 +67,18 @@ DEgenes.trainingR <- readRDS(file.path("_processed_data",
 
 Create a subset with the differential expressed genes from the training dataset from @Roskams2022.
 
+
+Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
+
 ```{r}
-dgeR.DEgenes <- dgeR.filt.training$counts[DEgenes.trainingR,]
+set.seed(111)
+mask.lowly.testing <- rownames(dgeB.filt.testing$counts)
+intersection.genes <- intersect(mask.lowly.testing,DEgenes.trainingR)
+dgeR.DEgenes <- dgeR.filt.training$counts[intersection.genes,]
+dgeR.filt.training$counts <- dgeR.filt.training$counts[intersection.genes,]
+dgeB.filt.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
 ```
+
 
 # Performance metrics 
 
@@ -176,7 +185,7 @@ fit.lassocv
 plot(fit.lassocv)
 ```
 
-The model selects 25 genes. 
+The model selects 26 genes. 
 
 ```{r}
 b.lassocv = as.vector(coef(fit.lassocv, s='lambda.min'))
@@ -189,7 +198,8 @@ non.zero.coefs <- rownames(coef.matrix)[coef.matrix[,1]!= 0 & rownames(coef.matr
 ```
 
 ```{r}
-#colnames(t(dgeR.DEgenes)[,b.lassocv!=0])
+mask <- rownames(assay(seR.filt.training)) %in% non.zero.coefs
+selected.genes <- rowData(seR.filt.training)$Symbol[mask]
 ```
 
 ## Model performance
@@ -222,22 +232,6 @@ FPR(cv.pred.lasso.cv$pred,tumor.training)
 
 ### Out-sample AUC using testing dataset from Block et al. (2022)
 
-QUESTION TO ROBERT: Out of the 25 genes selected by LASSO-CV, only 17 appear in the testing dataset (the rest have been excluded in the preprocessing when filtering lowly expressed genes). In order to compute out-sample AUC we need to have the same number of genes. The question is: should we create an object that includes as features the differential expressed genes from the training dataset and assign the corresponding counts from the testing dataset to those genes that are present in the testing dataset and 0 otherwise? (Below we have proceed using this approach) Or should we work with the original data without filtering the lowly expressed genes and normalizing again using all the genes?
-
-```{r}
-mask <- non.zero.coefs %in% rownames(dgeB.filt.testing$counts)
-sum(mask)
-```
-
-Create a matix where all the entries are 0 except for those differential expressed genes from the training dataset that are not disregarded as lowly expressed in the testing dataset (and therefore we assign its corresponding count).
-```{r}
-mask <- DEgenes.trainingR %in% rownames(dgeB.filt.testing$counts)
-
-subset.testing <- matrix(0, nrow = length(DEgenes.trainingR), ncol = ncol(dgeB.filt.testing$counts))
-
-subset.testing[mask, ] <- dgeB.filt.testing$counts[DEgenes.trainingR[mask], ]
-```
-
 Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).
 
 ```{r}
@@ -247,7 +241,7 @@ tumor.testing <- as.numeric(dgeB.filt.testing$samples$Tumor)-1
 Predict the categories using the previously trained model and compute the out-sample AUC, FNR and FPR.
 
 ```{r}
-lassocv.pred2<- predict(fit.lassocv, newx=t(subset.testing),
+lassocv.pred2<- predict(fit.lassocv, newx=t(dgeB.filt.testing$counts),
                        s = fit.lassocv$lambda.min)
 (auc.lassocv.test2 <- pROC::auc(tumor.testing,lassocv.pred2[,1]))
 ```
@@ -263,7 +257,6 @@ FPR(lassocv.pred2,tumor.testing)
 # Random Forest
 
 ```{r, echo = FALSE}
-# Loading package 
 library(caTools) 
 library(randomForest) 
 ```
@@ -287,7 +280,6 @@ model <- randomForest(x = standardized.training, y = as.factor(tumor.training.fo
 # Summary of the model
 print(model)
 ```
-
 
 Calculates how much the model accuracy decreases without a certain predictor (feature)
 
@@ -350,13 +342,9 @@ Compute AUC, FNR and FPR.
 
 ```{r}
 cv.pred.RandomForest <- kfoldCV.randomforest.logistic(y=tumor.training,
-                                x=data.frame(t(dgeR.DEgenes)), K=10,seed=1)
+                                x=standardized.training, K=10,seed=1)
 
 (auc.randomForest.cv <- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
-```
-
-```{r}
-#cv.pred.RandomForest$pred -1
 ```
 
 ```{r}
@@ -372,9 +360,7 @@ FPR(cv.pred.RandomForest$pred -1,tumor.training)
 Standardize the subset that includes those counts of the differential expressed genes from the training and 0 otherwise.
 
 ```{r}
-standardized.testing <- scale(t(subset.testing), scale = TRUE, center = TRUE)
-mask <- which(is.na(standardized.testing))
-standardized.testing[mask] <- 0
+standardized.testing <- scale(t(dgeB.filt.testing$counts), scale = TRUE, center = TRUE)
 ```
 
 ```{r}
@@ -387,7 +373,7 @@ auc <- pROC::auc(roc_obj)
 print(paste("AUC:", auc))
 
 # Compute False Negative Rate (FNR)
-threshold <- 0.5  # Threshold for class prediction
+threshold <- 0.5
 predictions2 <- ifelse(predicted_probs2 > threshold, 1, 0)
 conf_matrix <- table(Actual = tumor.testing, Predicted = predictions2)
 fnr <- conf_matrix[2, 1] / sum(conf_matrix[2, ])

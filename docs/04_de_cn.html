@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-05" />
+<meta name="date" content="2024-05-08" />
 
 <title>Differential expression analysis of cancer data</title>
 
@@ -390,7 +390,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 5, 2024</h4>
+<h4 class="date">May 8, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of cancer data.</p>
 
@@ -447,10 +447,10 @@ examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
 <pre class="r"><code>fit.training &lt;- eBayes(fit.training, robust=TRUE)
 res.training &lt;- decideTests(fit.training, p.value=0.05)
 summary(res.training)
-       (Intercept) Tumoryes  Age Sexmale               
-Down             0      263    0       0 4022 1231    5
-NotSig          35     8022 8387    8387 1524 5879 8381
-Up            8352      102    0       0 2841 1277    1</code></pre>
+       (Intercept) Tumoryes Sexmale               
+Down             0      435       0 4079   11 1011
+NotSig          33     7775    8380 1405 8367 6260
+Up            8354      177       7 2903    9 1116</code></pre>
 <p>Fetch summary DE statistics for all genes.</p>
 <pre class="r"><code>tt.training &lt;- topTable(fit.training, coef=&quot;Tumoryes&quot;, n=Inf,
                         sort.by=&quot;p&quot;)</code></pre>
@@ -465,7 +465,7 @@ Figure 2: <span class="caption-title">P-value distribution for the null hypothes
 <pre class="r"><code>mask &lt;- tt.training$adj.P.Val &lt; 0.05
 DEgenes.training &lt;- rownames(tt.training)[mask]
 length(DEgenes.training)
-[1] 365</code></pre>
+[1] 612</code></pre>
 <p>Display volcano and MA plots in Figure <a href="#fig:maplottraining">3</a>.</p>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplottraining"></span>
 <img src="04_de_cn_files/figure-html/maplottraining-1.png" alt="MA-plot training data from Roskams et al. (2022)." width="100%"  class="widefigure" />
@@ -473,8 +473,6 @@ length(DEgenes.training)
 Figure 3: <span class="caption-title">MA-plot training data from Roskams et al. (2022)</span><br>
 </p>
 </div>
-<p>saveRDS(dgeR.filt, file=file.path(“_processed_data”, “dgeR.filt.rds”))
-saveRDS(seR.filt, file=file.path(“_processed_data”, “seR.filt.rds”))</p>
 <pre class="r"><code>saveRDS(DEgenes.training, file=file.path(&quot;_processed_data&quot;, &quot;DEgenes.trainingR.rds&quot;))</code></pre>
 </div>
 <div id="block-et-al.-2022-data" class="section level1" number="3">
@@ -489,13 +487,13 @@ IQRs &lt;- apply(assays(seB.filt.testing)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seB.filt.testing)$logCPM[mask, ],
           mod=mod, mod0=mod0)
-Number of significant surrogate variables is:  3 
+Number of significant surrogate variables is:  2 
 Iteration (out of 5 ):1  2  3  4  5  
 mod &lt;- cbind(mod, sv$sv)</code></pre>
 <p>Fit linear models using voom <span class="citation">(<a href="#ref-law2014voom">Law et al. 2014</a>)</span> with sample weights. Figure
 <a href="#fig:voomMtraining">1</a> shows the mean-variance trend of the data.</p>
-<pre><code>First sample weights (min/max) 0.1399439/2.8683274
-Final sample weights (min/max) 0.1310793/2.9509350</code></pre>
+<pre><code>First sample weights (min/max) 0.06823913/4.64097641
+Final sample weights (min/max) 0.08739956/5.16096613</code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomMtesting"></span>
 <img src="04_de_cn_files/figure-html/voomMtesting-1.png" alt="Mean-variance trend in the testing data from Block et al. (2022)." width="100%"  class="widefigure" />
 <p class="caption">
@@ -507,10 +505,10 @@ examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
 <pre class="r"><code>fit.testing &lt;- eBayes(fit.testing, robust=TRUE)
 res.testing &lt;- decideTests(fit.testing, p.value=0.05)
 summary(res.testing)
-       (Intercept) Tumoryes Sexmale                  
-Down             0        0       0  7334   587   680
-NotSig           6    16447   16447  5446 12355 14459
-Up           16441        0       0  3667  3505  1308</code></pre>
+       (Intercept) Tumoryes Sexmale            
+Down             0        5       0  3631  6694
+NotSig          16    15604   15612  6038  6946
+Up           15597        4       1  5944  1973</code></pre>
 <p>Fetch summary DE statistics for all genes.</p>
 <pre class="r"><code>tt.testing &lt;- topTable(fit.testing, coef=&quot;Tumoryes&quot;, n=Inf,
                        sort.by=&quot;p&quot;)</code></pre>
@@ -525,16 +523,8 @@ Figure 5: <span class="caption-title">P-value distribution for the null hypothes
 <pre class="r"><code>mask &lt;- tt.testing$adj.P.Val &lt; 0.05
 DEgenes.testing &lt;- rownames(tt.testing)[mask]
 length(DEgenes.testing)
-[1] 0</code></pre>
+[1] 9</code></pre>
 <p>Display MA-plot in Figure <a href="#fig:maplottesting">6</a>.</p>
-<pre><code>Warning in max(tt$P.Value[tt$adj.P.Val &lt;= FDRcutoff]): no non-missing arguments
-to max; returning -Inf
-Warning in int_abline(a = a, b = b, h = h, v = v, untf = untf, ...): NaNs
-produced
-Warning in max(tt$P.Value[tt$adj.P.Val &lt;= FDRcutoff]): no non-missing arguments
-to max; returning -Inf
-Warning in text.default(max(tt$logFC) * 0.95,
--log10(max(tt$P.Value[tt$adj.P.Val &lt;= : NaNs produced</code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplottesting"></span>
 <img src="04_de_cn_files/figure-html/maplottesting-1.png" alt="MA-plot testing data from Block et al. (2022)." width="100%"  class="widefigure" />
 <p class="caption">
@@ -544,6 +534,16 @@ Figure 6: <span class="caption-title">MA-plot testing data from Block et al. (2
 </div>
 <div id="comparison-of-de-genes-across-datasets" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> Comparison of DE genes across datasets</h1>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:decomparison"></span>
+<img src="04_de_cn_files/figure-html/decomparison-1.png" alt="Comparison DE analyis across datasets." width="100%"  class="widefigure" />
+<p class="caption">
+Figure 7: <span class="caption-title">Comparison DE analyis across datasets</span><br>
+</p>
+</div>
+<pre class="r"><code>mask &lt;- rownames(assay(seR.filt.training)) %in% commonDEgenes
+commonDEgenes.name &lt;- rowData(seR.filt.training)$Symbol[mask]
+commonDEgenes.name
+[1] &quot;RN7SL674P&quot; &quot;RN7SL752P&quot;</code></pre>
 </div>
 <div id="session-information" class="section level1" number="5">
 <h1><span class="header-section-number">5</span> Session information</h1>

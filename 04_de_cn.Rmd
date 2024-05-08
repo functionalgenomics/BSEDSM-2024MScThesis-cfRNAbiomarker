@@ -135,9 +135,6 @@ plotvolcano(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
 plotma(tt.training, highlight=DEgenes.training, FDRcutoff=0.05)
 ```
 
-saveRDS(dgeR.filt, file=file.path("_processed_data", "dgeR.filt.rds"))
-saveRDS(seR.filt, file=file.path("_processed_data", "seR.filt.rds"))
-
 ```{r}
 saveRDS(DEgenes.training, file=file.path("_processed_data", "DEgenes.trainingR.rds"))
 ```
@@ -213,7 +210,7 @@ plotma(tt.testing, highlight=DEgenes.testing, FDRcutoff=0.05)
 
 # Comparison of DE genes across datasets
 
-```{r decomparison, echo=FALSE, warning=FALSE, fig.height=6, fig.width=10, dpi=100, fig.cap="Comparison DE analyis across datasets.", eval=FALSE}
+```{r decomparison, echo=FALSE, warning=FALSE, fig.height=6, fig.width=10, dpi=100, fig.cap="Comparison DE analyis across datasets."}
 par(mfrow=c(1, 1), mar=c(5, 5, 5, 5))
 traininglfc <- tt.training$logFC
 names(traininglfc) <- rownames(tt.training)
@@ -237,18 +234,26 @@ commonDEgenes <- intersect(DEgenes.training, DEgenes.testing)
 points(traininglfc[commonDEgenes], testinglfc[commonDEgenes], pch=19,
        col="darkred")
 fit <- lm(testinglfc[commonDEgenes] ~ traininglfc[commonDEgenes])
-abline(fit, lwd=2, col="darkred")
+#abline(fit, lwd=2, col="darkred")
 r2 <- sprintf("%.2f", summary(fit)$r.squared)
-rhotest <- cor.test(traininglfc[commonDEgenes], testinglfc[commonDEgenes])
-rho <- sprintf("%.2f", rhotest$estimate)
+#rhotest <- cor.test(traininglfc[commonDEgenes], testinglfc[commonDEgenes])
+#rho <- sprintf("%.2f", rhotest$estimate)
 pv <- ifelse(summary(fit)$coefficients[2, 4] < 0.001, "0.001",
                           sprintf("%.3f", summary(fit)$coefficients[2, 4]))
 rp <- vector('expression', 3)
-rp[1] <- substitute(expression(italic(r) == RHO), list(RHO=rho))[2]
-rp[2] <- substitute(expression(italic(R)^2 == RSQUARED), list(RSQUARED=r2))[2]
-rp[3] <- substitute(expression(italic(P) < PVALUE), list(PVALUE=pv))[2]
+#rp[1] <- substitute(expression(italic(r) == RHO), list(RHO=rho))[2]
+#rp[2] <- substitute(expression(italic(R)^2 == RSQUARED), list(RSQUARED=r2))[2]
+#rp[3] <- substitute(expression(italic(P) < PVALUE), list(PVALUE=pv))[2]
 legend("topleft", legend=rp, bty="n", text.col="darkred", cex=0.8)
 ```
+
+
+```{r}
+mask <- rownames(assay(seR.filt.training)) %in% commonDEgenes
+commonDEgenes.name <- rowData(seR.filt.training)$Symbol[mask]
+commonDEgenes.name
+```
+
 
 # Session information
 

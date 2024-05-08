@@ -56,42 +56,6 @@ seB <- readRDS(file.path("_raw_data", "se.Block22.GENCODEv44.hg38.rds"))
 dim(seB)
 ```
 
-# Data imputation
-
-## Testing dataset
-
-### Variable 'Age'
-
-Impute missing age values by mean.
-
-```{r}
-mean.ageB <- mean(seB$Age, na.rm = TRUE)
-is.na.ageB <- which(is.na(seB$Age) == TRUE)
-seB$Age[is.na.ageB] <- mean.ageB
-```
-
-### Variable 'Sex'
-
-The estimation of missing data for `Sex` covariate uses a KNN imputer (k = 5) based on the counts for MSY genes (genes from the male-specific region of the Y chromosome). Although no MSY genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the MSY genes.
-
-Note that from the 34 MSY genes, only 33 are present in our datasets.
-
-```{r}
-MSY_genes <- readRDS("MSYgenes.rds")
-length(MSY_genes)
-mask <- rownames(seB) %in% MSY_genes
-sum(mask)
-
-counts.MSY <- seB[mask,]
-seB$Sex <- as.factor(seB$Sex)
-assay.counts.MSY <- assay(counts.MSY)
-dataframe.counts.MSY <- as.data.frame(t(assay.counts.MSY))
-
-dataframe.counts.MSY$Sex <- seB$Sex
-
-data.imputed <- kNN(dataframe.counts.MSY, k=5, variable="Sex")
-seB$Sex <- data.imputed$Sex
-```
 
 # Filtering of lowly-expressed genes and normalization
 
@@ -112,8 +76,6 @@ colData(seR.subset)$Tumor <- factor(seR.subset$Disease == 'HCC', labels = c('no'
 ```{r}
 table(seB$SampleType)
 table(seB$SampleType, seB$Tissue)
-## ROBERT 07.05.24 SELECCIONEM MOSTRES DE PLASMA DE PACIENTS AMB HCC I D'INDIVIDUS CONTROLS
-## mask <- (colData(seB)$SampleType == 'HCC' & colData(seB)$Microvesicle == 'no') | colData(seB)$SampleType == 'NHC'
 mask <- (seB$SampleType == "HCC" &
          (seB$Tissue %in% c("plasma", "plasma_vesicles"))) |
         seB$SampleType == "NHC"
@@ -197,6 +159,80 @@ legend("topleft", c("Control", "Cancer"), fill=tumorcolors,
        inset=0.01)
 labelPanel("b")
 ```
+
+# Data imputation
+
+## Testing dataset
+
+### Variable 'Age'
+
+Impute missing age values by mean.
+
+```{r}
+mean.ageB <- mean(seB.filt.testing$Age, na.rm = TRUE)
+mask <- is.na(seB.filt.testing$Age)
+seB.filt.testing$Age[mask] <- round(mean.ageB,3)
+```
+
+### Variable 'Sex'
+
+The estimation of missing data for `Sex` covariate uses a KNN imputer (k = 5) based on the counts for MSY genes (genes from the male-specific region of the Y chromosome). Although no MSY genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the MSY genes.
+
+Note that from the 34 MSY genes, only 33 are present in our datasets.
+
+
+#### Version with MSY genes only
+
+```{r}
+# Also include text for XIE genes.
+MSY.genes <- readRDS("MSYgenes.rds")
+XIE.genes <- readRDS("XIEgenes.rds")
+length(MSY.genes)
+length(XIE.genes)
+mask <- rownames(seB.filt.testing) %in% MSY.genes
+sum(mask)
+
+counts.MSY <- seB.filt.testing[mask,]
+seB.filt.testing$Sex <- as.factor(seB.filt.testing$Sex)
+assay.counts.MSY <- assay(counts.MSY)
+dataframe.counts.MSY <- as.data.frame(t(assay.counts.MSY))
+
+dataframe.counts.MSY$Sex <- seB.filt.testing$Sex
+
+data.imputed.MSY <- kNN(dataframe.counts.MSY, k=3, variable="Sex")
+seB.filt.testing$Sex <- data.imputed.MSY$Sex
+```
+
+```{r}
+data.imputed.MSY$Sum <- rowSums(data.imputed.MSY[,1:8])
+```
+
+#### Version with XIE genes only
+
+```{r}
+# Also include text for XIE genes.
+#MSY.genes <- readRDS("MSYgenes.rds")
+#XIE.genes <- readRDS("XIEgenes.rds")
+#length(MSY.genes)
+#length(XIE.genes)
+#mask <- rownames(seB.filt.testing) %in% XIE.genes
+#sum(mask)
+
+#counts.XIE <- seB.filt.testing[mask,]
+#seB.filt.testing$Sex <- as.factor(seB.filt.testing$Sex)
+#assay.counts.XIE <- assay(counts.XIE)
+#dataframe.counts.XIE <- as.data.frame(t(assay.counts.XIE))
+
+#dataframe.counts.XIE$Sex <- seB.filt.testing$Sex
+
+#data.imputed.XIE <- kNN(dataframe.counts.XIE, k=3, variable="Sex")
+#seB.filt.testing$Sex <- data.imputed.XIE$Sex
+```
+
+```{r}
+#dataframe.counts.XIE$Sum <- rowSums(dataframe.counts.XIE[,1:39])
+```
+
 
 Save `DGEList` and `SummarizedExperiment` objects including filtered data,
 normalization factors and normalized log CPM units of expression.
