@@ -48,10 +48,7 @@ We start by importing the previously filtered, normalized RNA-seq data and the d
 library(SummarizedExperiment)
 library(edgeR)
 
-dgeR.filt <- readRDS(file.path("_processed_data", "dgeR.filt.rds"))
-seR.filt <- readRDS(file.path("_processed_data", "seR.filt.rds"))
-dgeB.filt <- readRDS(file.path("_processed_data", "dgeB.filt.rds"))
-seB.filt <- readRDS(file.path("_processed_data", "seB.filt.rds"))
+
 
 dgeR.filt.training <- readRDS(file.path("_processed_data",
                                         "dgeR.filt.training.rds"))
@@ -65,20 +62,23 @@ DEgenes.trainingR <- readRDS(file.path("_processed_data",
                                       "DEgenes.trainingR.rds"))
 ```
 
-Create a subset with the differential expressed genes from the training dataset from @Roskams2022.
-
-
 Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
 
 ```{r}
+#S'HA DE MIRAR BÉ AIXÒ!!
 set.seed(111)
 mask.lowly.testing <- rownames(dgeB.filt.testing$counts)
 intersection.genes <- intersect(mask.lowly.testing,DEgenes.trainingR)
 dgeR.DEgenes <- dgeR.filt.training$counts[intersection.genes,]
-dgeR.filt.training$counts <- dgeR.filt.training$counts[intersection.genes,]
-dgeB.filt.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
-```
 
+#dgeR.int.training <- dgeR.filt.training$counts[intersection.genes,]
+#mask <- rownames()
+#seR.int.training <- seR.filt.training[intersection.genes,]
+
+#dgeB.int.training <- dgeB.filt.training$counts[intersection.genes,]
+#dgeB.int.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
+#seB.int.training <- seB.filt.training[instersection.genes,]
+```
 
 # Performance metrics 
 

@@ -133,6 +133,7 @@ assays(seB.filt)$logCPM <- cpm(dgeB.filt, log=TRUE)
 
 Fo simplicity, change the name of the data from articles [@Roskams2022] and [@Block2022] to _training_ and _testing_, respectively.
 ```{r}
+# Si no treballem amb aquests noms millor que els treiguem, però si els treiem hem de modificar els objectes guardats en aquest html i els carregats en el següent.
 seR.filt.training <- seR.filt
 dgeR.filt.training <- dgeR.filt
 
@@ -160,6 +161,8 @@ legend("topleft", c("Control", "Cancer"), fill=tumorcolors,
 labelPanel("b")
 ```
 
+
+
 # Data imputation
 
 ## Testing dataset
@@ -176,63 +179,66 @@ seB.filt.testing$Age[mask] <- round(mean.ageB,3)
 
 ### Variable 'Sex'
 
-The estimation of missing data for `Sex` covariate uses a KNN imputer (k = 5) based on the counts for MSY genes (genes from the male-specific region of the Y chromosome). Although no MSY genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the MSY genes.
-
-Note that from the 34 MSY genes, only 33 are present in our datasets.
-
-
-#### Version with MSY genes only
+The estimation of missing data for `Sex` covariate uses a KNN imputer (k = 3) based on the relationship between the expression of the MSY genes (genes from the male-specific region of the Y chromosome) and XIE genes (genes that escape X-chromosome inactivation).
 
 ```{r}
-# Also include text for XIE genes.
-MSY.genes <- readRDS("MSYgenes.rds")
-XIE.genes <- readRDS("XIEgenes.rds")
-length(MSY.genes)
-length(XIE.genes)
-mask <- rownames(seB.filt.testing) %in% MSY.genes
-sum(mask)
+library(SummarizedExperiment)
+library(edgeR)
 
-counts.MSY <- seB.filt.testing[mask,]
-seB.filt.testing$Sex <- as.factor(seB.filt.testing$Sex)
-assay.counts.MSY <- assay(counts.MSY)
-dataframe.counts.MSY <- as.data.frame(t(assay.counts.MSY))
+## llegim cataleg de genes amb expressio especifica de sexe documentada
+MSY_genes <- readRDS("MSYgenes.rds")
+XIE_genes <- readRDS("XIEgenes.rds")
 
-dataframe.counts.MSY$Sex <- seB.filt.testing$Sex
+## filterem aquells que no surten a les nostres dades
+MSY_genes <- MSY_genes[MSY_genes %in% rownames(seB.filt.testing)]
+XIE_genes <- XIE_genes[XIE_genes %in% rownames(seB.filt.testing)]
 
-data.imputed.MSY <- kNN(dataframe.counts.MSY, k=3, variable="Sex")
-seB.filt.testing$Sex <- data.imputed.MSY$Sex
+## una possible aproximacio al problema seria calcular la mitjana
+## d'expressio a cada mostra separadament pels gens MSY i XIE
+msyexp <- colMeans(assays(seB.filt.testing)$logCPM[MSY_genes, ])
+xieexp <- colMeans(assays(seB.filt.testing)$logCPM[XIE_genes, ])
 ```
+
+```{r, echo = FALSE}
+## visualitzem per cada mostra la seva expressio en MSY vs XIE
+## posant M per mostres "male", F per "female" i O per "missing"
+rng <- range(c(msyexp, xieexp))
+plot(msyexp, xieexp, pch="", xlim=rng, ylim=rng, las=1)
+lab <- c("F", "M")[as.integer(factor(seB.filt.testing$Sex))]
+lab[is.na(lab)] <- "O"
+points(msyexp, xieexp, pch=lab)
+abline(0, 1)
+```
+
+From Robert: Since cancer can cause chromosomal rearrangements, it could be that the signal we expect to see in the samples analyzed is distorted, and it should also be taken into account that these molecules of extracellular RNA are found in plasma and so they can come from a heterogeneous set of tissues that can give rise to more variability.
+
+In any case, there are two clusters, one of "male" and the other "female" samples. In the "female" cluster there are two samples labeled as males that can be great candidates for having sex reported incorrectly, and it is quite clear what gender the "missing" could correspond to.
+
+Correct the labeled from the two potential incorrectly classified samples.
 
 ```{r}
-data.imputed.MSY$Sum <- rowSums(data.imputed.MSY[,1:8])
+mask <- colnames(seB.filt.testing) %in% names(sort(msyexp[seB.filt.testing$Sex == 'male'])[1:2])
+seB.filt.testing$Sex[mask] <- 'female'
 ```
 
-#### Version with XIE genes only
+Impute observations with missing value for sex.
 
 ```{r}
-# Also include text for XIE genes.
-#MSY.genes <- readRDS("MSYgenes.rds")
-#XIE.genes <- readRDS("XIEgenes.rds")
-#length(MSY.genes)
-#length(XIE.genes)
-#mask <- rownames(seB.filt.testing) %in% XIE.genes
-#sum(mask)
-
-#counts.XIE <- seB.filt.testing[mask,]
-#seB.filt.testing$Sex <- as.factor(seB.filt.testing$Sex)
-#assay.counts.XIE <- assay(counts.XIE)
-#dataframe.counts.XIE <- as.data.frame(t(assay.counts.XIE))
-
-#dataframe.counts.XIE$Sex <- seB.filt.testing$Sex
-
-#data.imputed.XIE <- kNN(dataframe.counts.XIE, k=3, variable="Sex")
-#seB.filt.testing$Sex <- data.imputed.XIE$Sex
+data.imputation <- as.data.frame(t(rbind(msyexp, xieexp)))
+data.imputation$Sex <- as.integer(factor(seB.filt.testing$Sex))
+data.imputation <- kNN(data.imputation, k=3, variable="Sex")
+seB.filt.testing$Sex <- data.imputation$Sex
+dgeB.filt.testing$Sex <- data.imputation$Sex
 ```
 
-```{r}
-#dataframe.counts.XIE$Sum <- rowSums(dataframe.counts.XIE[,1:39])
+```{r, echo = FALSE}
+rng <- range(c(msyexp, xieexp))
+plot(msyexp, xieexp, pch="", xlim=rng, ylim=rng, las=1)
+lab <- c("F", "M")[as.integer(factor(seB.filt.testing$Sex))] # no needed to convert into an integer factor because it already is after imputation
+lab[is.na(lab)] <- "O"
+points(msyexp, xieexp, pch=lab)
+abline(0, 1)
 ```
-
 
 Save `DGEList` and `SummarizedExperiment` objects including filtered data,
 normalization factors and normalized log CPM units of expression.

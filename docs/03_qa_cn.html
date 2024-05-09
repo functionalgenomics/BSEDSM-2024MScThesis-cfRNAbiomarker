@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-08" />
+<meta name="date" content="2024-05-09" />
 
 <title>Quality assessment of cancer data</title>
 
@@ -392,7 +392,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 8, 2024</h4>
+<h4 class="date">May 9, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.</p>
 
@@ -489,7 +489,8 @@ assays(seR.filt, withDimnames=FALSE)$logCPM &lt;- cpm(dgeR.filt, log=TRUE)
 dgeB.filt &lt;- calcNormFactors(dgeB.filt)
 assays(seB.filt)$logCPM &lt;- cpm(dgeB.filt, log=TRUE)</code></pre>
 <p>Fo simplicity, change the name of the data from articles <span class="citation">(<a href="#ref-Roskams2022">Roskams-Hieter et al. 2022</a>)</span> and <span class="citation">(<a href="#ref-Block2022">Block et al. 2022</a>)</span> to <em>training</em> and <em>testing</em>, respectively.</p>
-<pre class="r"><code>seR.filt.training &lt;- seR.filt
+<pre class="r"><code># Si no treballem amb aquests noms millor que els treiguem, però si els treiem hem de modificar els objectes guardats en aquest html i els carregats en el següent.
+seR.filt.training &lt;- seR.filt
 dgeR.filt.training &lt;- dgeR.filt
 
 seB.filt.testing &lt;- seB.filt
@@ -516,52 +517,35 @@ seB.filt.testing$Age[mask] &lt;- round(mean.ageB,3)</code></pre>
 </div>
 <div id="variable-sex" class="section level3" number="3.1.2">
 <h3><span class="header-section-number">3.1.2</span> Variable ‘Sex’</h3>
-<p>The estimation of missing data for <code>Sex</code> covariate uses a KNN imputer (k = 5) based on the counts for MSY genes (genes from the male-specific region of the Y chromosome). Although no MSY genes counts should be present in female samples, it does not hold for all samples in our dataset (maybe due to technical reasons). This led to disregarding the criteria of imputing based on the assignment of male gender to those individuals with count different than 0 for the MSY genes.</p>
-<p>Note that from the 34 MSY genes, only 33 are present in our datasets.</p>
-<div id="version-with-msy-genes-only" class="section level4" number="3.1.2.1">
-<h4><span class="header-section-number">3.1.2.1</span> Version with MSY genes only</h4>
-<pre class="r"><code># Also include text for XIE genes.
-MSY.genes &lt;- readRDS(&quot;MSYgenes.rds&quot;)
-XIE.genes &lt;- readRDS(&quot;XIEgenes.rds&quot;)
-length(MSY.genes)
-[1] 34
-length(XIE.genes)
-[1] 66
-mask &lt;- rownames(seB.filt.testing) %in% MSY.genes
-sum(mask)
-[1] 8
+<p>The estimation of missing data for <code>Sex</code> covariate uses a KNN imputer (k = 3) based on the relationship between the expression of the MSY genes (genes from the male-specific region of the Y chromosome) and XIE genes (genes that escape X-chromosome inactivation).</p>
+<pre class="r"><code>library(SummarizedExperiment)
+library(edgeR)
 
-counts.MSY &lt;- seB.filt.testing[mask,]
-seB.filt.testing$Sex &lt;- as.factor(seB.filt.testing$Sex)
-assay.counts.MSY &lt;- assay(counts.MSY)
-dataframe.counts.MSY &lt;- as.data.frame(t(assay.counts.MSY))
+## llegim cataleg de genes amb expressio especifica de sexe documentada
+MSY_genes &lt;- readRDS(&quot;MSYgenes.rds&quot;)
+XIE_genes &lt;- readRDS(&quot;XIEgenes.rds&quot;)
 
-dataframe.counts.MSY$Sex &lt;- seB.filt.testing$Sex
+## filterem aquells que no surten a les nostres dades
+MSY_genes &lt;- MSY_genes[MSY_genes %in% rownames(seB.filt.testing)]
+XIE_genes &lt;- XIE_genes[XIE_genes %in% rownames(seB.filt.testing)]
 
-data.imputed.MSY &lt;- kNN(dataframe.counts.MSY, k=3, variable=&quot;Sex&quot;)
-seB.filt.testing$Sex &lt;- data.imputed.MSY$Sex</code></pre>
-<pre class="r"><code>data.imputed.MSY$Sum &lt;- rowSums(data.imputed.MSY[,1:8])</code></pre>
-</div>
-<div id="version-with-xie-genes-only" class="section level4" number="3.1.2.2">
-<h4><span class="header-section-number">3.1.2.2</span> Version with XIE genes only</h4>
-<pre class="r"><code># Also include text for XIE genes.
-#MSY.genes &lt;- readRDS(&quot;MSYgenes.rds&quot;)
-#XIE.genes &lt;- readRDS(&quot;XIEgenes.rds&quot;)
-#length(MSY.genes)
-#length(XIE.genes)
-#mask &lt;- rownames(seB.filt.testing) %in% XIE.genes
-#sum(mask)
-
-#counts.XIE &lt;- seB.filt.testing[mask,]
-#seB.filt.testing$Sex &lt;- as.factor(seB.filt.testing$Sex)
-#assay.counts.XIE &lt;- assay(counts.XIE)
-#dataframe.counts.XIE &lt;- as.data.frame(t(assay.counts.XIE))
-
-#dataframe.counts.XIE$Sex &lt;- seB.filt.testing$Sex
-
-#data.imputed.XIE &lt;- kNN(dataframe.counts.XIE, k=3, variable=&quot;Sex&quot;)
-#seB.filt.testing$Sex &lt;- data.imputed.XIE$Sex</code></pre>
-<pre class="r"><code>#dataframe.counts.XIE$Sum &lt;- rowSums(dataframe.counts.XIE[,1:39])</code></pre>
+## una possible aproximacio al problema seria calcular la mitjana
+## d&#39;expressio a cada mostra separadament pels gens MSY i XIE
+msyexp &lt;- colMeans(assays(seB.filt.testing)$logCPM[MSY_genes, ])
+xieexp &lt;- colMeans(assays(seB.filt.testing)$logCPM[XIE_genes, ])</code></pre>
+<p><img src="03_qa_cn_files/figure-html/unnamed-chunk-10-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p>From Robert: Since cancer can cause chromosomal rearrangements, it could be that the signal we expect to see in the samples analyzed is distorted, and it should also be taken into account that these molecules of extracellular RNA are found in plasma and so they can come from a heterogeneous set of tissues that can give rise to more variability.</p>
+<p>In any case, there are two clusters, one of “male” and the other “female” samples. In the “female” cluster there are two samples labeled as males that can be great candidates for having sex reported incorrectly, and it is quite clear what gender the “missing” could correspond to.</p>
+<p>Correct the labeled from the two potential incorrectly classified samples.</p>
+<pre class="r"><code>mask &lt;- colnames(seB.filt.testing) %in% names(sort(msyexp[seB.filt.testing$Sex == &#39;male&#39;])[1:2])
+seB.filt.testing$Sex[mask] &lt;- &#39;female&#39;</code></pre>
+<p>Impute observations with missing value for sex.</p>
+<pre class="r"><code>data.imputation &lt;- as.data.frame(t(rbind(msyexp, xieexp)))
+data.imputation$Sex &lt;- as.integer(factor(seB.filt.testing$Sex))
+data.imputation &lt;- kNN(data.imputation, k=3, variable=&quot;Sex&quot;)
+seB.filt.testing$Sex &lt;- data.imputation$Sex
+dgeB.filt.testing$Sex &lt;- data.imputation$Sex</code></pre>
+<p><img src="03_qa_cn_files/figure-html/unnamed-chunk-13-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <p>Save <code>DGEList</code> and <code>SummarizedExperiment</code> objects including filtered data,
 normalization factors and normalized log CPM units of expression.</p>
 <pre class="r"><code>saveRDS(dgeR.filt, file=file.path(&quot;_processed_data&quot;, &quot;dgeR.filt.rds&quot;))
@@ -578,7 +562,6 @@ saveRDS(dgeB.filt.testing,
         file=file.path(&quot;_processed_data&quot;, &quot;dgeB.filt.testing.rds&quot;))
 saveRDS(seB.filt.testing,
         file=file.path(&quot;_processed_data&quot;, &quot;seB.filt.testing.rds&quot;))</code></pre>
-</div>
 </div>
 </div>
 </div>
@@ -967,7 +950,7 @@ dgeB.filt.testing.PEGA &lt;- estimateDisp(dgeB.filt.testing, design=mod,
                                        robust=TRUE)
 summary(dgeB.filt.testing.PEGA$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  14.38   14.38   14.38   14.63   15.13   15.18 
+  14.54   14.54   14.54   14.79   15.30   15.34 
 mod0 &lt;- model.matrix(~ Sex, colData(seB.filt.testing))
 IQRs &lt;- apply(assays(seB.filt.testing)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
@@ -980,7 +963,7 @@ dgeB.filt.testing.PEGASVs &lt;- estimateDisp(dgeB.filt.testing,
                                           design=mod, robust=TRUE)
 summary(dgeB.filt.testing.PEGASVs$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  4.579  31.138  31.138  30.376  31.138  31.138 </code></pre>
+  1.903  20.751  20.751  20.069  20.751  20.751 </code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:Mtestingavglogcpmxvbcv"></span>
 <img src="03_qa_cn_files/figure-html/Mtestingavglogcpmxvbcv-1.png" alt="Biological coefficient of variation (BCV). BCV values as function of the average gene expression in log-CPM units." width="100%"  class="widefigure" />
 <p class="caption">
@@ -1010,10 +993,10 @@ Description
 <tbody>
 <tr>
 <td style="text-align:right;">
-4.579091
+1.902908
 </td>
 <td style="text-align:right;">
-1.615303
+2.004398
 </td>
 <td style="text-align:left;">
 PRG4
@@ -1024,38 +1007,10 @@ proteoglycan 4
 </tr>
 <tr>
 <td style="text-align:right;">
-4.579091
+2.492156
 </td>
 <td style="text-align:right;">
-1.143039
-</td>
-<td style="text-align:left;">
-ALB
-</td>
-<td style="text-align:left;">
-albumin
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-4.579091
-</td>
-<td style="text-align:right;">
-1.203413
-</td>
-<td style="text-align:left;">
-PPBP
-</td>
-<td style="text-align:left;">
-pro-platelet basic protein
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-4.579091
-</td>
-<td style="text-align:right;">
-1.286772
+1.523363
 </td>
 <td style="text-align:left;">
 MUC5B
@@ -1066,38 +1021,10 @@ mucin 5B, oligomeric mucus/gel-forming
 </tr>
 <tr>
 <td style="text-align:right;">
-4.777921
+3.193995
 </td>
 <td style="text-align:right;">
-1.285881
-</td>
-<td style="text-align:left;">
-SNORD17
-</td>
-<td style="text-align:left;">
-small nucleolar RNA, C/D box 17
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-5.895835
-</td>
-<td style="text-align:right;">
-1.128590
-</td>
-<td style="text-align:left;">
-CFH
-</td>
-<td style="text-align:left;">
-complement factor H
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-5.895835
-</td>
-<td style="text-align:right;">
-1.341406
+1.633951
 </td>
 <td style="text-align:left;">
 CRP
@@ -1108,24 +1035,10 @@ C-reactive protein
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+3.377260
 </td>
 <td style="text-align:right;">
-1.171850
-</td>
-<td style="text-align:left;">
-F5
-</td>
-<td style="text-align:left;">
-coagulation factor V
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-5.895835
-</td>
-<td style="text-align:right;">
-1.347031
+1.594955
 </td>
 <td style="text-align:left;">
 CPS1
@@ -1136,24 +1049,38 @@ carbamoyl-phosphate synthase 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+3.384273
 </td>
 <td style="text-align:right;">
-1.054619
+1.366139
 </td>
 <td style="text-align:left;">
-APOB
+F5
 </td>
 <td style="text-align:left;">
-apolipoprotein B
+coagulation factor V
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+3.567169
 </td>
 <td style="text-align:right;">
-1.313924
+1.334071
+</td>
+<td style="text-align:left;">
+CFH
+</td>
+<td style="text-align:left;">
+complement factor H
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3.567169
+</td>
+<td style="text-align:right;">
+1.479819
 </td>
 <td style="text-align:left;">
 CP
@@ -1164,10 +1091,66 @@ ceruloplasmin
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+3.567169
 </td>
 <td style="text-align:right;">
-1.350498
+1.241305
+</td>
+<td style="text-align:left;">
+PPBP
+</td>
+<td style="text-align:left;">
+pro-platelet basic protein
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.562741
+</td>
+<td style="text-align:right;">
+1.386966
+</td>
+<td style="text-align:left;">
+CHI3L1
+</td>
+<td style="text-align:left;">
+chitinase 3 like 1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.562741
+</td>
+<td style="text-align:right;">
+1.320831
+</td>
+<td style="text-align:left;">
+KCNG3
+</td>
+<td style="text-align:left;">
+potassium voltage-gated channel modifier subfamily G member 3
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.562741
+</td>
+<td style="text-align:right;">
+1.297529
+</td>
+<td style="text-align:left;">
+KNG1
+</td>
+<td style="text-align:left;">
+kininogen 1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.562741
+</td>
+<td style="text-align:right;">
+1.404206
 </td>
 <td style="text-align:left;">
 CLDN1
@@ -1178,10 +1161,24 @@ claudin 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+5.562741
 </td>
 <td style="text-align:right;">
-1.212169
+1.219602
+</td>
+<td style="text-align:left;">
+KLB
+</td>
+<td style="text-align:left;">
+klotho beta
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.562741
+</td>
+<td style="text-align:right;">
+1.236044
 </td>
 <td style="text-align:left;">
 PF4V1
@@ -1192,24 +1189,10 @@ platelet factor 4 variant 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+5.562741
 </td>
 <td style="text-align:right;">
-1.154580
-</td>
-<td style="text-align:left;">
-FGB
-</td>
-<td style="text-align:left;">
-fibrinogen beta chain
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-5.895835
-</td>
-<td style="text-align:right;">
-1.184251
+1.213008
 </td>
 <td style="text-align:left;">
 TMEM271
@@ -1220,10 +1203,10 @@ transmembrane protein 271
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+5.562741
 </td>
 <td style="text-align:right;">
-1.245340
+1.304665
 </td>
 <td style="text-align:left;">
 HMX1
@@ -1234,24 +1217,10 @@ H6 family homeobox 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+5.562741
 </td>
 <td style="text-align:right;">
-1.232104
-</td>
-<td style="text-align:left;">
-FGG
-</td>
-<td style="text-align:left;">
-fibrinogen gamma chain
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-5.895835
-</td>
-<td style="text-align:right;">
-1.295402
+1.238283
 </td>
 <td style="text-align:left;">
 TAF11L4
@@ -1262,30 +1231,44 @@ TATA-box binding protein associated factor 11 like 4
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+5.562741
 </td>
 <td style="text-align:right;">
-1.276243
+1.187443
 </td>
 <td style="text-align:left;">
-ORM1
+CFB
 </td>
 <td style="text-align:left;">
-orosomucoid 1
+complement factor B
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-5.895835
+5.562741
 </td>
 <td style="text-align:right;">
-1.243108
+1.244777
 </td>
 <td style="text-align:left;">
-ITIH2
+ALDOB
 </td>
 <td style="text-align:left;">
-inter-alpha-trypsin inhibitor heavy chain 2
+aldolase, fructose-bisphosphate B
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.562741
+</td>
+<td style="text-align:right;">
+1.172524
+</td>
+<td style="text-align:left;">
+SERPING1
+</td>
+<td style="text-align:left;">
+serpin family G member 1
 </td>
 </tr>
 </tbody>

@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-08" />
+<meta name="date" content="2024-05-09" />
 
 <title>Differential expression analysis of cancer data</title>
 
@@ -390,7 +390,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 8, 2024</h4>
+<h4 class="date">May 9, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of cancer data.</p>
 
@@ -405,6 +405,7 @@ library(edgeR)
 
 dgeR.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeR.filt.rds&quot;))
 seR.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seR.filt.rds&quot;))
+
 dgeB.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeB.filt.rds&quot;))
 seB.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seB.filt.rds&quot;))
 
@@ -492,8 +493,8 @@ Iteration (out of 5 ):1  2  3  4  5
 mod &lt;- cbind(mod, sv$sv)</code></pre>
 <p>Fit linear models using voom <span class="citation">(<a href="#ref-law2014voom">Law et al. 2014</a>)</span> with sample weights. Figure
 <a href="#fig:voomMtraining">1</a> shows the mean-variance trend of the data.</p>
-<pre><code>First sample weights (min/max) 0.06823913/4.64097641
-Final sample weights (min/max) 0.08739956/5.16096613</code></pre>
+<pre><code>First sample weights (min/max) 0.07541794/3.55481847
+Final sample weights (min/max) 0.09524836/3.82578769</code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomMtesting"></span>
 <img src="04_de_cn_files/figure-html/voomMtesting-1.png" alt="Mean-variance trend in the testing data from Block et al. (2022)." width="100%"  class="widefigure" />
 <p class="caption">
@@ -505,10 +506,10 @@ examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
 <pre class="r"><code>fit.testing &lt;- eBayes(fit.testing, robust=TRUE)
 res.testing &lt;- decideTests(fit.testing, p.value=0.05)
 summary(res.testing)
-       (Intercept) Tumoryes Sexmale            
-Down             0        5       0  3631  6694
-NotSig          16    15604   15612  6038  6946
-Up           15597        4       1  5944  1973</code></pre>
+       (Intercept) Tumoryes   Sex            
+Down             9      101   672  7469  6451
+NotSig          89    15463 14674  4018  7632
+Up           15515       49   267  4126  1530</code></pre>
 <p>Fetch summary DE statistics for all genes.</p>
 <pre class="r"><code>tt.testing &lt;- topTable(fit.testing, coef=&quot;Tumoryes&quot;, n=Inf,
                        sort.by=&quot;p&quot;)</code></pre>
@@ -523,7 +524,7 @@ Figure 5: <span class="caption-title">P-value distribution for the null hypothes
 <pre class="r"><code>mask &lt;- tt.testing$adj.P.Val &lt; 0.05
 DEgenes.testing &lt;- rownames(tt.testing)[mask]
 length(DEgenes.testing)
-[1] 9</code></pre>
+[1] 150</code></pre>
 <p>Display MA-plot in Figure <a href="#fig:maplottesting">6</a>.</p>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:maplottesting"></span>
 <img src="04_de_cn_files/figure-html/maplottesting-1.png" alt="MA-plot testing data from Block et al. (2022)." width="100%"  class="widefigure" />
@@ -543,7 +544,10 @@ Figure 7: <span class="caption-title">Comparison DE analyis across datasets</spa
 <pre class="r"><code>mask &lt;- rownames(assay(seR.filt.training)) %in% commonDEgenes
 commonDEgenes.name &lt;- rowData(seR.filt.training)$Symbol[mask]
 commonDEgenes.name
-[1] &quot;RN7SL674P&quot; &quot;RN7SL752P&quot;</code></pre>
+ [1] &quot;CD52&quot;      &quot;MNDA&quot;      &quot;RPL22&quot;     &quot;RPL7P9&quot;    &quot;CERS2&quot;     &quot;RN7SL674P&quot;
+ [7] &quot;EEF1B2&quot;    &quot;TUBA4A&quot;    &quot;RN7SL752P&quot; &quot;RPL23AP42&quot; &quot;RPL22P1&quot;   &quot;RPL34&quot;    
+[13] &quot;RPS23&quot;     &quot;GIMAP7&quot;    &quot;RPS20&quot;     &quot;RPS13&quot;     &quot;PFDN5&quot;     &quot;NACA&quot;     
+[19] &quot;RPL21&quot;     &quot;RPL36AL&quot;   &quot;THBS1&quot;     &quot;NUTF2&quot;     &quot;RPL23A&quot;    &quot;RPL39&quot;    </code></pre>
 </div>
 <div id="session-information" class="section level1" number="5">
 <h1><span class="header-section-number">5</span> Session information</h1>

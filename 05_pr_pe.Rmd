@@ -71,6 +71,16 @@ DEgenes.testingD <- readRDS(file.path("_processed_data",
                                       "DEgenes.testingD.rds"))
 ```
 
+Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
+
+```{r}
+set.seed(111)
+mask.lowly.testing <- rownames(dgeB.filt.testing$counts)
+intersection.genes <- intersect(mask.lowly.testing,DEgenes.trainingR)
+dgeR.DEgenes <- dgeR.filt.training$counts[intersection.genes,]
+dgeR.filt.training$counts <- dgeR.filt.training$counts[intersection.genes,]
+dgeB.filt.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
+```
 
 # Session information
 
