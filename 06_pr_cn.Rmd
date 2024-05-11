@@ -26,6 +26,13 @@ bibliography: _bibliography.bib
 library(knitr)
 library(kableExtra)
 library(glmnet)
+library(lime)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(xgboost)
+library(randomForest) 
+
 
 
 knitr::opts_chunk$set(
@@ -48,7 +55,10 @@ We start by importing the previously filtered, normalized RNA-seq data and the d
 library(SummarizedExperiment)
 library(edgeR)
 
-
+dgeR.filt <- readRDS(file.path("_processed_data", "dgeR.filt.rds"))
+seR.filt <- readRDS(file.path("_processed_data", "seR.filt.rds"))
+dgeB.filt <- readRDS(file.path("_processed_data", "dgeB.filt.rds"))
+seB.filt <- readRDS(file.path("_processed_data", "seB.filt.rds"))
 
 dgeR.filt.training <- readRDS(file.path("_processed_data",
                                         "dgeR.filt.training.rds"))
@@ -62,22 +72,71 @@ DEgenes.trainingR <- readRDS(file.path("_processed_data",
                                       "DEgenes.trainingR.rds"))
 ```
 
+Create a subset with the differential expressed genes from the training dataset from @Roskams2022.
+
+
+Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
+
 Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
 
 ```{r}
-#S'HA DE MIRAR BÉ AIXÒ!!
+#set.seed(111)
+#intersection.genes <- intersect(rownames(dgeB.filt.testing),DEgenes.trainingR)
+#length(intersection.genes)
+
+#dgeR.intersect <- dgeR.filt.training[intersection.genes,]
+#dim(dgeR.intersect)
+#seR.intersect <- seR.filt.training[intersection.genes,]
+#dim(seR.intersect)
+
+#dgeB.intersect <- dgeB.filt.testing[intersection.genes,]
+#dim(dgeB.intersect)
+#seB.intersect <- seB.filt.testing[intersection.genes,]
+#dim(seB.intersect)
+```
+
+
+```{r}
 set.seed(111)
 mask.lowly.testing <- rownames(dgeB.filt.testing$counts)
 intersection.genes <- intersect(mask.lowly.testing,DEgenes.trainingR)
 dgeR.DEgenes <- dgeR.filt.training$counts[intersection.genes,]
+dgeR.filt.training$counts <- dgeR.filt.training$counts[intersection.genes,]
+dgeB.filt.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
+```
 
-#dgeR.int.training <- dgeR.filt.training$counts[intersection.genes,]
-#mask <- rownames()
-#seR.int.training <- seR.filt.training[intersection.genes,]
+Training data
 
-#dgeB.int.training <- dgeB.filt.training$counts[intersection.genes,]
-#dgeB.int.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
-#seB.int.training <- seB.filt.training[instersection.genes,]
+```{r}
+#training.df <- data.frame(cbind(as.numeric(dgeR.intersect$samples$Tumor)-1, scale(t(dgeR.intersect$counts), scale = TRUE, center = TRUE)))
+#colnames(training.df)[1] <- "Tumor"
+```
+
+```{r}
+training.df <- data.frame(cbind(as.numeric(dgeR.filt.training$samples$Tumor)-1, scale(t(dgeR.filt.training$counts), scale = TRUE, center = TRUE)))
+colnames(training.df)[1] <- "Tumor"
+```
+
+```{r}
+training.df$Tumor <- factor(training.df$Tumor)
+levels(training.df$Tumor) <- c("No", "Yes")
+```
+
+Testing data
+
+```{r}
+#testing.df <- data.frame(cbind(as.numeric(dgeB.intersect$samples$Tumor)-1, scale(t(dgeB.intersect$counts), scale = TRUE, center = TRUE)))
+#colnames(testing.df)[1] <- "Tumor"
+```
+
+```{r}
+testing.df <- data.frame(cbind(as.numeric(dgeB.filt.testing$samples$Tumor)-1, scale(t(dgeB.filt.testing$counts), scale = TRUE, center = TRUE)))
+colnames(testing.df)[1] <- "Tumor"
+```
+
+```{r}
+testing.df$Tumor <- factor(testing.df$Tumor)
+levels(testing.df$Tumor) <- c("No", "Yes")
 ```
 
 # Performance metrics 
@@ -302,7 +361,7 @@ dev.off()
 Create the function.
 
 ```{r}
-kfoldCV.randomforest.logistic <- function(y,x,K=10,seed) {
+kfoldCV.randomforest.logistic <- function(y,x,K=10, ntree= 500, mtry =1, seed) {
 ## Perform K-fold cross-validation for least-squares regression estimate
 ## Input
 ## - y: response
@@ -322,7 +381,7 @@ kfoldCV.randomforest.logistic <- function(y,x,K=10,seed) {
       sel <- subset==k
       #fit <- glm(y[!sel] ~ ., data=x[!sel,,drop=FALSE], family = 'binomial')
       fit <- randomForest(x = x[!sel,,drop=FALSE],
-                          y = as.factor(y[!sel]), ntree = 500)
+                          y = as.factor(y[!sel]), ntree, mtry)
       pred[sel] <- predict(fit, newdata=x[sel,,drop=FALSE],
                            type='response')
       pred_0[sel] <- mean(y[!sel])
@@ -341,8 +400,8 @@ kfoldCV.randomforest.logistic <- function(y,x,K=10,seed) {
 Compute AUC, FNR and FPR.
 
 ```{r}
-cv.pred.RandomForest <- kfoldCV.randomforest.logistic(y=tumor.training,
-                                x=standardized.training, K=10,seed=1)
+cv.pred.RandomForest <- kfoldCV.randomforest.logistic(y=as.factor(tumor.training.forest),
+                                x=standardized.training, K=10,seed=1, mtry = 3)
 
 (auc.randomForest.cv <- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
 ```
@@ -388,7 +447,570 @@ print(paste("FNR:", fnr))
 #print(sorted_importance)
 ```
 
+# XGBOOST
 
+```{r}
+modelLookup("xgbTree")
+```
+
+
+```{r}
+# CV technique which will be passed into the train() function
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+# tuning grid
+set.seed(111)
+xgboostGrid <-  expand.grid(max_depth = c(3, 5, 7, 9), 
+                        nrounds = (1:10)*20,    # number of trees
+                        eta = 0.01,
+                        gamma = c(0.5),
+                        subsample = 1,
+                        min_child_weight = c(1),
+                        colsample_bytree = 0.8
+                        )
+
+# hyperparaemeter search for XGboost classifier tree model
+model = train(Tumor~., data = training.df,
+              ######ALTERNATIVE#######
+              #x = trainMNX,
+              #y = trainMNY,
+              ########################
+              method = "xgbTree",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = xgboostGrid,
+              verbosity = 0,
+              verbose = FALSE,
+              #nthreads = 4 #cores in use
+              )
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+## Feature importance
+
+```{r}
+importance_matrix = xgb.importance(colnames(training.df[-1]), model = model)
+xgb.plot.importance(importance_matrix[1:5,])
+```
+
+
+LIME
+
+```{r}
+explainer_caret <- lime(training.df, model, n_bins = 5)
+```
+
+```{r}
+explanation_caret <- explain(
+  x = training.df, 
+  explainer = explainer_caret, 
+  n_permutations = 5000,
+  dist_fun = "gower",
+  kernel_width = .75,
+  n_features = 10, 
+  feature_select = "highest_weights",
+  labels = "Yes"
+  )
+
+```
+
+```{r}
+plot_features(explanation_caret)
+```
+
+```{r}
+plot_explanations(explanation_caret)
+```
+
+# KNN
+
+```{r}
+modelLookup("knn")
+```
+
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(50)
+# Customzing the tuning grid
+knngrid <-  expand.grid(k = seq(1,12,by = 1)
+                        )
+
+# training a knn classifier model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = "knn",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = knngrid)
+
+# summarising the results
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+# SVM models
+
+## svmLinearWeights (linear kernel + class weights)
+
+```{r}
+modelLookup("svmLinearWeights")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(50)
+# Customzing the tuning grid
+svmgrid <-  expand.grid(cost = c(0.01, 0.05,0.5,1,3, 5, 10),
+                        weight = c(0.01, 0.05,0.5,1,3,5,10)
+                        )
+
+# training a svm classifier with liearn kernel model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = "svmLinearWeights",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = svmgrid)
+
+# summarizing the results
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+## svmRadial (Support Vector Machines with Radial Basis Function Kernel)
+
+```{r}
+modelLookup("svmRadial")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(50)
+# Customzing the tuning grid
+svmgrid <-  expand.grid(sigma = c(0.01, 0.05,0.5,1,3, 5, 10),
+                        C = c(0.01, 0.05,0.5,1,3,5,10)
+                        )
+
+# training a svm with rbf kernel classifier model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = "svmRadial",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = svmgrid)
+
+# summarizing the results
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+## svmPoly (Support Vector Machines with Polynomial Kernel)
+
+```{r}
+modelLookup("svmPoly")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+svmgrid <-  expand.grid(degree = c(3, 5, 10),
+                        scale = c(1, 3, 5),
+                        C = c(0.5,1,3,5,10)
+                        )
+
+# training a svm with poly kernel classifier tree model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = "svmPoly",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = svmgrid)
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+## dwdPoly (EXPERIMENTAL STUFF)
+
+```{r}
+modelLookup("dwdPoly")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+knngrid <-  expand.grid(lambda = c(0.5,1,2),
+                        qval = c(0.5,1,2,3),
+                        degree = c(1,2,3),
+                        scale = c(0.1,0.5,1,2,3)
+                        )
+
+# training a dwdPoly classifier tree model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = "dwdPoly",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = knngrid)
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+# Random forest
+
+```{r}
+modelLookup("rf")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+rfgrid <-  expand.grid(mtry = c(1:5) #only parameter you can tune for rf in R
+                        )
+
+# training a randomForest classifier tree model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = "rf",
+              trControl = train_control,
+              metric = "ROC",
+              importance = T,
+              #manually set
+              ntree = 200, 
+              nodesize = 1, #default
+              tuneGrid = rfgrid)
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+```{r}
+#feature_importance <- randomForest::importance(model)
+#sorted_importance <- feature_importance[order(-feature_importance[, #"MeanDecreaseGini"]),                                        ]
+#print(sorted_importance)
+```
+
+
+#  Elastic net
+
+```{r}
+modelLookup("glmnet")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+netgrid <-  expand.grid(alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1),
+                        lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5,1)
+                        )
+
+# training a elastic net classifier tree model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = "glmnet",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = netgrid)
+
+# summarizing the results
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+# Keras NN
+
+```{r}
+library(tensorflow)
+library(keras)
+library(tfruns)
+```
+
+```{r}
+#c(c(x_train, y_train), c(x_test, y_test)) %<-% keras::dataset_mnist()
+#x_train <- x_train / 255
+#x_test <-  x_test / 255
+```
+
+```{r}
+x_train <- as.matrix(training.df[,-1])
+y_train <- as.matrix(as.numeric(training.df[,1]))
+
+x_test<- as.matrix(testing.df[,-1])
+y_test <- as.matrix(as.numeric(testing.df[,1]))
+```
+
+
+```{r}
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 200, activation = 'relu') %>% 
+  layer_dropout(rate = 0.4) %>% 
+  layer_dense(units = 100, activation = 'tanh') %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 50, activation = 'relu') %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_dense(units = 10, activation = 'softmax')
+```
+
+2024-05-10 19:52:32.709468: I external/local_tsl/tsl/platform/default/subprocess.cc:304] Start cannot spawn child process: No such file or directory
+
+
+```{r}
+loss_fn <- loss_sparse_categorical_crossentropy(from_logits = TRUE)
+
+model %>% compile(
+  optimizer = "adam",
+  loss = loss_fn,
+  metrics = "accuracy"
+)
+```
+
+```{r}
+model %>% fit(x_train, y_train, epochs = 10, batch_size = NULL)
+```
+
+```{r}
+#history <- model %>% fit(
+#  x_train,y_train,
+#  epochs = 30, batch_size = 256, 
+#  validation_split = 0.2
+#)
+
+#plot(history)
+```
+
+
+```{r}
+model %>% evaluate(x_test,  y_test, verbose = 2)
+```
+
+```{r}
+model %>% predict(x_test) %>% k_argmax() #only for softmax
+# model %>% predict(x) %>% `>`(0.5) %>% k_cast("int32") #for sigmoid.0
+```
+
+
+
+HYPERPARAMETER TUNING FEED-FORWARD NETWORK (INCOMPLETE)
+
+Here’s a declaration of 2 flags that control dropout rate within a model:
+
+```{r}
+FLAGS <- flags(
+  flag_numeric("dropout1", 0.4),
+  flag_numeric("dropout2", 0.3)
+)
+```
+
+These flags are then used in the definition of the model here:
+```{r}
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 128, activation = 'relu', input_shape = c(784)) %>%
+  layer_dropout(rate = FLAGS$dropout1) %>%
+  layer_dense(units = 128, activation = 'relu') %>%
+  layer_dropout(rate = FLAGS$dropout2) %>%
+  layer_dense(units = 10, activation = 'sigmoid')
+
+```
+
+Once we’ve defined flags, we can pass alternate flag values to training_run() as follows:
+
+```{r}
+#training_run('mnist_mlp.R', flags = list(dropout1 = 0.2, dropout2 = 0.2))
+```
+
+TUNING RUNS
+
+```{r}
+# run various combinations of dropout1 and dropout2
+runs <- tuning_run("mnist_mlp.R", flags = list(
+  dropout1 = c(0.2, 0.3, 0.4),
+  dropout2 = c(0.2, 0.3, 0.4)
+))
+# find the best evaluation accuracy
+runs[order(runs$eval_acc, decreasing = TRUE), ]
+```
 
 
 # Session information
