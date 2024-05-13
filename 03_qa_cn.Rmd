@@ -227,8 +227,10 @@ Impute observations with missing value for sex.
 data.imputation <- as.data.frame(t(rbind(msyexp, xieexp)))
 data.imputation$Sex <- as.integer(factor(seB.filt.testing$Sex))
 data.imputation <- kNN(data.imputation, k=3, variable="Sex")
+data.imputation$Sex <- factor(data.imputation$Sex)
+levels(data.imputation$Sex) <- c("female", "male")
 seB.filt.testing$Sex <- data.imputation$Sex
-dgeB.filt.testing$Sex <- data.imputation$Sex
+dgeB.filt.testing$samples$Sex <- data.imputation$Sex
 ```
 
 ```{r, echo = FALSE}

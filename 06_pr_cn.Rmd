@@ -57,6 +57,7 @@ library(edgeR)
 
 dgeR.filt <- readRDS(file.path("_processed_data", "dgeR.filt.rds"))
 seR.filt <- readRDS(file.path("_processed_data", "seR.filt.rds"))
+
 dgeB.filt <- readRDS(file.path("_processed_data", "dgeB.filt.rds"))
 seB.filt <- readRDS(file.path("_processed_data", "seB.filt.rds"))
 
@@ -74,69 +75,50 @@ DEgenes.trainingR <- readRDS(file.path("_processed_data",
 
 Create a subset with the differential expressed genes from the training dataset from @Roskams2022.
 
-
 Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
-
-Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
-
-```{r}
-#set.seed(111)
-#intersection.genes <- intersect(rownames(dgeB.filt.testing),DEgenes.trainingR)
-#length(intersection.genes)
-
-#dgeR.intersect <- dgeR.filt.training[intersection.genes,]
-#dim(dgeR.intersect)
-#seR.intersect <- seR.filt.training[intersection.genes,]
-#dim(seR.intersect)
-
-#dgeB.intersect <- dgeB.filt.testing[intersection.genes,]
-#dim(dgeB.intersect)
-#seB.intersect <- seB.filt.testing[intersection.genes,]
-#dim(seB.intersect)
-```
-
 
 ```{r}
 set.seed(111)
-mask.lowly.testing <- rownames(dgeB.filt.testing$counts)
-intersection.genes <- intersect(mask.lowly.testing,DEgenes.trainingR)
-dgeR.DEgenes <- dgeR.filt.training$counts[intersection.genes,]
-dgeR.filt.training$counts <- dgeR.filt.training$counts[intersection.genes,]
-dgeB.filt.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
+intersection.genes <- intersect(rownames(dgeB.filt.testing),DEgenes.trainingR)
+length(intersection.genes)
+
+dgeR.intercept <- dgeR.filt.training[intersection.genes,]
+dim(dgeR.intercept)
+seR.intercept <- seR.filt.training[intersection.genes,]
+dim(seR.intercept)
+
+dgeB.intercept <- dgeB.filt.testing[intersection.genes,]
+dim(dgeB.intercept)
+seB.intercept <- seB.filt.testing[intersection.genes,]
+dim(seB.intercept)
 ```
 
 Training data
 
 ```{r}
-#training.df <- data.frame(cbind(as.numeric(dgeR.intersect$samples$Tumor)-1, scale(t(dgeR.intersect$counts), scale = TRUE, center = TRUE)))
+training.df <- data.frame(Tumor = seR.intercept$Tumor,
+                          scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE))
+```
+
+```{r}
+#training.df <- data.frame(cbind(as.numeric(seR.intercept$Tumor)-1, scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE)))
 #colnames(training.df)[1] <- "Tumor"
-```
-
-```{r}
-training.df <- data.frame(cbind(as.numeric(dgeR.filt.training$samples$Tumor)-1, scale(t(dgeR.filt.training$counts), scale = TRUE, center = TRUE)))
-colnames(training.df)[1] <- "Tumor"
-```
-
-```{r}
-training.df$Tumor <- factor(training.df$Tumor)
-levels(training.df$Tumor) <- c("No", "Yes")
+#training.df$Tumor <- factor(training.df$Tumor)
+#levels(training.df$Tumor) <- c("No", "Yes")
 ```
 
 Testing data
 
 ```{r}
-#testing.df <- data.frame(cbind(as.numeric(dgeB.intersect$samples$Tumor)-1, scale(t(dgeB.intersect$counts), scale = TRUE, center = TRUE)))
+testing.df <- data.frame(Tumor = seB.intercept$Tumor,
+                          scale(t(assays(seB.intercept)$logCPM), scale = TRUE, center = TRUE))
+```
+
+```{r}
+#testing.df <- data.frame(cbind(as.numeric(dgeB.intercept$samples$Tumor)-1, scale(t(dgeB.intercept$counts), scale = TRUE, center = TRUE)))
 #colnames(testing.df)[1] <- "Tumor"
-```
-
-```{r}
-testing.df <- data.frame(cbind(as.numeric(dgeB.filt.testing$samples$Tumor)-1, scale(t(dgeB.filt.testing$counts), scale = TRUE, center = TRUE)))
-colnames(testing.df)[1] <- "Tumor"
-```
-
-```{r}
-testing.df$Tumor <- factor(testing.df$Tumor)
-levels(testing.df$Tumor) <- c("No", "Yes")
+#testing.df$Tumor <- factor(testing.df$Tumor)
+#levels(testing.df$Tumor) <- c("No", "Yes")
 ```
 
 # Performance metrics 
@@ -225,12 +207,13 @@ kfoldCV.lasso.logistic <- function(y,x,K=10,seed,criterion='cv') {
 Convert the dependent variable from the training dataset into a factor variable (with factors 0 and 1) and fit the LASSO-CV model using the previous function.
 
 ```{r}
+# Alerta perquè aquí hi ha una altra seed!
 set.seed(1234)
 t0 <- Sys.time()
 
-tumor.training <- as.numeric(dgeR.filt.training$samples$Tumor)-1
+tumor.training <- as.numeric(seR.intercept$Tumor)-1
 
-fit.lassocv <- cv.glmnet(x=t(dgeR.DEgenes),y=tumor.training, family ='binomial', nfolds = 10, aplha = 1)
+fit.lassocv <- cv.glmnet(x=t(assays(seR.intercept)$logCPM),y=tumor.training, family ='binomial', nfolds = 10, aplha = 1)
 t1 <- Sys.time()
 cat('\nTime elapsed: ')
 ```
@@ -244,12 +227,13 @@ fit.lassocv
 plot(fit.lassocv)
 ```
 
-The model selects 26 genes. 
+The model selects 28 genes. 
 
 ```{r}
 b.lassocv = as.vector(coef(fit.lassocv, s='lambda.min'))
 sum(b.lassocv[-1] != 0)
 ```
+
 
 ```{r}
 coef.matrix <- coef(fit.lassocv, s = 'lambda.min')
@@ -257,8 +241,8 @@ non.zero.coefs <- rownames(coef.matrix)[coef.matrix[,1]!= 0 & rownames(coef.matr
 ```
 
 ```{r}
-mask <- rownames(assay(seR.filt.training)) %in% non.zero.coefs
-selected.genes <- rowData(seR.filt.training)$Symbol[mask]
+mask <- rownames(assay(seR.intercept)) %in% non.zero.coefs
+selected.genes <- rowData(seR.intercept)$Symbol[mask]
 ```
 
 ## Model performance
@@ -266,7 +250,7 @@ selected.genes <- rowData(seR.filt.training)$Symbol[mask]
 ### In-sample AUC
 
 ```{r}
-lassocv.pred<- predict(fit.lassocv, newx=t(dgeR.DEgenes), s = fit.lassocv$lambda.min)
+lassocv.pred<- predict(fit.lassocv, newx=t(assays(seR.intercept)$logCPM), s = fit.lassocv$lambda.min)
 
 (auc.lassoCV.training<- pROC::auc(tumor.training,lassocv.pred[,1]))
 ```
@@ -274,7 +258,7 @@ lassocv.pred<- predict(fit.lassocv, newx=t(dgeR.DEgenes), s = fit.lassocv$lambda
 ### Out-sample AUC using cross-validation
 
 ```{r}
-cv.pred.lasso.cv <- kfoldCV.lasso.logistic(y=tumor.training,x=t(dgeR.DEgenes), K=10,seed=1,criterion="cv")
+cv.pred.lasso.cv <- kfoldCV.lasso.logistic(y=tumor.training,x=t(assays(seR.intercept)$logCPM), K=10,seed=1,criterion="cv")
 
 (auc.lassocv.test <- pROC::auc(tumor.training,cv.pred.lasso.cv$pred))
 ```
@@ -294,13 +278,13 @@ FPR(cv.pred.lasso.cv$pred,tumor.training)
 Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).
 
 ```{r}
-tumor.testing <- as.numeric(dgeB.filt.testing$samples$Tumor)-1
+tumor.testing <- as.numeric(seB.intercept$Tumor)-1
 ```
 
 Predict the categories using the previously trained model and compute the out-sample AUC, FNR and FPR.
 
 ```{r}
-lassocv.pred2<- predict(fit.lassocv, newx=t(dgeB.filt.testing$counts),
+lassocv.pred2<- predict(fit.lassocv, t(assays(seB.intercept)$logCPM),
                        s = fit.lassocv$lambda.min)
 (auc.lassocv.test2 <- pROC::auc(tumor.testing,lassocv.pred2[,1]))
 ```
@@ -315,7 +299,7 @@ FPR(lassocv.pred2,tumor.testing)
 
 # Random Forest
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message = FALSE}
 library(caTools) 
 library(randomForest) 
 ```
@@ -325,13 +309,11 @@ library(randomForest)
 Standardize the training set.
 
 ```{r}
-standardized.training <- scale(t(dgeR.DEgenes), scale = TRUE, center = TRUE)
+standardized.training <- scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE)
 ```
 
 ```{r}
-library(randomForest)
-
-tumor.training.forest <- as.numeric(dgeR.filt.training$samples$Tumor)
+tumor.training.forest <- as.numeric(seR.intercept$Tumor)
 
 # Fitting a random forest model
 model <- randomForest(x = standardized.training, y = as.factor(tumor.training.forest), ntree = 400, importance = TRUE)
@@ -401,17 +383,17 @@ Compute AUC, FNR and FPR.
 
 ```{r}
 cv.pred.RandomForest <- kfoldCV.randomforest.logistic(y=as.factor(tumor.training.forest),
-                                x=standardized.training, K=10,seed=1, mtry = 3)
+                                              x=standardized.training, K=10, seed=1, mtry = 3)
 
 (auc.randomForest.cv <- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
 ```
 
 ```{r}
-FNR(cv.pred.RandomForest$pred -1,tumor.training)
+FNR(cv.pred.RandomForest$pred -1,tumor.training.forest)
 ```
 
 ```{r}
-FPR(cv.pred.RandomForest$pred -1,tumor.training)
+FPR(cv.pred.RandomForest$pred -1,tumor.training.forest)
 ```
 
 ### Out-sample AUC using using testing dataset from Block et al. (2022)
@@ -419,7 +401,7 @@ FPR(cv.pred.RandomForest$pred -1,tumor.training)
 Standardize the subset that includes those counts of the differential expressed genes from the training and 0 otherwise.
 
 ```{r}
-standardized.testing <- scale(t(dgeB.filt.testing$counts), scale = TRUE, center = TRUE)
+standardized.testing <- scale(t(assays(seB.intercept)$logCPM), scale = TRUE, center = TRUE)
 ```
 
 ```{r}
@@ -466,14 +448,32 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
 
 # tuning grid
 set.seed(111)
-xgboostGrid <-  expand.grid(max_depth = c(3, 5, 7, 9), 
-                        nrounds = (1:10)*20,    # number of trees
-                        eta = 0.01,
-                        gamma = c(0.5),
-                        subsample = 1,
-                        min_child_weight = c(1),
-                        colsample_bytree = 0.8
-                        )
+#xgboostGrid <-  expand.grid(max_depth = c(3, 5, 7, 9), 
+#                        nrounds = (1:10)*20,    # number of trees
+#                        eta = c(0.2,0.3,0.4),
+#                        gamma = c(0.5,1),
+#                        subsample = c(0.5, 0.6, 0.7), # common value: between 0.5 and 1
+#                        min_child_weight = c(1,2,3),
+#                        colsample_bytree = c(0.5, 0.6, 0.7) # common value: between 0.5 and 1
+#                        )
+
+xgboostGrid <- expand.grid(max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5, 0.7),subsample = c(0.6),min_child_weight = c(2),colsample_bytree = c(0.6))
+
+# auc = 0.57, nrounds = 180, max_depth = 9, eta = 0.01, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 1 and subsample = 1. max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = 0.01,gamma = c(0.5),subsample = 1,min_child_weight = c(1),colsample_bytree = 0.8
+# auc = 0.68. eta = c(0.01,0.1,0.3). optimal eta = 0.3
+# auc = 0.76 eta = c(0.2,0.3,0.4) optimal eta =0.4
+# auc = 0.73. gamma = c(0.5,1). nrounds = 20, max_depth = 3, eta = 0.4, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 1 and subsample = 1.
+# auc = 0.65. max_depth = c(3, 4, 5, 6, 8). nrounds = 20, max_depth = 5, eta = 0.4, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 1 and subsample = 1.
+# auc = 0.65. max_depth = c(3, 5, 7, 9), subsample = c(0.8, 1). nrounds = 40, max_depth = 5, eta = 0.3, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 1 and subsample = 0.8.
+# auc = 0.65. subsample = c(0.5, 0.6, 0.7). nrounds = 40, max_depth = 7, eta = 0.3, gamma = 1, colsample_bytree = 0.8, min_child_weight = 1 and subsample = 0.5.
+# auc = 0.68. min_child_weight = c(1,2,3).nrounds = 20, max_depth = 3, eta = 0.4, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 1 and subsample = 0.7.
+# auc = 0.49. colsample_bytree = c(0.5, 0.6, 0.7, 0.8). nrounds = 40, max_depth = 9, eta = 0.3, gamma = 0.5, colsample_bytree = 0.5, min_child_weight = 2 and subsample = 0.5.
+# auc = 0.70. ALERTA AQUEST SALT NOMÉS TREIENT 0.8 DE COLSAMPLE. nrounds = 120, max_depth = 9, eta = 0.2, gamma = 0.5, colsample_bytree = 0.6, min_child_weight = 1 and subsample = 0.7.
+# auc = 0.67. NOMÉS CANVIANT ELS VALORS DE SUBSAMPLE RESPECTE EL DE 0.76. nrounds = 40, max_depth = 5, eta = 0.4, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 1 and subsample = 0.5.max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(0.5, 0.6, 0.7),min_child_weight = c(1),colsample_bytree = 0.8
+# auc = 0.71. nrounds = 20, max_depth = 7, eta = 0.4, gamma = 0.5, colsample_bytree = 0.7, min_child_weight = 1 and subsample = 0.7.max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(0.5, 0.6, 0.7),min_child_weight = c(1),colsample_bytree = c(0.6,0.7)
+# auc = 0.71. gamma = c(0.5, 0.7)
+# auc = 0.63. nrounds = 180, max_depth = 5, eta = 0.3, gamma = 0.7, colsample_bytree = 0.6, min_child_weight = 2 and subsample = 0.6.max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(0.6),min_child_weight = c(1),colsample_bytree = c(0.6)
+
 
 # hyperparaemeter search for XGboost classifier tree model
 model = train(Tumor~., data = training.df,
@@ -546,6 +546,108 @@ plot_features(explanation_caret)
 plot_explanations(explanation_caret)
 ```
 
+# ADABOOST
+
+```{r}
+modelLookup("ada")
+```
+
+```{r}
+# CV technique which will be passed into the train() function
+train_control = trainControl(method = "LOOCV", search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+# tuning grid
+set.seed(111)
+adaGrid <-  expand.grid(iter = c(50), 
+                        maxdepth = c(1,2),
+                        nu = c(0,0.01,0.05)
+                        )
+
+# auc = 0.65, iter = c(50), maxdepth = c(1), nu = c(0.01)
+# auc = 0.51. iter=c(50), maxdepth=c(1,2,3), nu=c(0.01, 0.1, 0.5)
+# auc = 0.73. iter = c(50), maxdepth = c(1,2), nu = c(0,0.01,0.05). iter = 50, maxdepth = 2 and nu = 0.05.
+# auc = 0.65. iter = c(50), maxdepth = c(1,2), nu = c(0,0.01). iter = 50, maxdepth = 2 and nu = 0.01.
+# auc = 0.73. iter = 50, maxdepth = 2 and nu = 0.05. iter = c(50,60,70), maxdepth = c(1,2), nu = c(0,0.01,0.05)
+# auc = 0.54. iter = c(30,40,50,60,70), maxdepth = c(1,2), nu = c(0,0.01,0.05). iter = 70, maxdepth = 2 and nu = 0.01.
+
+# hyperparaemeter search for adaboost classifier tree model
+model = train(Tumor~., data = training.df,
+              method = "ada",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = adaGrid,
+              loss = "exponential",
+              type = "discrete"
+              )
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred.y <- as.numeric(predict(model, testing.df)) -1
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+# MBOOST
+
+```{r}
+modelLookup("mboost")
+```
+
+```{r}
+# CV technique which will be passed into the train() function
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+# tuning grid
+set.seed(111)
+mboostGrid <-  expand.grid(iter = c(50), 
+                        maxdepth = c(1,2),
+                        nu = c(0,0.01)
+                        )
+
+
+
+
+
+# hyperparaemeter search for adaboost classifier tree model
+model = train(Tumor~., data = training.df,
+              method = "ada",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = adaGrid,
+              loss = "exponential",
+              type = "discrete"
+              )
+
+print(model)
+```
+
+
+
 # KNN
 
 ```{r}
@@ -564,8 +666,10 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
 
 set.seed(50)
 # Customzing the tuning grid
-knngrid <-  expand.grid(k = seq(1,12,by = 1)
+knngrid <-  expand.grid(k = seq(1,20,by = 1)
                         )
+
+# seq(1,12,by = 1) optimal k = 4
 
 # training a knn classifier model while tuning parameters
 model = train(Tumor~., data = training.df,
@@ -583,6 +687,7 @@ plot(model)
 ```
 
 ```{r}
+set.seed(5)
 #predict on test data
 pred.y <- as.numeric(predict(model, testing.df)) -1
 
@@ -614,9 +719,16 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
 
 set.seed(50)
 # Customzing the tuning grid
-svmgrid <-  expand.grid(cost = c(0.01, 0.05,0.5,1,3, 5, 10),
-                        weight = c(0.01, 0.05,0.5,1,3,5,10)
+svmgrid <-  expand.grid(cost = c(0.01,0.015, 0.02),
+                        weight = c(0.1, 0.2, 0.25, 0.3, 0.35) 
                         )
+
+
+# auc = 0.65 cost = 0.01 and weight = 0.5. cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10) 
+# auc = 0.68 cost = 0.01 and weight = 0.3. cost = c(0.01,0.02, 0.03,0.04, 0.05), weight = c(0.3, 0.4,0.5,0.6, 0.7)
+# auc = 0.68 cost = 0.01 and weight = 0.3. cost = c(0.01,0.015, 0.02), weight = c(0.1, 0.2, 0.25, 0.3, 0.35) 
+
+
 
 # training a svm classifier with liearn kernel model while tuning parameters
 model = train(Tumor~., data = training.df,
@@ -634,6 +746,7 @@ plot(model)
 ```
 
 ```{r}
+set.seed(5)
 #predict on test data
 pred.y <- as.numeric(predict(model, testing.df)) -1
 
@@ -664,8 +777,13 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
 set.seed(50)
 # Customzing the tuning grid
 svmgrid <-  expand.grid(sigma = c(0.01, 0.05,0.5,1,3, 5, 10),
-                        C = c(0.01, 0.05,0.5,1,3,5,10)
+                        C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
                         )
+
+# auc = 0.67. sigma = 0.01 and C = 3. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10)
+# auc = 0.67. sigma = 0.01 and C = 2. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,2,3,4,5,10)
+# auc = 0.67. sigma = 0.01 and C = 1.1. sigma = c(0.01, 0.05,0.5,1,3, 5, 10),C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
+
 
 # training a svm with rbf kernel classifier model while tuning parameters
 model = train(Tumor~., data = training.df,
@@ -711,10 +829,16 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
                              classProbs=TRUE)
 
 set.seed(111)
-svmgrid <-  expand.grid(degree = c(3, 5, 10),
+svmgrid <-  expand.grid(degree = c(1,2,3,4,5),
                         scale = c(1, 3, 5),
                         C = c(0.5,1,3,5,10)
                         )
+
+# auc = 0.62. degree = 3, scale = 1 and C = 0.5. degree = c(3, 5, 10), scale = c(1, 3, 5), C = c(0.5,1,3,5,10)
+# auc = 0.64. degree = 1, scale = 1 and C = 0.5. degree = c(1,2,3,4,5), scale = c(1, 3, 5), C = c(0.5,1,3,5,10). SI AFEGEIXO UN 2 A LA SCALE EL RESULTAT CANVIA PER COMPLET PER MOLT QUE AGAFI ELS MATEIXOS OPTIMAL VALUES.
+# auc = 0.56. ES RARO AQUEST RESULTAT.degree = 1, scale = 1 and C = 0.1. degree = c(1,2,3,4,5), scale = c(1, 3, 5), C = c(0.1,0.2,0.3,0.4,0.5,1,3)
+# auc = 0.45. ES RARO AQUEST RESULTAT.degree = 1, scale = 1 and C = 0.01.degree = c(1,2,3,4,5), scale = c(1, 3, 5), C = c(0.01, 0.05, 0.08, 0.1,0.2,0.3,0.4,0.5,1,3)
+
 
 # training a svm with poly kernel classifier tree model while tuning parameters
 model = train(Tumor~., data = training.df,
@@ -759,11 +883,16 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
                              classProbs=TRUE)
 
 set.seed(111)
-knngrid <-  expand.grid(lambda = c(0.5,1,2),
+knngrid <-  expand.grid(lambda = c(0.4,0.5,1),
                         qval = c(0.5,1,2,3),
                         degree = c(1,2,3),
-                        scale = c(0.1,0.5,1,2,3)
+                        scale = c(0.1,0.2,0.3,0.4,0.5,1,2,3)
                         )
+
+# auc = 0.62. lambda = 0.5, qval = 0.5, degree = 1 and scale = 0.1. lambda = c(0.5,1,2), qval = c(0.5,1,2,3),degree = c(1,2,3), scale = c(0.1,0.5,1,2,3)
+# auc = 0.59 lambda = 0.2, qval = 0.5, degree = 1 and scale = 0.1. lambda = c(0.2,0.3,0.4,0.5,1), qval = c(0.5,1,2,3),degree = c(1,2,3), scale = c(0.1,0.5,1,2,3)
+# auc = 0.70. lambda = 0.4, qval = 0.5, degree = 1 and scale = 0.1. lambda = c(0.4,0.5,1),qval = c(0.5,1,2,3),degree = c(1,2,3),scale = c(0.1,0.2,0.3,0.4,0.5,1,2,3)
+# auc = 0.59. lambda = 0.6, qval = 0.5, degree = 1 and scale = 0.1. lambda = c(0.6,0.7,0.8,0.9,1),qval = c(0.5,1,2,3),degree = c(1,2,3),scale = c(0.1,0.2,0.3,0.4,0.5,1,2,3)
 
 # training a dwdPoly classifier tree model while tuning parameters
 model = train(Tumor~., data = training.df,
@@ -808,8 +937,14 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
                              classProbs=TRUE)
 
 set.seed(111)
-rfgrid <-  expand.grid(mtry = c(1:5) #only parameter you can tune for rf in R
+rfgrid <-  expand.grid(mtry = c(1:30) #only parameter you can tune for rf in R
                         )
+              
+# auc = 0.71. ntree = 400, nodesize = 1 c(1:25) optimal: mtry=25
+# auc = 0.59. ntree = 300, nodesize = 1 c(1:25) optimal: mtry=25
+# auc = 0.45. ntree = 400, nodesize = 2 c(1:25) optimal: mtry=22
+# auc = 0.76. ntree = 400, nodesize = 1 c(1:30) optimal: mtry=22. HAURIA DE DONAR TAMBÉ 0.71, NO ENTENC.
+# auc = 0.67. ntree = 400, nodesize = 1 c(1:35) optimal: mtry=30.
 
 # training a randomForest classifier tree model while tuning parameters
 model = train(Tumor~., data = training.df,
@@ -818,8 +953,8 @@ model = train(Tumor~., data = training.df,
               metric = "ROC",
               importance = T,
               #manually set
-              ntree = 200, 
-              nodesize = 1, #default
+              ntree = 400, 
+              nodesize = 1, #default for classification
               tuneGrid = rfgrid)
 
 print(model)
@@ -865,9 +1000,14 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
                              classProbs=TRUE)
 
 set.seed(111)
-netgrid <-  expand.grid(alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1),
-                        lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5,1)
+netgrid <-  expand.grid(alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5),
+                        lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4)
                         )
+
+# auc = 0.59. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1),lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5,1). alpha = 0.005 and lambda = 1.
+# auc = 0.70. lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5). alpha = 0.005 and lambda = 0.5.
+# auc = 0.68. alpha = c(0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1) alpha = 0.01 and lambda = 0.5.
+# auc = 0.70. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5), lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4). alpha = 0.005 and lambda = 0.4.
 
 # training a elastic net classifier tree model while tuning parameters
 model = train(Tumor~., data = training.df,
@@ -904,6 +1044,31 @@ library(tensorflow)
 library(keras)
 library(tfruns)
 ```
+
+```{r}
+install.packages("remotes")
+remotes::install_github("rstudio/tensorflow")
+```
+
+```{r}
+reticulate::install_python()
+```
+
+```{r}
+library(tensorflow)
+install_tensorflow(envname = "r-tensorflow")
+```
+
+```{r}
+install.packages("keras")
+library(keras)
+install_keras()
+```
+
+```{r}
+library(tensorflow)
+```
+
 
 ```{r}
 #c(c(x_train, y_train), c(x_test, y_test)) %<-% keras::dataset_mnist()

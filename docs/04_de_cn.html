@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-09" />
+<meta name="date" content="2024-05-13" />
 
 <title>Differential expression analysis of cancer data</title>
 
@@ -390,7 +390,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 9, 2024</h4>
+<h4 class="date">May 13, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of cancer data.</p>
 
@@ -506,10 +506,10 @@ examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
 <pre class="r"><code>fit.testing &lt;- eBayes(fit.testing, robust=TRUE)
 res.testing &lt;- decideTests(fit.testing, p.value=0.05)
 summary(res.testing)
-       (Intercept) Tumoryes   Sex            
-Down             9      101   672  7469  6451
-NotSig          89    15463 14674  4018  7632
-Up           15515       49   267  4126  1530</code></pre>
+       (Intercept) Tumoryes Sexmale            
+Down             0      101     672  7469  6451
+NotSig           4    15463   14674  4018  7632
+Up           15609       49     267  4126  1530</code></pre>
 <p>Fetch summary DE statistics for all genes.</p>
 <pre class="r"><code>tt.testing &lt;- topTable(fit.testing, coef=&quot;Tumoryes&quot;, n=Inf,
                        sort.by=&quot;p&quot;)</code></pre>

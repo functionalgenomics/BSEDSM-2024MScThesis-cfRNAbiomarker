@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-09" />
+<meta name="date" content="2024-05-13" />
 
 <title>Quality assessment of cancer data</title>
 
@@ -392,7 +392,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 9, 2024</h4>
+<h4 class="date">May 13, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.</p>
 
@@ -543,8 +543,10 @@ seB.filt.testing$Sex[mask] &lt;- &#39;female&#39;</code></pre>
 <pre class="r"><code>data.imputation &lt;- as.data.frame(t(rbind(msyexp, xieexp)))
 data.imputation$Sex &lt;- as.integer(factor(seB.filt.testing$Sex))
 data.imputation &lt;- kNN(data.imputation, k=3, variable=&quot;Sex&quot;)
+data.imputation$Sex &lt;- factor(data.imputation$Sex)
+levels(data.imputation$Sex) &lt;- c(&quot;female&quot;, &quot;male&quot;)
 seB.filt.testing$Sex &lt;- data.imputation$Sex
-dgeB.filt.testing$Sex &lt;- data.imputation$Sex</code></pre>
+dgeB.filt.testing$samples$Sex &lt;- data.imputation$Sex</code></pre>
 <p><img src="03_qa_cn_files/figure-html/unnamed-chunk-13-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <p>Save <code>DGEList</code> and <code>SummarizedExperiment</code> objects including filtered data,
 normalization factors and normalized log CPM units of expression.</p>
@@ -996,7 +998,7 @@ Description
 1.902908
 </td>
 <td style="text-align:right;">
-2.004398
+2.004395
 </td>
 <td style="text-align:left;">
 PRG4
@@ -1007,10 +1009,10 @@ proteoglycan 4
 </tr>
 <tr>
 <td style="text-align:right;">
-2.492156
+2.492170
 </td>
 <td style="text-align:right;">
-1.523363
+1.523362
 </td>
 <td style="text-align:left;">
 MUC5B
@@ -1021,10 +1023,10 @@ mucin 5B, oligomeric mucus/gel-forming
 </tr>
 <tr>
 <td style="text-align:right;">
-3.193995
+3.193997
 </td>
 <td style="text-align:right;">
-1.633951
+1.633936
 </td>
 <td style="text-align:left;">
 CRP
@@ -1035,7 +1037,7 @@ C-reactive protein
 </tr>
 <tr>
 <td style="text-align:right;">
-3.377260
+3.377253
 </td>
 <td style="text-align:right;">
 1.594955
@@ -1049,10 +1051,10 @@ carbamoyl-phosphate synthase 1
 </tr>
 <tr>
 <td style="text-align:right;">
-3.384273
+3.384285
 </td>
 <td style="text-align:right;">
-1.366139
+1.366147
 </td>
 <td style="text-align:left;">
 F5
@@ -1063,10 +1065,10 @@ coagulation factor V
 </tr>
 <tr>
 <td style="text-align:right;">
-3.567169
+3.567066
 </td>
 <td style="text-align:right;">
-1.334071
+1.334084
 </td>
 <td style="text-align:left;">
 CFH
@@ -1077,7 +1079,7 @@ complement factor H
 </tr>
 <tr>
 <td style="text-align:right;">
-3.567169
+3.567066
 </td>
 <td style="text-align:right;">
 1.479819
@@ -1091,10 +1093,10 @@ ceruloplasmin
 </tr>
 <tr>
 <td style="text-align:right;">
-3.567169
+3.567066
 </td>
 <td style="text-align:right;">
-1.241305
+1.241337
 </td>
 <td style="text-align:left;">
 PPBP
@@ -1105,10 +1107,10 @@ pro-platelet basic protein
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
-1.386966
+1.386965
 </td>
 <td style="text-align:left;">
 CHI3L1
@@ -1119,10 +1121,10 @@ chitinase 3 like 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
-1.320831
+1.320830
 </td>
 <td style="text-align:left;">
 KCNG3
@@ -1133,10 +1135,10 @@ potassium voltage-gated channel modifier subfamily G member 3
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
-1.297529
+1.297528
 </td>
 <td style="text-align:left;">
 KNG1
@@ -1147,7 +1149,7 @@ kininogen 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
 1.404206
@@ -1161,10 +1163,10 @@ claudin 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
-1.219602
+1.219601
 </td>
 <td style="text-align:left;">
 KLB
@@ -1175,7 +1177,7 @@ klotho beta
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
 1.236044
@@ -1189,7 +1191,7 @@ platelet factor 4 variant 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
 1.213008
@@ -1203,10 +1205,10 @@ transmembrane protein 271
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
-1.304665
+1.304664
 </td>
 <td style="text-align:left;">
 HMX1
@@ -1217,7 +1219,7 @@ H6 family homeobox 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
 1.238283
@@ -1231,7 +1233,7 @@ TATA-box binding protein associated factor 11 like 4
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
 1.187443
@@ -1245,10 +1247,10 @@ complement factor B
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
-1.244777
+1.244776
 </td>
 <td style="text-align:left;">
 ALDOB
@@ -1259,10 +1261,10 @@ aldolase, fructose-bisphosphate B
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562741
+5.562770
 </td>
 <td style="text-align:right;">
-1.172524
+1.172518
 </td>
 <td style="text-align:left;">
 SERPING1
