@@ -10,7 +10,6 @@
 
 
 
-<meta name="date" content="2024-05-08" />
 
 <title>Biomarker prediction in cancer data</title>
 
@@ -75,7 +74,6 @@ if (window.hljs) {
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
-  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -94,7 +92,7 @@ div.csl-indent {
 }
 </style>
 
-<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/home/adam/R/x86_64-pc-linux-gnu-library/4.4/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -390,7 +388,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 8, 2024</h4>
+<h4 class="date">mayo 21, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a prediction of candidate biomarkers in cancer cfRNA sequencing data.</p>
 
@@ -405,6 +403,7 @@ library(edgeR)
 
 dgeR.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeR.filt.rds&quot;))
 seR.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seR.filt.rds&quot;))
+
 dgeB.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;dgeB.filt.rds&quot;))
 seB.filt &lt;- readRDS(file.path(&quot;_processed_data&quot;, &quot;seB.filt.rds&quot;))
 
@@ -421,11 +420,36 @@ DEgenes.trainingR &lt;- readRDS(file.path(&quot;_processed_data&quot;,
 <p>Create a subset with the differential expressed genes from the training dataset from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>.</p>
 <p>Train-testing subset creation: Intersection between differential expressed genes from training set from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span> and lowly expressed genes from testing set.</p>
 <pre class="r"><code>set.seed(111)
-mask.lowly.testing &lt;- rownames(dgeB.filt.testing$counts)
-intersection.genes &lt;- intersect(mask.lowly.testing,DEgenes.trainingR)
-dgeR.DEgenes &lt;- dgeR.filt.training$counts[intersection.genes,]
-dgeR.filt.training$counts &lt;- dgeR.filt.training$counts[intersection.genes,]
-dgeB.filt.testing$counts &lt;- dgeB.filt.testing$counts[intersection.genes,]</code></pre>
+intersection.genes &lt;- intersect(rownames(dgeB.filt.testing),DEgenes.trainingR)
+length(intersection.genes)
+[1] 561
+
+dgeR.intercept &lt;- dgeR.filt.training[intersection.genes,]
+dim(dgeR.intercept)
+[1] 561  58
+seR.intercept &lt;- seR.filt.training[intersection.genes,]
+dim(seR.intercept)
+[1] 561  58
+
+dgeB.intercept &lt;- dgeB.filt.testing[intersection.genes,]
+dim(dgeB.intercept)
+[1] 561  25
+seB.intercept &lt;- seB.filt.testing[intersection.genes,]
+dim(seB.intercept)
+[1] 561  25</code></pre>
+<div id="dataframes-creation" class="section level2" number="1.1">
+<h2><span class="header-section-number">1.1</span> Dataframes creation</h2>
+<div id="training-data" class="section level3" number="1.1.1">
+<h3><span class="header-section-number">1.1.1</span> Training data</h3>
+<pre class="r"><code>training.df &lt;- data.frame(Tumor = seR.intercept$Tumor,
+                          scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE))</code></pre>
+</div>
+<div id="testing-data" class="section level3" number="1.1.2">
+<h3><span class="header-section-number">1.1.2</span> Testing data</h3>
+<pre class="r"><code>testing.df &lt;- data.frame(Tumor = seB.intercept$Tumor,
+                          scale(t(assays(seB.intercept)$logCPM), scale = TRUE, center = TRUE))</code></pre>
+</div>
+</div>
 </div>
 <div id="performance-metrics" class="section level1" number="2">
 <h1><span class="header-section-number">2</span> Performance metrics</h1>
@@ -445,355 +469,1389 @@ dgeB.filt.testing$counts &lt;- dgeB.filt.testing$counts[intersection.genes,]</co
   return(FPR)
 }</code></pre>
 </div>
-<div id="lasso-cv-via-cross-validation" class="section level1" number="3">
-<h1><span class="header-section-number">3</span> LASSO-CV (Via cross-validation)</h1>
-<div id="fitting-the-model" class="section level2" number="3.1">
-<h2><span class="header-section-number">3.1</span> Fitting the model</h2>
-<p>Define the function for LASSO where the penalization parameter λ is set through cross-validation (LASSO-CV).</p>
-<pre class="r"><code>kfoldCV.lasso.logistic &lt;- function(y,x,K=10,seed,criterion=&#39;cv&#39;) {
-## Perform K-fold cross-validation for LASSO regression estimate 
-  #(lambda set either via cross-val or BIC or EBIC)
-## Input
-## - y: response
-## - x: data.frame with predictors, intercept should not be present
-## - K: number of folds in K-fold cross-validation
-## - seed: random number generator seed (optional)
-## - criterion: the criterion to select the penalization parameter, 
-  #either cross-val or BIC or EBIC
-## Output
-## - pred: cross-validated predictions for y
-## - ssr: residual sum of squares, sum((y-pred)^2)
-  require(glmnet)
-  if (!missing(seed)) set.seed(seed)
-  subset &lt;- rep(1:K,ceiling(nrow(x)/K))[1:nrow(x)]
-  subset &lt;- sample(subset,size=nrow(x),replace=FALSE)
-  pred &lt;- double(nrow(x))
-  pred_0 &lt;- double(nrow(x))
-  cat(&quot;Starting cross-validation&quot;)
-  if (ncol(x)&gt;0) {  #if there are some covariates
-    for (k in 1:K) {
-        sel &lt;- subset==k
-        pred_0[sel] &lt;- mean(y[!sel])
-        if (criterion==&#39;cv&#39;) {
-            fit &lt;- cv.glmnet(x=x[!sel,,drop=FALSE], y=y[!sel], 
-                             alpha = 1, nfolds=10, family = &#39;binomial&#39;)
-            pred[sel] &lt;- predict(fit,newx=x[sel,,drop=FALSE],type=&#39;response&#39;,
-                                 s=&#39;lambda.min&#39;)
-        } else if (criterion==&#39;bic&#39;){
-            fit &lt;- lasso.bic.logistic(y=y[!sel],x=x[!sel,,drop=FALSE])
-            pred[sel] &lt;- predict(fit$model,newx=x[sel,,drop=FALSE],
-                                 type=&#39;response&#39;, s = fit$lambda.opt)
-        } else if (criterion==&#39;ebic&#39;){
-            fit &lt;- lasso.bic.logistic(y=y[!sel],x=x[!sel,,drop=FALSE],extended = TRUE)
-            pred[sel] &lt;- predict(fit$model,newx=x[sel,,drop=FALSE],
-                                 type=&#39;response&#39;, s = fit$lambda.opt)
-        } else { stop(&quot;method.lambda not implemented&quot;) }
-        cat(&quot;.&quot;)
-    }
-  } else { #if there are no covariates, just use the intercept
-    for (k in 1:K) {
-      sel &lt;- subset==k
-      pred[sel] &lt;- mean(y[!sel],na.rm=TRUE)
-    }
-  }
-  cat(&quot;\n&quot;)
-  return(list(pred=pred, pred_0= pred_0,ssr=sum((pred-y)^2,na.rm=TRUE)))
-}</code></pre>
-<p>Convert the dependent variable from the training dataset into a factor variable (with factors 0 and 1) and fit the LASSO-CV model using the previous function.</p>
-<pre class="r"><code>set.seed(1234)
-t0 &lt;- Sys.time()
+<div id="xgboost" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> XGBOOST</h1>
+<pre class="r"><code>modelLookup(&quot;xgbTree&quot;)
+    model        parameter                          label forReg forClass
+1 xgbTree          nrounds          # Boosting Iterations   TRUE     TRUE
+2 xgbTree        max_depth                 Max Tree Depth   TRUE     TRUE
+3 xgbTree              eta                      Shrinkage   TRUE     TRUE
+4 xgbTree            gamma         Minimum Loss Reduction   TRUE     TRUE
+5 xgbTree colsample_bytree     Subsample Ratio of Columns   TRUE     TRUE
+6 xgbTree min_child_weight Minimum Sum of Instance Weight   TRUE     TRUE
+7 xgbTree        subsample           Subsample Percentage   TRUE     TRUE
+  probModel
+1      TRUE
+2      TRUE
+3      TRUE
+4      TRUE
+5      TRUE
+6      TRUE
+7      TRUE</code></pre>
+<pre class="r"><code># CV technique which will be passed into the train() function
+train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
 
-tumor.training &lt;- as.numeric(dgeR.filt.training$samples$Tumor)-1
+# tuning grid
+set.seed(111)
+#xgboostGrid &lt;-  expand.grid(max_depth = c(3, 5, 7, 9), 
+#                        nrounds = (1:10)*20,    # number of trees
+#                        eta = c(0.2,0.3,0.4),
+#                        gamma = c(0.5,1),
+#                        subsample = c(0.5, 0.6, 0.7), # common value: between 0.5 and 1
+#                        min_child_weight = c(1,2,3),
+#                        colsample_bytree = c(0.5, 0.6, 0.7) # common value: between 0.5 and 1
+#                        )
 
-fit.lassocv &lt;- cv.glmnet(x=t(dgeR.DEgenes),y=tumor.training, family =&#39;binomial&#39;, nfolds = 10, aplha = 1)
-t1 &lt;- Sys.time()
-cat(&#39;\nTime elapsed: &#39;)
+xgboostGrid &lt;- expand.grid(max_depth = c(3, 4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.3,0.4,0.5),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.7))
 
-Time elapsed: </code></pre>
-<pre class="r"><code>print(round(t1-t0,3))
-Time difference of 0.116 secs</code></pre>
-<pre class="r"><code>fit.lassocv
+# auc = 0.64 fnr= 0.47 fpr = 0. max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.8)
+# auc = 0.71 fnr= 0.47 fpr = 0.16. max_depth = c(3, 4, 5, 6, 7)
+# auc = 0.75 fnr= 0.47 fpr = 0.16. colsample_bytree = c(0.7)
+# auc = 0.58, fnr = 0.52, fpr=0. min_child_weight = c(2)
+# auc = 0.68, fnr = 0.47, fpr=0. min_child_weight = c(3)
+# auc = 0.56, fnr=0.57, fpr=0.eta = c(0.2,0.3,0.4, 0.5),gamma = c(0.5,1) colsample_bytree = c(0.7,0.8)
+# auc = 0.73, fnr=0.47, fpr=0.subsample = c(0.8)
+# auc = 0.57, fnr=0.47, fpr=0.33.subsample = c(0.8)
+#auc = 0.52, fnr=0.57, fpr=0. max_depth = c(4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(0.8),min_child_weight = c(1),colsample_bytree = c(0.7))
+# auc = 0.74, fnr = 0.52, fpr=0.eta = c(0.2,0.4)
 
-Call:  cv.glmnet(x = t(dgeR.DEgenes), y = tumor.training, nfolds = 10,      family = &quot;binomial&quot;, aplha = 1) 
 
-Measure: Binomial Deviance 
+# hyperparaemeter search for XGboost classifier tree model
+model = caret::train(Tumor~., data = training.df,
+              ######ALTERNATIVE#######
+              #x = trainMNX,
+              #y = trainMNY,
+              ########################
+              method = &quot;xgbTree&quot;,
+              trControl = train_control,
+              metric = &quot;ROC&quot;,
+              tuneGrid = xgboostGrid,
+              verbosity = 0,
+              verbose = TRUE,
+              #nthreads = 16 #cores in use
+              )
 
-     Lambda Index Measure      SE Nonzero
-min 0.00789    72  0.8182 0.20171      26
-1se 0.04844    33  1.0152 0.07286      11
-plot(fit.lassocv)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-8-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
-<p>The model selects 26 genes.</p>
-<pre class="r"><code>b.lassocv = as.vector(coef(fit.lassocv, s=&#39;lambda.min&#39;))
-sum(b.lassocv[-1] != 0)
-[1] 26</code></pre>
-<pre class="r"><code>coef.matrix &lt;- coef(fit.lassocv, s = &#39;lambda.min&#39;)
-non.zero.coefs &lt;- rownames(coef.matrix)[coef.matrix[,1]!= 0 &amp; rownames(coef.matrix)!= &#39;(Intercept)&#39;]</code></pre>
-<pre class="r"><code>mask &lt;- rownames(assay(seR.filt.training)) %in% non.zero.coefs
-selected.genes &lt;- rowData(seR.filt.training)$Symbol[mask]</code></pre>
-</div>
-<div id="model-performance" class="section level2" number="3.2">
-<h2><span class="header-section-number">3.2</span> Model performance</h2>
-<div id="in-sample-auc" class="section level3" number="3.2.1">
-<h3><span class="header-section-number">3.2.1</span> In-sample AUC</h3>
-<pre class="r"><code>lassocv.pred&lt;- predict(fit.lassocv, newx=t(dgeR.DEgenes), s = fit.lassocv$lambda.min)
-
-(auc.lassoCV.training&lt;- pROC::auc(tumor.training,lassocv.pred[,1]))
-Setting levels: control = 0, case = 1
-Setting direction: controls &lt; cases
-Area under the curve: 1</code></pre>
-</div>
-<div id="out-sample-auc-using-cross-validation" class="section level3" number="3.2.2">
-<h3><span class="header-section-number">3.2.2</span> Out-sample AUC using cross-validation</h3>
-<pre class="r"><code>cv.pred.lasso.cv &lt;- kfoldCV.lasso.logistic(y=tumor.training,x=t(dgeR.DEgenes), K=10,seed=1,criterion=&quot;cv&quot;)
-Starting cross-validation..........
-
-(auc.lassocv.test &lt;- pROC::auc(tumor.training,cv.pred.lasso.cv$pred))
-Setting levels: control = 0, case = 1
-Setting direction: controls &lt; cases
-Area under the curve: 0.8238</code></pre>
-<pre class="r"><code>FNR(cv.pred.lasso.cv$pred,tumor.training)
-     class.pred
-truth  0  1
-    0 25  5
-    1  9 19
-[1] 0.3214286</code></pre>
-<pre class="r"><code>FPR(cv.pred.lasso.cv$pred,tumor.training)
-     class.pred
-truth  0  1
-    0 25  5
-    1  9 19
-[1] 0.1666667</code></pre>
-<pre class="r"><code>#mcfadden_pseudo_r2(cv.pred.lasso.cv$pred,cv.pred.lasso.cv$pred_0, tumor.training)</code></pre>
-</div>
-<div id="out-sample-auc-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="3.2.3">
-<h3><span class="header-section-number">3.2.3</span> Out-sample AUC using testing dataset from Block et al. (2022)</h3>
-<p>Convert the dependent variable from the testing dataset into a factor variable (with factors 0 and 1).</p>
-<pre class="r"><code>tumor.testing &lt;- as.numeric(dgeB.filt.testing$samples$Tumor)-1</code></pre>
-<p>Predict the categories using the previously trained model and compute the out-sample AUC, FNR and FPR.</p>
-<pre class="r"><code>lassocv.pred2&lt;- predict(fit.lassocv, newx=t(dgeB.filt.testing$counts),
-                       s = fit.lassocv$lambda.min)
-(auc.lassocv.test2 &lt;- pROC::auc(tumor.testing,lassocv.pred2[,1]))
-Setting levels: control = 0, case = 1
-Setting direction: controls &gt; cases
-Area under the curve: 0.5614</code></pre>
-<pre class="r"><code>FNR(lassocv.pred2,tumor.testing)
-     class.pred
-truth  0  1
-    0  0  6
-    1  6 13
-[1] 0.3157895</code></pre>
-<pre class="r"><code>FPR(lassocv.pred2,tumor.testing)
-     class.pred
-truth  0  1
-    0  0  6
-    1  6 13
-[1] 1</code></pre>
-</div>
-</div>
-</div>
-<div id="random-forest" class="section level1" number="4">
-<h1><span class="header-section-number">4</span> Random Forest</h1>
-<pre><code>
-Attaching package: &#39;caTools&#39;
-The following object is masked from &#39;package:IRanges&#39;:
-
-    runmean
-The following object is masked from &#39;package:S4Vectors&#39;:
-
-    runmean
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-
-Attaching package: &#39;randomForest&#39;
-The following object is masked from &#39;package:Biobase&#39;:
-
-    combine
-The following object is masked from &#39;package:BiocGenerics&#39;:
-
-    combine</code></pre>
-<div id="fitting-the-model-1" class="section level2" number="4.1">
-<h2><span class="header-section-number">4.1</span> Fitting the model</h2>
-<p>Standardize the training set.</p>
-<pre class="r"><code>standardized.training &lt;- scale(t(dgeR.DEgenes), scale = TRUE, center = TRUE)</code></pre>
-<pre class="r"><code>library(randomForest)
-
-tumor.training.forest &lt;- as.numeric(dgeR.filt.training$samples$Tumor)
-
-# Fitting a random forest model
-model &lt;- randomForest(x = standardized.training, y = as.factor(tumor.training.forest), ntree = 400, importance = TRUE)
-
-# Summary of the model
 print(model)
+eXtreme Gradient Boosting 
 
-Call:
- randomForest(x = standardized.training, y = as.factor(tumor.training.forest),      ntree = 400, importance = TRUE) 
-               Type of random forest: classification
-                     Number of trees: 400
-No. of variables tried at each split: 23
+ 58 samples
+561 predictors
+  2 classes: &#39;no&#39;, &#39;yes&#39; 
 
-        OOB estimate of  error rate: 29.31%
-Confusion matrix:
-   1  2 class.error
-1 22  8   0.2666667
-2  9 19   0.3214286</code></pre>
-<p>Calculates how much the model accuracy decreases without a certain predictor (feature)</p>
-<pre class="r"><code>png(&quot;plot.png&quot;, width = 1200, height = 800)
-varImpPlot &lt;- varImpPlot(model, pch = 16, col = &quot;blue&quot;, type = TRUE, main = NULL)
-dev.off()</code></pre>
-<figure style="display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%; margin-bottom: 20px;">
-<img src="plot.png" style="width: 700px; height: auto;">
-<figcaption style="text-align: center; margin-top: 20px;">
-Figure XX: Variance important plot for <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>.
-</figcaption>
-</figure>
-</div>
-<div id="model-performance-1" class="section level2" number="4.2">
-<h2><span class="header-section-number">4.2</span> Model performance</h2>
-<div id="out-sample-auc-using-cross-validation-1" class="section level3" number="4.2.1">
-<h3><span class="header-section-number">4.2.1</span> Out-sample AUC using cross-validation</h3>
-<p>Create the function.</p>
-<pre class="r"><code>kfoldCV.randomforest.logistic &lt;- function(y,x,K=10,seed) {
-## Perform K-fold cross-validation for least-squares regression estimate
-## Input
-## - y: response
-## - x: data.frame with predictors, intercept should not be present
-## - K: number of folds in K-fold cross-validation
-## - seed: random number generator seed (optional)
-## Output
-## - pred: cross-validated predictions for y
-## - ssr: residual sum of squares, sum((y-pred)^2)
-  if (!missing(seed)) set.seed(seed)
-  subset &lt;- rep(1:K,ceiling(nrow(x)/K))[1:nrow(x)]
-  subset &lt;- sample(subset,size=nrow(x),replace=FALSE)
-  pred &lt;- double(nrow(x))
-  pred_0 &lt;- double(nrow(x))
-  if (ncol(x)&gt;0) {
-    for (k in 1:K) {
-      sel &lt;- subset==k
-      #fit &lt;- glm(y[!sel] ~ ., data=x[!sel,,drop=FALSE], family = &#39;binomial&#39;)
-      fit &lt;- randomForest(x = x[!sel,,drop=FALSE],
-                          y = as.factor(y[!sel]), ntree = 500)
-      pred[sel] &lt;- predict(fit, newdata=x[sel,,drop=FALSE],
-                           type=&#39;response&#39;)
-      pred_0[sel] &lt;- mean(y[!sel])
-    }
-  } else {
-    for (k in 1:K) {
-      sel &lt;- subset==k
-      pred[sel] &lt;- mean(y[!sel],na.rm=TRUE)
-    }
-  }
-  return(list(pred=pred, pred_0 =pred_0,
-              ssr=sum((pred-y)^2,na.rm=TRUE)))
-}</code></pre>
-<p>Compute AUC, FNR and FPR.</p>
-<pre class="r"><code>cv.pred.RandomForest &lt;- kfoldCV.randomforest.logistic(y=tumor.training,
-                                x=standardized.training, K=10,seed=1)
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
+Resampling results across tuning parameters:
 
-(auc.randomForest.cv &lt;- pROC::auc(tumor.training,cv.pred.RandomForest$pred))
+  eta  max_depth  nrounds  ROC        Sens       Spec     
+  0.3  3           20      0.8944444  0.8333333  0.6500000
+  0.3  3           40      0.8944444  0.8333333  0.7333333
+  0.3  3           60      0.8944444  0.8333333  0.7333333
+  0.3  3           80      0.8944444  0.8333333  0.7333333
+  0.3  3          100      0.8944444  0.8333333  0.7333333
+  0.3  3          120      0.8944444  0.8333333  0.7333333
+  0.3  3          140      0.8944444  0.8333333  0.7333333
+  0.3  3          160      0.8944444  0.8333333  0.7333333
+  0.3  3          180      0.8944444  0.8333333  0.7333333
+  0.3  3          200      0.8944444  0.8333333  0.7333333
+  0.3  4           20      0.8888889  0.8333333  0.8000000
+  0.3  4           40      0.8888889  0.8333333  0.8000000
+  0.3  4           60      0.8888889  0.8333333  0.8000000
+  0.3  4           80      0.8888889  0.8333333  0.8000000
+  0.3  4          100      0.8888889  0.8333333  0.8000000
+  0.3  4          120      0.8888889  0.8333333  0.8000000
+  0.3  4          140      0.8888889  0.8333333  0.8000000
+  0.3  4          160      0.8888889  0.8333333  0.8000000
+  0.3  4          180      0.8888889  0.8333333  0.8000000
+  0.3  4          200      0.8888889  0.8333333  0.8000000
+  0.3  5           20      0.9666667  0.8666667  0.7333333
+  0.3  5           40      0.9666667  0.8666667  0.7333333
+  0.3  5           60      0.9666667  0.8666667  0.7333333
+  0.3  5           80      0.9666667  0.8666667  0.7333333
+  0.3  5          100      0.9666667  0.8666667  0.7333333
+  0.3  5          120      0.9666667  0.8666667  0.7333333
+  0.3  5          140      0.9666667  0.8666667  0.7333333
+  0.3  5          160      0.9666667  0.8666667  0.7333333
+  0.3  5          180      0.9666667  0.8666667  0.7333333
+  0.3  5          200      0.9666667  0.8666667  0.7333333
+  0.3  6           20      0.8944444  0.8333333  0.7666667
+  0.3  6           40      0.8888889  0.8000000  0.7166667
+  0.3  6           60      0.8888889  0.8000000  0.7166667
+  0.3  6           80      0.8888889  0.8000000  0.7166667
+  0.3  6          100      0.8888889  0.8000000  0.7166667
+  0.3  6          120      0.8888889  0.8000000  0.7166667
+  0.3  6          140      0.8888889  0.8000000  0.7166667
+  0.3  6          160      0.8888889  0.8000000  0.7166667
+  0.3  6          180      0.8888889  0.8000000  0.7166667
+  0.3  6          200      0.8888889  0.8000000  0.7166667
+  0.3  7           20      0.8666667  0.8333333  0.7833333
+  0.3  7           40      0.8555556  0.8333333  0.7833333
+  0.3  7           60      0.8555556  0.8333333  0.7833333
+  0.3  7           80      0.8555556  0.8333333  0.7833333
+  0.3  7          100      0.8555556  0.8333333  0.7833333
+  0.3  7          120      0.8555556  0.8333333  0.7833333
+  0.3  7          140      0.8555556  0.8333333  0.7833333
+  0.3  7          160      0.8555556  0.8333333  0.7833333
+  0.3  7          180      0.8555556  0.8333333  0.7833333
+  0.3  7          200      0.8555556  0.8333333  0.7833333
+  0.4  3           20      0.8555556  0.8333333  0.7500000
+  0.4  3           40      0.8555556  0.8333333  0.7500000
+  0.4  3           60      0.8555556  0.8333333  0.7500000
+  0.4  3           80      0.8555556  0.8333333  0.7500000
+  0.4  3          100      0.8555556  0.8333333  0.7500000
+  0.4  3          120      0.8555556  0.8333333  0.7500000
+  0.4  3          140      0.8555556  0.8333333  0.7500000
+  0.4  3          160      0.8555556  0.8333333  0.7500000
+  0.4  3          180      0.8555556  0.8333333  0.7500000
+  0.4  3          200      0.8555556  0.8333333  0.7500000
+  0.4  4           20      0.9500000  0.9000000  0.7000000
+  0.4  4           40      0.9500000  0.9000000  0.7000000
+  0.4  4           60      0.9500000  0.9000000  0.7000000
+  0.4  4           80      0.9500000  0.9000000  0.7000000
+  0.4  4          100      0.9500000  0.9000000  0.7000000
+  0.4  4          120      0.9500000  0.9000000  0.7000000
+  0.4  4          140      0.9500000  0.9000000  0.7000000
+  0.4  4          160      0.9500000  0.9000000  0.7000000
+  0.4  4          180      0.9500000  0.9000000  0.7000000
+  0.4  4          200      0.9500000  0.9000000  0.7000000
+  0.4  5           20      0.8944444  0.9000000  0.7333333
+  0.4  5           40      0.8944444  0.9000000  0.7333333
+  0.4  5           60      0.8944444  0.9000000  0.7333333
+  0.4  5           80      0.8944444  0.9000000  0.7333333
+  0.4  5          100      0.8944444  0.9000000  0.7333333
+  0.4  5          120      0.8944444  0.9000000  0.7333333
+  0.4  5          140      0.8944444  0.9000000  0.7333333
+  0.4  5          160      0.8944444  0.9000000  0.7333333
+  0.4  5          180      0.8944444  0.9000000  0.7333333
+  0.4  5          200      0.8944444  0.9000000  0.7333333
+  0.4  6           20      0.8944444  0.7666667  0.6666667
+  0.4  6           40      0.8944444  0.7666667  0.6666667
+  0.4  6           60      0.8944444  0.7666667  0.6666667
+  0.4  6           80      0.8944444  0.7666667  0.6666667
+  0.4  6          100      0.8944444  0.7666667  0.6666667
+  0.4  6          120      0.8944444  0.7666667  0.6666667
+  0.4  6          140      0.8944444  0.7666667  0.6666667
+  0.4  6          160      0.8944444  0.7666667  0.6666667
+  0.4  6          180      0.8944444  0.7666667  0.6666667
+  0.4  6          200      0.8944444  0.7666667  0.6666667
+  0.4  7           20      0.8833333  0.8666667  0.8000000
+  0.4  7           40      0.8833333  0.8666667  0.8000000
+  0.4  7           60      0.8833333  0.8666667  0.8000000
+  0.4  7           80      0.8833333  0.8666667  0.8000000
+  0.4  7          100      0.8833333  0.8666667  0.8000000
+  0.4  7          120      0.8833333  0.8666667  0.8000000
+  0.4  7          140      0.8833333  0.8666667  0.8000000
+  0.4  7          160      0.8833333  0.8666667  0.8000000
+  0.4  7          180      0.8833333  0.8666667  0.8000000
+  0.4  7          200      0.8833333  0.8666667  0.8000000
+  0.5  3           20      0.9555556  0.9333333  0.8166667
+  0.5  3           40      0.9555556  0.9000000  0.8166667
+  0.5  3           60      0.9555556  0.9000000  0.8166667
+  0.5  3           80      0.9555556  0.9000000  0.8166667
+  0.5  3          100      0.9555556  0.9000000  0.8166667
+  0.5  3          120      0.9555556  0.9000000  0.8166667
+  0.5  3          140      0.9555556  0.9000000  0.8166667
+  0.5  3          160      0.9555556  0.9000000  0.8166667
+  0.5  3          180      0.9555556  0.9000000  0.8166667
+  0.5  3          200      0.9555556  0.9000000  0.8166667
+  0.5  4           20      0.8611111  0.8333333  0.8166667
+  0.5  4           40      0.8611111  0.8333333  0.8166667
+  0.5  4           60      0.8611111  0.8333333  0.8166667
+  0.5  4           80      0.8611111  0.8333333  0.8166667
+  0.5  4          100      0.8611111  0.8333333  0.8166667
+  0.5  4          120      0.8611111  0.8333333  0.8166667
+  0.5  4          140      0.8611111  0.8333333  0.8166667
+  0.5  4          160      0.8611111  0.8333333  0.8166667
+  0.5  4          180      0.8611111  0.8333333  0.8166667
+  0.5  4          200      0.8611111  0.8333333  0.8166667
+  0.5  5           20      0.9666667  0.9333333  0.6833333
+  0.5  5           40      0.9666667  0.9333333  0.6833333
+  0.5  5           60      0.9666667  0.9333333  0.6833333
+  0.5  5           80      0.9666667  0.9333333  0.6833333
+  0.5  5          100      0.9666667  0.9333333  0.6833333
+  0.5  5          120      0.9666667  0.9333333  0.6833333
+  0.5  5          140      0.9666667  0.9333333  0.6833333
+  0.5  5          160      0.9666667  0.9333333  0.6833333
+  0.5  5          180      0.9666667  0.9333333  0.6833333
+  0.5  5          200      0.9666667  0.9333333  0.6833333
+  0.5  6           20      0.8444444  0.8333333  0.7166667
+  0.5  6           40      0.8444444  0.8333333  0.7166667
+  0.5  6           60      0.8444444  0.8333333  0.7166667
+  0.5  6           80      0.8444444  0.8333333  0.7166667
+  0.5  6          100      0.8444444  0.8333333  0.7166667
+  0.5  6          120      0.8444444  0.8333333  0.7166667
+  0.5  6          140      0.8444444  0.8333333  0.7166667
+  0.5  6          160      0.8444444  0.8333333  0.7166667
+  0.5  6          180      0.8444444  0.8333333  0.7166667
+  0.5  6          200      0.8444444  0.8333333  0.7166667
+  0.5  7           20      0.9166667  0.8666667  0.7833333
+  0.5  7           40      0.9166667  0.8666667  0.7833333
+  0.5  7           60      0.9166667  0.8666667  0.7833333
+  0.5  7           80      0.9166667  0.8666667  0.7833333
+  0.5  7          100      0.9166667  0.8666667  0.7833333
+  0.5  7          120      0.9166667  0.8666667  0.7833333
+  0.5  7          140      0.9166667  0.8666667  0.7833333
+  0.5  7          160      0.9166667  0.8666667  0.7833333
+  0.5  7          180      0.9166667  0.8666667  0.7833333
+  0.5  7          200      0.9166667  0.8666667  0.7833333
+
+Tuning parameter &#39;gamma&#39; was held constant at a value of 0.5
+Tuning
+
+Tuning parameter &#39;min_child_weight&#39; was held constant at a value of 1
+
+Tuning parameter &#39;subsample&#39; was held constant at a value of 1
+ROC was used to select the optimal model using the largest value.
+The final values used for the model were nrounds = 20, max_depth = 5, eta
+ = 0.3, gamma = 0.5, colsample_bytree = 0.7, min_child_weight = 1 and
+ subsample = 1.</code></pre>
+<pre class="r"><code>plot(model)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-10-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#predict on test data
+pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
+
+# out of sample performance metrics
+test.y &lt;- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
-Area under the curve: 0.7226</code></pre>
-<pre class="r"><code>FNR(cv.pred.RandomForest$pred -1,tumor.training)
-     class.pred
-truth  0  1
-    0 23  7
-    1  9 19
-[1] 0.3214286</code></pre>
-<pre class="r"><code>FPR(cv.pred.RandomForest$pred -1,tumor.training)
-     class.pred
-truth  0  1
-    0 23  7
-    1  9 19
-[1] 0.2333333</code></pre>
-</div>
-<div id="out-sample-auc-using-using-testing-dataset-from-block-et-al.-2022" class="section level3" number="4.2.2">
-<h3><span class="header-section-number">4.2.2</span> Out-sample AUC using using testing dataset from Block et al. (2022)</h3>
-<p>Standardize the subset that includes those counts of the differential expressed genes from the training and 0 otherwise.</p>
-<pre class="r"><code>standardized.testing &lt;- scale(t(dgeB.filt.testing$counts), scale = TRUE, center = TRUE)</code></pre>
-<pre class="r"><code># Extracting probabilities for class 1
-predicted_probs2 &lt;- predict(model, standardized.testing, type = &quot;prob&quot;)[, 2] 
+Area under the curve: 0.7193
 
-# Compute AUC
-roc_obj &lt;- pROC::roc(tumor.testing, predicted_probs2)
+FNR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  6  0
+    1  9 10
+[1] 0.4736842
+FPR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  6  0
+    1  9 10
+[1] 0</code></pre>
+<pre class="r"><code># Add to output
+res.testing[1, ] &lt;- c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y))
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases
-auc &lt;- pROC::auc(roc_obj)
-print(paste(&quot;AUC:&quot;, auc))
-[1] &quot;AUC: 0.614035087719298&quot;
+rownames(res.testing)[nrow(res.testing)] &lt;- &#39;XGBOOST&#39;</code></pre>
+</div>
+<div id="adaboost" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> ADABOOST</h1>
+<pre class="r"><code>modelLookup(&quot;ada&quot;)
+  model parameter          label forReg forClass probModel
+1   ada      iter         #Trees  FALSE     TRUE      TRUE
+2   ada  maxdepth Max Tree Depth  FALSE     TRUE      TRUE
+3   ada        nu  Learning Rate  FALSE     TRUE      TRUE</code></pre>
+<pre class="r"><code># CV technique which will be passed into the train() function
+train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
 
-# Compute False Negative Rate (FNR)
-threshold &lt;- 0.5
-predictions2 &lt;- ifelse(predicted_probs2 &gt; threshold, 1, 0)
-conf_matrix &lt;- table(Actual = tumor.testing, Predicted = predictions2)
-fnr &lt;- conf_matrix[2, 1] / sum(conf_matrix[2, ])
-print(paste(&quot;FNR:&quot;, fnr))
-[1] &quot;FNR: 0.473684210526316&quot;</code></pre>
-<pre class="r"><code># Get feature importance
-#model &lt;- randomForest(x = x_train, y = as.factor(y_train), ntree = 500)
-#feature_importance &lt;- randomForest::importance(model)
+# tuning grid
+set.seed(111)
+adaGrid &lt;-  expand.grid(iter = c(50), 
+                        maxdepth = c(1,2),
+                        nu = c(0,0.01,0.05)
+                        )
+
+#adaGrid &lt;-  expand.grid(iter = c(50, 100, 200, 500),
+#                       maxdepth = c(1, 2, 3, 4, 5),
+#                       nu = c(0, 0.01, 0.05, 0.1, 0.2))
+
+
+# auc = 0.67, fnr=0.52, fpr=0. iter = c(50), maxdepth = c(1,2),nu = c(0,0.01,0.05))
+
+# hyperparaemeter search for adaboost classifier tree model
+model = train(Tumor~., data = training.df,
+              method = &quot;ada&quot;,
+              trControl = train_control,
+              metric = &quot;ROC&quot;,
+              tuneGrid = adaGrid,
+              loss = &quot;exponential&quot;,
+              type = &quot;discrete&quot;
+              )
+
+print(model)
+Boosted Classification Trees 
+
+ 58 samples
+561 predictors
+  2 classes: &#39;no&#39;, &#39;yes&#39; 
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
+Resampling results across tuning parameters:
+
+  nu    maxdepth  ROC        Sens       Spec     
+  0.00  1         0.5000000  0.3666667  0.7000000
+  0.00  2         0.5000000  0.4333333  0.4833333
+  0.01  1         0.8000000  0.9000000  0.5833333
+  0.01  2         0.9222222  0.9333333  0.7166667
+  0.05  1         0.8833333  0.9000000  0.5000000
+  0.05  2         0.9555556  0.9000000  0.6833333
+
+Tuning parameter &#39;iter&#39; was held constant at a value of 50
+ROC was used to select the optimal model using the largest value.
+The final values used for the model were iter = 50, maxdepth = 2 and nu = 0.05.</code></pre>
+<pre class="r"><code>plot(model)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-15-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#predict on test data
+pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
+
+# out of sample performance metrics
+test.y &lt;- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.6404
+
+FNR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  5  1
+    1 10  9
+[1] 0.5263158
+FPR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  5  1
+    1 10  9
+[1] 0.1666667</code></pre>
+<pre class="r"><code># Add to output
+res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+rownames(res.testing)[nrow(res.testing)] &lt;- &#39;ADABOOST&#39;</code></pre>
+</div>
+<div id="svm-models" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> SVM models</h1>
+<div id="svmlinearweights-linear-kernel-class-weights" class="section level2" number="5.1">
+<h2><span class="header-section-number">5.1</span> svmLinearWeights (linear kernel + class weights)</h2>
+<pre class="r"><code>modelLookup(&quot;svmLinearWeights&quot;)
+             model parameter        label forReg forClass probModel
+1 svmLinearWeights      cost         Cost  FALSE     TRUE      TRUE
+2 svmLinearWeights    weight Class Weight  FALSE     TRUE      TRUE</code></pre>
+<pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(50)
+# Customzing the tuning grid
+svmgrid &lt;-  expand.grid(cost = c(0.01,0.015, 0.02),
+                        weight = c(0.45) 
+                        )
+
+#svmgrid &lt;-  expand.grid(cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10))
+
+# auc = 0.70, fnr = 0.2, fpr = 0.33. cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10)
+# auc = 0.72, fnr = 0.31, fpr = 0.33. (cost = c(0.01,0.015, 0.02),weight = c(0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5)
+#empitjora. cost = c(0.015, 0.02)
+#auc = 0.73, fnr=0.31, fpr=0.33. cost = c(0.01,0.015, 0.02), weight = c(0.4, 0.5) 
+#auc = 0.74, fnr=0.31, fpr=0.33. weight = c(0.45)
+
+
+
+# training a svm classifier with liearn kernel model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = &quot;svmLinearWeights&quot;,
+              trControl = train_control,
+              metric = &quot;ROC&quot;,
+              tuneGrid = svmgrid)
+
+# summarizing the results
+print(model)
+Linear Support Vector Machines with Class Weights 
+
+ 58 samples
+561 predictors
+  2 classes: &#39;no&#39;, &#39;yes&#39; 
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 52, 52, 52, 52, 52, 53, ... 
+Resampling results across tuning parameters:
+
+  cost   ROC        Sens       Spec     
+  0.010  0.9777778  1.0000000  0.8333333
+  0.015  0.9777778  0.9666667  0.9000000
+  0.020  0.9777778  0.9666667  0.8666667
+
+Tuning parameter &#39;weight&#39; was held constant at a value of 0.45
+ROC was used to select the optimal model using the largest value.
+The final values used for the model were cost = 0.01 and weight = 0.45.</code></pre>
+<pre class="r"><code>plot(model)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-20-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#predict on test data
+pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
+
+# out of sample performance metrics
+test.y &lt;- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.7456
+
+FNR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  4  2
+    1  6 13
+[1] 0.3157895
+FPR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  4  2
+    1  6 13
+[1] 0.3333333</code></pre>
+<pre class="r"><code># Add to output
+res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+rownames(res.testing)[nrow(res.testing)] &lt;- &#39;SVMLinear&#39;</code></pre>
+</div>
+<div id="svmradial-support-vector-machines-with-radial-basis-function-kernel" class="section level2" number="5.2">
+<h2><span class="header-section-number">5.2</span> svmRadial (Support Vector Machines with Radial Basis Function Kernel)</h2>
+<pre class="r"><code>modelLookup(&quot;svmRadial&quot;)
+      model parameter label forReg forClass probModel
+1 svmRadial     sigma Sigma   TRUE     TRUE      TRUE
+2 svmRadial         C  Cost   TRUE     TRUE      TRUE</code></pre>
+<pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(50)
+svmgrid &lt;-  expand.grid(sigma=c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10))
+# Customzing the tuning grid
+#svmgrid &lt;-  expand.grid(sigma = c(0.01, 0.05,0.5,1,3, 5, 10),
+#                        C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
+#                        )
+
+# auc = 0.67. sigma = 0.01 and C = 3. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10)
+# auc = 0.67. sigma = 0.01 and C = 2. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,2,3,4,5,10)
+# auc = 0.67. sigma = 0.01 and C = 1.1. sigma = c(0.01, 0.05,0.5,1,3, 5, 10),C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
+
+
+# training a svm with rbf kernel classifier model while tuning parameters
+model = train(Tumor~., data = training.df,
+              method = &quot;svmRadial&quot;,
+              trControl = train_control,
+              metric = &quot;ROC&quot;,
+              tuneGrid = svmgrid)
+maximum number of iterations reached 0.00268881 0.002650758maximum number of iterations reached -7.276945e-05 -7.20996e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001400671 -0.0001335992maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.001170128 0.001162313maximum number of iterations reached -7.450682e-05 -7.382098e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001418675 -0.0001353166maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.00180695 0.001781904maximum number of iterations reached -7.381918e-05 -7.313968e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001414372 -0.0001349062maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.002120339 0.002089864maximum number of iterations reached -7.195484e-05 -7.12925e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001406794 -0.0001341833maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.003420223 0.003370502maximum number of iterations reached -7.51796e-05 -7.448755e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001394993 -0.0001330577maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.003413203 0.003359624maximum number of iterations reached -7.399193e-05 -7.331084e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001410354 -0.000134523maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.004032239 0.003958937maximum number of iterations reached -7.369166e-05 -7.301331e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001451065 -0.0001384058maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.003798631 0.003736572maximum number of iterations reached -7.259397e-05 -7.192574e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001429317 -0.0001363316maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754
+
+# summarizing the results
+print(model)
+Support Vector Machines with Radial Basis Function Kernel 
+
+ 58 samples
+561 predictors
+  2 classes: &#39;no&#39;, &#39;yes&#39; 
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 52, 52, 52, 52, 52, 53, ... 
+Resampling results across tuning parameters:
+
+  sigma  C      ROC         Sens       Spec     
+   0.01   0.01  0.74444444  0.7000000  0.7333333
+   0.01   0.05  0.73333333  0.7333333  0.7333333
+   0.01   0.50  0.93333333  0.6333333  0.7333333
+   0.01   1.00  0.94444444  0.8333333  0.9000000
+   0.01   3.00  0.95555556  0.9000000  0.9000000
+   0.01   5.00  0.95555556  0.8666667  0.9000000
+   0.01  10.00  0.95555556  0.8666667  0.9000000
+   0.05   0.01  0.07222222  1.0000000  0.0000000
+   0.05   0.05  0.07222222  1.0000000  0.0000000
+   0.05   0.50  0.07222222  1.0000000  0.0000000
+   0.05   1.00  0.07222222  1.0000000  0.0000000
+   0.05   3.00  0.07222222  1.0000000  0.0000000
+   0.05   5.00  0.07222222  1.0000000  0.0000000
+   0.05  10.00  0.07222222  1.0000000  0.0000000
+   0.50   0.01  0.50000000  1.0000000  0.0000000
+   0.50   0.05  0.50000000  1.0000000  0.0000000
+   0.50   0.50  0.50000000  1.0000000  0.0000000
+   0.50   1.00  0.50000000  1.0000000  0.0000000
+   0.50   3.00  0.50000000  1.0000000  0.0000000
+   0.50   5.00  0.50000000  1.0000000  0.0000000
+   0.50  10.00  0.50000000  1.0000000  0.0000000
+   1.00   0.01  0.50000000  1.0000000  0.0000000
+   1.00   0.05  0.50000000  1.0000000  0.0000000
+   1.00   0.50  0.50000000  1.0000000  0.0000000
+   1.00   1.00  0.50000000  1.0000000  0.0000000
+   1.00   3.00  0.50000000  1.0000000  0.0000000
+   1.00   5.00  0.50000000  1.0000000  0.0000000
+   1.00  10.00  0.50000000  1.0000000  0.0000000
+   3.00   0.01  0.50000000  1.0000000  0.0000000
+   3.00   0.05  0.50000000  1.0000000  0.0000000
+   3.00   0.50  0.50000000  1.0000000  0.0000000
+   3.00   1.00  0.50000000  1.0000000  0.0000000
+   3.00   3.00  0.50000000  1.0000000  0.0000000
+   3.00   5.00  0.50000000  1.0000000  0.0000000
+   3.00  10.00  0.50000000  1.0000000  0.0000000
+   5.00   0.01  0.50000000  1.0000000  0.0000000
+   5.00   0.05  0.50000000  1.0000000  0.0000000
+   5.00   0.50  0.50000000  1.0000000  0.0000000
+   5.00   1.00  0.50000000  1.0000000  0.0000000
+   5.00   3.00  0.50000000  1.0000000  0.0000000
+   5.00   5.00  0.50000000  1.0000000  0.0000000
+   5.00  10.00  0.50000000  1.0000000  0.0000000
+  10.00   0.01  0.50000000  1.0000000  0.0000000
+  10.00   0.05  0.50000000  1.0000000  0.0000000
+  10.00   0.50  0.50000000  1.0000000  0.0000000
+  10.00   1.00  0.50000000  1.0000000  0.0000000
+  10.00   3.00  0.50000000  1.0000000  0.0000000
+  10.00   5.00  0.50000000  1.0000000  0.0000000
+  10.00  10.00  0.50000000  1.0000000  0.0000000
+
+ROC was used to select the optimal model using the largest value.
+The final values used for the model were sigma = 0.01 and C = 3.</code></pre>
+<pre class="r"><code>plot(model)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-25-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#predict on test data
+pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
+
+# out of sample performance metrics
+test.y &lt;- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.7895
+
+FNR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  3  3
+    1  3 16
+[1] 0.1578947
+FPR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  3  3
+    1  3 16
+[1] 0.5</code></pre>
+<pre class="r"><code># Add to output
+res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+rownames(res.testing)[nrow(res.testing)] &lt;- &#39;SVMRadial&#39;</code></pre>
+</div>
+</div>
+<div id="random-forest" class="section level1" number="6">
+<h1><span class="header-section-number">6</span> Random forest</h1>
+<pre class="r"><code>modelLookup(&quot;rf&quot;)
+  model parameter                         label forReg forClass probModel
+1    rf      mtry #Randomly Selected Predictors   TRUE     TRUE      TRUE</code></pre>
+<pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+rfgrid &lt;-  expand.grid(mtry = c(1:30) #only parameter you can tune for rf in R
+                        )
+
+# training a randomForest classifier tree model while tuning parameters
+model = caret::train(Tumor~., data = training.df,
+              method = &quot;rf&quot;,
+              trControl = train_control,
+              metric = &quot;ROC&quot;,
+              importance = T,
+              #manually set
+              ntree = 700, #was a good number
+              nodesize = 1, #default for classification
+              tuneGrid = rfgrid)
+
+print(model)
+Random Forest 
+
+ 58 samples
+561 predictors
+  2 classes: &#39;no&#39;, &#39;yes&#39; 
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
+Resampling results across tuning parameters:
+
+  mtry  ROC        Sens       Spec     
+   1    0.9333333  0.9000000  0.7166667
+   2    0.9222222  0.8000000  0.7500000
+   3    0.9111111  0.8000000  0.7500000
+   4    0.9333333  0.8000000  0.7833333
+   5    0.9000000  0.8000000  0.7833333
+   6    0.9000000  0.8333333  0.7500000
+   7    0.8888889  0.8333333  0.6833333
+   8    0.8916667  0.8333333  0.7166667
+   9    0.9277778  0.8666667  0.7166667
+  10    0.8666667  0.8333333  0.6833333
+  11    0.9111111  0.8666667  0.7833333
+  12    0.8888889  0.8333333  0.7166667
+  13    0.9111111  0.8333333  0.7500000
+  14    0.9111111  0.9000000  0.7166667
+  15    0.8944444  0.8666667  0.7166667
+  16    0.8722222  0.8666667  0.7166667
+  17    0.9333333  0.8333333  0.7500000
+  18    0.9111111  0.8666667  0.7166667
+  19    0.9277778  0.8666667  0.7833333
+  20    0.9000000  0.8333333  0.7166667
+  21    0.8944444  0.8666667  0.7166667
+  22    0.9166667  0.8666667  0.7166667
+  23    0.9111111  0.8333333  0.7166667
+  24    0.8888889  0.8666667  0.7166667
+  25    0.9333333  0.9333333  0.7166667
+  26    0.9055556  0.8666667  0.7166667
+  27    0.9388889  0.8666667  0.7500000
+  28    0.9277778  0.8666667  0.7500000
+  29    0.9222222  0.9333333  0.7166667
+  30    0.9333333  0.8666667  0.7500000
+
+ROC was used to select the optimal model using the largest value.
+The final value used for the model was mtry = 27.</code></pre>
+<pre class="r"><code>plot(model)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-30-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#predict on test data
+pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
+
+# out of sample performance metrics
+test.y &lt;- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.7456
+
+FNR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  6  0
+    1 12  7
+[1] 0.6315789
+FPR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  6  0
+    1 12  7
+[1] 0</code></pre>
+<pre class="r"><code># Add to output
+res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+rownames(res.testing)[nrow(res.testing)] &lt;- &#39;RandomForest&#39;</code></pre>
+<pre class="r"><code>#feature_importance &lt;- randomForest::importance(model)
 #sorted_importance &lt;- feature_importance[order(-feature_importance[, #&quot;MeanDecreaseGini&quot;]),                                        ]
 #print(sorted_importance)</code></pre>
 </div>
+<div id="elastic-net" class="section level1" number="7">
+<h1><span class="header-section-number">7</span> Elastic net</h1>
+<pre class="r"><code>modelLookup(&quot;glmnet&quot;)
+   model parameter                    label forReg forClass probModel
+1 glmnet     alpha        Mixing Percentage   TRUE     TRUE      TRUE
+2 glmnet    lambda Regularization Parameter   TRUE     TRUE      TRUE</code></pre>
+<pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+netgrid &lt;-  expand.grid(alpha = c(0.1, 0.2, 0.5, 0.7, 0.9), # every time model selected 0 auc was 1
+                        lambda = c(0,0.05,0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 1, 5, 10) # 0 is logistic
+                        )
+
+# auc = 0.59. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1),lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5,1). alpha = 0.005 and lambda = 1.
+# auc = 0.70. lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5). alpha = 0.005 and lambda = 0.5.
+# auc = 0.68. alpha = c(0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1) alpha = 0.01 and lambda = 0.5.
+# auc = 0.70. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5), lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4). alpha = 0.005 and lambda = 0.4.
+
+# training a elastic net classifier tree model while tuning parameters
+model = caret::train(Tumor~., data = training.df,
+              method = &quot;glmnet&quot;,
+              trControl = train_control,
+              metric = &quot;ROC&quot;,
+              tuneGrid = netgrid)
+
+# summarizing the results
+print(model)
+glmnet 
+
+ 58 samples
+561 predictors
+  2 classes: &#39;no&#39;, &#39;yes&#39; 
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
+Resampling results across tuning parameters:
+
+  alpha  lambda  ROC        Sens       Spec     
+  0.1     0.00   0.9888889  0.9000000  0.8500000
+  0.1     0.05   0.9888889  0.9000000  0.8000000
+  0.1     0.10   0.9888889  0.9000000  0.8000000
+  0.1     0.20   0.9722222  0.9000000  0.8000000
+  0.1     0.25   0.9833333  0.9000000  0.8000000
+  0.1     0.30   0.9833333  0.9000000  0.8000000
+  0.1     0.35   0.9722222  0.9000000  0.8000000
+  0.1     0.40   0.9722222  0.9000000  0.8000000
+  0.1     1.00   0.8722222  0.9000000  0.6833333
+  0.1     5.00   0.5000000  1.0000000  0.0000000
+  0.1    10.00   0.5000000  1.0000000  0.0000000
+  0.2     0.00   0.9722222  0.9000000  0.8500000
+  0.2     0.05   0.9722222  0.9000000  0.8000000
+  0.2     0.10   0.9722222  0.9000000  0.8000000
+  0.2     0.20   0.9722222  0.9000000  0.8000000
+  0.2     0.25   0.9611111  0.9000000  0.8000000
+  0.2     0.30   0.9444444  0.9000000  0.8000000
+  0.2     0.35   0.9444444  0.9000000  0.7666667
+  0.2     0.40   0.9444444  0.9000000  0.7666667
+  0.2     1.00   0.7777778  0.9666667  0.5000000
+  0.2     5.00   0.5000000  1.0000000  0.0000000
+  0.2    10.00   0.5000000  1.0000000  0.0000000
+  0.5     0.00   0.9611111  0.8666667  0.8166667
+  0.5     0.05   0.9555556  0.9333333  0.8500000
+  0.5     0.10   0.9333333  0.9000000  0.8166667
+  0.5     0.20   0.8833333  0.8666667  0.7000000
+  0.5     0.25   0.8722222  0.9000000  0.6333333
+  0.5     0.30   0.8222222  0.9000000  0.5333333
+  0.5     0.35   0.7666667  0.8666667  0.5000000
+  0.5     0.40   0.7277778  0.8333333  0.5000000
+  0.5     1.00   0.5000000  1.0000000  0.0000000
+  0.5     5.00   0.5000000  1.0000000  0.0000000
+  0.5    10.00   0.5000000  1.0000000  0.0000000
+  0.7     0.00   0.9444444  0.9000000  0.8166667
+  0.7     0.05   0.9333333  0.9000000  0.8166667
+  0.7     0.10   0.9111111  0.8666667  0.7500000
+  0.7     0.20   0.8000000  0.9000000  0.5666667
+  0.7     0.25   0.7500000  0.8333333  0.5000000
+  0.7     0.30   0.6611111  0.8333333  0.4333333
+  0.7     0.35   0.5944444  0.9000000  0.1666667
+  0.7     0.40   0.5000000  1.0000000  0.0000000
+  0.7     1.00   0.5000000  1.0000000  0.0000000
+  0.7     5.00   0.5000000  1.0000000  0.0000000
+  0.7    10.00   0.5000000  1.0000000  0.0000000
+  0.9     0.00   0.9333333  0.9000000  0.8500000
+  0.9     0.05   0.9000000  0.8666667  0.7500000
+  0.9     0.10   0.8500000  0.8666667  0.6666667
+  0.9     0.20   0.7166667  0.8333333  0.5000000
+  0.9     0.25   0.6166667  0.8000000  0.3333333
+  0.9     0.30   0.5111111  1.0000000  0.0000000
+  0.9     0.35   0.5000000  1.0000000  0.0000000
+  0.9     0.40   0.5000000  1.0000000  0.0000000
+  0.9     1.00   0.5000000  1.0000000  0.0000000
+  0.9     5.00   0.5000000  1.0000000  0.0000000
+  0.9    10.00   0.5000000  1.0000000  0.0000000
+
+ROC was used to select the optimal model using the largest value.
+The final values used for the model were alpha = 0.1 and lambda = 0.1.</code></pre>
+<pre class="r"><code>plot(model)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-36-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#predict on test data
+pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
+
+# out of sample performance metrics
+test.y &lt;- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.693
+
+FNR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  6  0
+    1  9 10
+[1] 0.4736842
+FPR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  6  0
+    1  9 10
+[1] 0</code></pre>
+<pre class="r"><code># Add to output
+res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+rownames(res.testing)[nrow(res.testing)] &lt;- &#39;ElasticNet&#39;</code></pre>
 </div>
+<div id="keras-nn" class="section level1" number="8">
+<h1><span class="header-section-number">8</span> Keras NN</h1>
+<pre class="r"><code>library(tensorflow)
+
+Attaching package: &#39;tensorflow&#39;
+The following object is masked from &#39;package:caret&#39;:
+
+    train
+library(keras)
+
+Attaching package: &#39;keras&#39;
+The following object is masked from &#39;package:BiocGenerics&#39;:
+
+    normalize
+library(tfruns)
+tensorflow::set_random_seed(111)</code></pre>
+<pre class="r"><code>#c(c(x_train, y_train), c(x_test, y_test)) %&lt;-% keras::dataset_mnist()
+#x_train &lt;- x_train / 255
+#x_test &lt;-  x_test / 255</code></pre>
+<pre class="r"><code>x_train &lt;- as.matrix(training.df[,-1])
+y_train &lt;- as.matrix(as.numeric(training.df[,1])-1)
+
+x_test&lt;- as.matrix(testing.df[,-1])
+y_test &lt;- as.matrix(as.numeric(testing.df[,1])-1)
+
+x_train_shape &lt;- length(colnames(x_train))</code></pre>
+<pre class="r"><code>#constraint_maxnorm(max_value = 2, axis = 0)
+# bias_regularizer = regularizer_l2(0.01)
+model &lt;- keras_model_sequential()
+model %&gt;%
+  layer_dense(units = 1500, activation = &#39;relu&#39;,
+              input_shape = c(x_train_shape),
+              kernel_regularizer = regularizer_l1_l2(l1 = 0.00000001, l2 = 0.00001),
+              bias_regularizer = regularizer_l1_l2(l1 = 0.00001, l2 = 0.0001),
+              kernel_constraint =constraint_maxnorm(max_value = 2, axis = 0),
+              #bias_constraint =constraint_maxnorm(max_value = 3, axis = 0),
+              activity_regularizer= regularizer_l1_l2(l1 = 0.01, l2 = 0.00001),
+              ) %&gt;%  
+  layer_dropout(rate = 0.5) %&gt;% 
+  layer_batch_normalization() %&gt;%
+  layer_dense(units = 500, activation = &#39;relu&#39;,
+              kernel_regularizer = regularizer_l1_l2(l1 = 0.1, l2 = 0.1),
+              kernel_constraint = constraint_minmaxnorm(max_value = 2, min_value = 0, axis = 1),
+              bias_regularizer = regularizer_l1_l2(l1 = 0.00001, l2 = 0.000001),
+              #bias_constraint =constraint_maxnorm(max_value = 3, axis = 0),
+              activity_regularizer = regularizer_l1_l2(l1 = 0.1, l2 = 0.000001),
+              ) %&gt;%
+  layer_dropout(rate = 0.3) %&gt;%
+  layer_batch_normalization() %&gt;%
+  layer_dense(units = 1, activation = &#39;sigmoid&#39;)</code></pre>
+<pre class="r"><code>loss_fn &lt;- loss_binary_crossentropy()
+auc &lt;- metric_auc()
+adam &lt;- optimizer_adam(learning_rate = 0.0001, ema_momentum = 0.99)
+
+model %&gt;% compile(
+  optimizer = adam,
+  loss = loss_fn,
+  metrics = &quot;AUC&quot;
+)</code></pre>
+<pre class="r"><code>model %&gt;% fit(x_train, y_train, epochs = 150, batch_size =5)
+Epoch 1/150
+12/12 - 1s - loss: 2113.9067 - auc: 0.6238 - 741ms/epoch - 62ms/step
+Epoch 2/150
+12/12 - 0s - loss: 2023.2312 - auc: 0.6351 - 66ms/epoch - 5ms/step
+Epoch 3/150
+12/12 - 0s - loss: 1935.0557 - auc: 0.7143 - 56ms/epoch - 5ms/step
+Epoch 4/150
+12/12 - 0s - loss: 1849.0638 - auc: 0.7935 - 53ms/epoch - 4ms/step
+Epoch 5/150
+12/12 - 0s - loss: 1765.3984 - auc: 0.6196 - 54ms/epoch - 4ms/step
+Epoch 6/150
+12/12 - 0s - loss: 1683.6586 - auc: 0.8405 - 55ms/epoch - 5ms/step
+Epoch 7/150
+12/12 - 0s - loss: 1604.3063 - auc: 0.6839 - 56ms/epoch - 5ms/step
+Epoch 8/150
+12/12 - 0s - loss: 1526.7941 - auc: 0.7845 - 55ms/epoch - 5ms/step
+Epoch 9/150
+12/12 - 0s - loss: 1451.5165 - auc: 0.7768 - 54ms/epoch - 4ms/step
+Epoch 10/150
+12/12 - 0s - loss: 1378.1769 - auc: 0.9196 - 55ms/epoch - 5ms/step
+Epoch 11/150
+12/12 - 0s - loss: 1306.9674 - auc: 0.9065 - 54ms/epoch - 5ms/step
+Epoch 12/150
+12/12 - 0s - loss: 1237.8754 - auc: 0.8512 - 60ms/epoch - 5ms/step
+Epoch 13/150
+12/12 - 0s - loss: 1170.8612 - auc: 0.8220 - 58ms/epoch - 5ms/step
+Epoch 14/150
+12/12 - 0s - loss: 1105.7782 - auc: 0.8196 - 55ms/epoch - 5ms/step
+Epoch 15/150
+12/12 - 0s - loss: 1042.8875 - auc: 0.7994 - 54ms/epoch - 5ms/step
+Epoch 16/150
+12/12 - 0s - loss: 981.8745 - auc: 0.7339 - 55ms/epoch - 5ms/step
+Epoch 17/150
+12/12 - 0s - loss: 922.7252 - auc: 0.8940 - 56ms/epoch - 5ms/step
+Epoch 18/150
+12/12 - 0s - loss: 865.6814 - auc: 0.9399 - 63ms/epoch - 5ms/step
+Epoch 19/150
+12/12 - 0s - loss: 810.7270 - auc: 0.8673 - 56ms/epoch - 5ms/step
+Epoch 20/150
+12/12 - 0s - loss: 757.5825 - auc: 0.8345 - 57ms/epoch - 5ms/step
+Epoch 21/150
+12/12 - 0s - loss: 706.3023 - auc: 0.8321 - 56ms/epoch - 5ms/step
+Epoch 22/150
+12/12 - 0s - loss: 656.9178 - auc: 0.9137 - 60ms/epoch - 5ms/step
+Epoch 23/150
+12/12 - 0s - loss: 609.5785 - auc: 0.8685 - 67ms/epoch - 6ms/step
+Epoch 24/150
+12/12 - 0s - loss: 563.9918 - auc: 0.9423 - 58ms/epoch - 5ms/step
+Epoch 25/150
+12/12 - 0s - loss: 520.2892 - auc: 0.9173 - 54ms/epoch - 4ms/step
+Epoch 26/150
+12/12 - 0s - loss: 478.5826 - auc: 0.9179 - 55ms/epoch - 5ms/step
+Epoch 27/150
+12/12 - 0s - loss: 438.5147 - auc: 0.9857 - 56ms/epoch - 5ms/step
+Epoch 28/150
+12/12 - 0s - loss: 400.5921 - auc: 0.8786 - 64ms/epoch - 5ms/step
+Epoch 29/150
+12/12 - 0s - loss: 364.1777 - auc: 0.9643 - 58ms/epoch - 5ms/step
+Epoch 30/150
+12/12 - 0s - loss: 329.7297 - auc: 0.9470 - 55ms/epoch - 5ms/step
+Epoch 31/150
+12/12 - 0s - loss: 297.1255 - auc: 0.9321 - 56ms/epoch - 5ms/step
+Epoch 32/150
+12/12 - 0s - loss: 266.2651 - auc: 0.9714 - 54ms/epoch - 5ms/step
+Epoch 33/150
+12/12 - 0s - loss: 237.2941 - auc: 0.9315 - 56ms/epoch - 5ms/step
+Epoch 34/150
+12/12 - 0s - loss: 210.0003 - auc: 0.9679 - 58ms/epoch - 5ms/step
+Epoch 35/150
+12/12 - 0s - loss: 184.5664 - auc: 0.9685 - 60ms/epoch - 5ms/step
+Epoch 36/150
+12/12 - 0s - loss: 160.7209 - auc: 0.9887 - 58ms/epoch - 5ms/step
+Epoch 37/150
+12/12 - 0s - loss: 138.6783 - auc: 0.9857 - 52ms/epoch - 4ms/step
+Epoch 38/150
+12/12 - 0s - loss: 118.4997 - auc: 0.9738 - 53ms/epoch - 4ms/step
+Epoch 39/150
+12/12 - 0s - loss: 100.0956 - auc: 0.9768 - 55ms/epoch - 5ms/step
+Epoch 40/150
+12/12 - 0s - loss: 83.3834 - auc: 0.9470 - 53ms/epoch - 4ms/step
+Epoch 41/150
+12/12 - 0s - loss: 68.3865 - auc: 0.9048 - 56ms/epoch - 5ms/step
+Epoch 42/150
+12/12 - 0s - loss: 54.9629 - auc: 0.9917 - 58ms/epoch - 5ms/step
+Epoch 43/150
+12/12 - 0s - loss: 43.3439 - auc: 0.9702 - 56ms/epoch - 5ms/step
+Epoch 44/150
+12/12 - 0s - loss: 33.3953 - auc: 0.9845 - 53ms/epoch - 4ms/step
+Epoch 45/150
+12/12 - 0s - loss: 25.2836 - auc: 0.9976 - 52ms/epoch - 4ms/step
+Epoch 46/150
+12/12 - 0s - loss: 18.8536 - auc: 0.9893 - 52ms/epoch - 4ms/step
+Epoch 47/150
+12/12 - 0s - loss: 13.9455 - auc: 0.9196 - 55ms/epoch - 5ms/step
+Epoch 48/150
+12/12 - 0s - loss: 10.5289 - auc: 0.9982 - 52ms/epoch - 4ms/step
+Epoch 49/150
+12/12 - 0s - loss: 8.3803 - auc: 0.9423 - 54ms/epoch - 5ms/step
+Epoch 50/150
+12/12 - 0s - loss: 6.8573 - auc: 0.9839 - 53ms/epoch - 4ms/step
+Epoch 51/150
+12/12 - 0s - loss: 5.9742 - auc: 0.9768 - 53ms/epoch - 4ms/step
+Epoch 52/150
+12/12 - 0s - loss: 5.4299 - auc: 0.9357 - 55ms/epoch - 5ms/step
+Epoch 53/150
+12/12 - 0s - loss: 5.0250 - auc: 0.9298 - 53ms/epoch - 4ms/step
+Epoch 54/150
+12/12 - 0s - loss: 4.7439 - auc: 0.9863 - 56ms/epoch - 5ms/step
+Epoch 55/150
+12/12 - 0s - loss: 4.5923 - auc: 0.9863 - 63ms/epoch - 5ms/step
+Epoch 56/150
+12/12 - 0s - loss: 4.4641 - auc: 0.9851 - 62ms/epoch - 5ms/step
+Epoch 57/150
+12/12 - 0s - loss: 4.3333 - auc: 0.9750 - 59ms/epoch - 5ms/step
+Epoch 58/150
+12/12 - 0s - loss: 4.2689 - auc: 0.9893 - 58ms/epoch - 5ms/step
+Epoch 59/150
+12/12 - 0s - loss: 4.2297 - auc: 0.9685 - 55ms/epoch - 5ms/step
+Epoch 60/150
+12/12 - 0s - loss: 4.1626 - auc: 0.9887 - 54ms/epoch - 4ms/step
+Epoch 61/150
+12/12 - 0s - loss: 4.1246 - auc: 0.9946 - 55ms/epoch - 5ms/step
+Epoch 62/150
+12/12 - 0s - loss: 4.0869 - auc: 0.9935 - 55ms/epoch - 5ms/step
+Epoch 63/150
+12/12 - 0s - loss: 4.0726 - auc: 0.9792 - 57ms/epoch - 5ms/step
+Epoch 64/150
+12/12 - 0s - loss: 4.0368 - auc: 0.9780 - 57ms/epoch - 5ms/step
+Epoch 65/150
+12/12 - 0s - loss: 3.9607 - auc: 1.0000 - 58ms/epoch - 5ms/step
+Epoch 66/150
+12/12 - 0s - loss: 3.9672 - auc: 1.0000 - 55ms/epoch - 5ms/step
+Epoch 67/150
+12/12 - 0s - loss: 3.9407 - auc: 0.9839 - 54ms/epoch - 5ms/step
+Epoch 68/150
+12/12 - 0s - loss: 3.8820 - auc: 0.9940 - 54ms/epoch - 5ms/step
+Epoch 69/150
+12/12 - 0s - loss: 3.9031 - auc: 0.9810 - 55ms/epoch - 5ms/step
+Epoch 70/150
+12/12 - 0s - loss: 3.8489 - auc: 0.9744 - 57ms/epoch - 5ms/step
+Epoch 71/150
+12/12 - 0s - loss: 3.8654 - auc: 0.9821 - 61ms/epoch - 5ms/step
+Epoch 72/150
+12/12 - 0s - loss: 3.8262 - auc: 0.9750 - 62ms/epoch - 5ms/step
+Epoch 73/150
+12/12 - 0s - loss: 3.8035 - auc: 0.9637 - 56ms/epoch - 5ms/step
+Epoch 74/150
+12/12 - 0s - loss: 3.7606 - auc: 0.9929 - 57ms/epoch - 5ms/step
+Epoch 75/150
+12/12 - 0s - loss: 3.7517 - auc: 0.9976 - 58ms/epoch - 5ms/step
+Epoch 76/150
+12/12 - 0s - loss: 3.7170 - auc: 0.9524 - 57ms/epoch - 5ms/step
+Epoch 77/150
+12/12 - 0s - loss: 3.7901 - auc: 0.9792 - 57ms/epoch - 5ms/step
+Epoch 78/150
+12/12 - 0s - loss: 3.7586 - auc: 0.9821 - 57ms/epoch - 5ms/step
+Epoch 79/150
+12/12 - 0s - loss: 3.6860 - auc: 0.9976 - 56ms/epoch - 5ms/step
+Epoch 80/150
+12/12 - 0s - loss: 3.7206 - auc: 0.9857 - 54ms/epoch - 5ms/step
+Epoch 81/150
+12/12 - 0s - loss: 3.7343 - auc: 0.9619 - 55ms/epoch - 5ms/step
+Epoch 82/150
+12/12 - 0s - loss: 3.7411 - auc: 0.9738 - 58ms/epoch - 5ms/step
+Epoch 83/150
+12/12 - 0s - loss: 3.6818 - auc: 0.9952 - 58ms/epoch - 5ms/step
+Epoch 84/150
+12/12 - 0s - loss: 3.6692 - auc: 0.9946 - 55ms/epoch - 5ms/step
+Epoch 85/150
+12/12 - 0s - loss: 3.6500 - auc: 0.9762 - 58ms/epoch - 5ms/step
+Epoch 86/150
+12/12 - 0s - loss: 3.6793 - auc: 0.9804 - 55ms/epoch - 5ms/step
+Epoch 87/150
+12/12 - 0s - loss: 3.6457 - auc: 0.9810 - 53ms/epoch - 4ms/step
+Epoch 88/150
+12/12 - 0s - loss: 3.5832 - auc: 0.9768 - 54ms/epoch - 5ms/step
+Epoch 89/150
+12/12 - 0s - loss: 3.6147 - auc: 0.9595 - 73ms/epoch - 6ms/step
+Epoch 90/150
+12/12 - 0s - loss: 3.6338 - auc: 0.9643 - 64ms/epoch - 5ms/step
+Epoch 91/150
+12/12 - 0s - loss: 3.6561 - auc: 1.0000 - 66ms/epoch - 6ms/step
+Epoch 92/150
+12/12 - 0s - loss: 3.6609 - auc: 0.9548 - 61ms/epoch - 5ms/step
+Epoch 93/150
+12/12 - 0s - loss: 3.6139 - auc: 0.9869 - 60ms/epoch - 5ms/step
+Epoch 94/150
+12/12 - 0s - loss: 3.5737 - auc: 0.9821 - 57ms/epoch - 5ms/step
+Epoch 95/150
+12/12 - 0s - loss: 3.6366 - auc: 0.9298 - 58ms/epoch - 5ms/step
+Epoch 96/150
+12/12 - 0s - loss: 3.6219 - auc: 0.9768 - 61ms/epoch - 5ms/step
+Epoch 97/150
+12/12 - 0s - loss: 3.6176 - auc: 0.9470 - 58ms/epoch - 5ms/step
+Epoch 98/150
+12/12 - 0s - loss: 3.5417 - auc: 0.9780 - 54ms/epoch - 5ms/step
+Epoch 99/150
+12/12 - 0s - loss: 3.4109 - auc: 0.9940 - 56ms/epoch - 5ms/step
+Epoch 100/150
+12/12 - 0s - loss: 3.4657 - auc: 0.9917 - 56ms/epoch - 5ms/step
+Epoch 101/150
+12/12 - 0s - loss: 3.4299 - auc: 0.9964 - 55ms/epoch - 5ms/step
+Epoch 102/150
+12/12 - 0s - loss: 3.4527 - auc: 0.9810 - 54ms/epoch - 5ms/step
+Epoch 103/150
+12/12 - 0s - loss: 3.3951 - auc: 0.9917 - 55ms/epoch - 5ms/step
+Epoch 104/150
+12/12 - 0s - loss: 3.4112 - auc: 0.9857 - 57ms/epoch - 5ms/step
+Epoch 105/150
+12/12 - 0s - loss: 3.4042 - auc: 0.9756 - 59ms/epoch - 5ms/step
+Epoch 106/150
+12/12 - 0s - loss: 3.4395 - auc: 0.9714 - 59ms/epoch - 5ms/step
+Epoch 107/150
+12/12 - 0s - loss: 3.4332 - auc: 0.9780 - 61ms/epoch - 5ms/step
+Epoch 108/150
+12/12 - 0s - loss: 3.3749 - auc: 0.9929 - 58ms/epoch - 5ms/step
+Epoch 109/150
+12/12 - 0s - loss: 3.4168 - auc: 0.9726 - 53ms/epoch - 4ms/step
+Epoch 110/150
+12/12 - 0s - loss: 3.4550 - auc: 0.9696 - 55ms/epoch - 5ms/step
+Epoch 111/150
+12/12 - 0s - loss: 3.4070 - auc: 0.9905 - 57ms/epoch - 5ms/step
+Epoch 112/150
+12/12 - 0s - loss: 3.2842 - auc: 1.0000 - 56ms/epoch - 5ms/step
+Epoch 113/150
+12/12 - 0s - loss: 3.3370 - auc: 0.9804 - 57ms/epoch - 5ms/step
+Epoch 114/150
+12/12 - 0s - loss: 3.3679 - auc: 0.9720 - 55ms/epoch - 5ms/step
+Epoch 115/150
+12/12 - 0s - loss: 3.2789 - auc: 0.9976 - 57ms/epoch - 5ms/step
+Epoch 116/150
+12/12 - 0s - loss: 3.2887 - auc: 0.9863 - 54ms/epoch - 5ms/step
+Epoch 117/150
+12/12 - 0s - loss: 3.1959 - auc: 1.0000 - 54ms/epoch - 5ms/step
+Epoch 118/150
+12/12 - 0s - loss: 3.2946 - auc: 0.9869 - 54ms/epoch - 5ms/step
+Epoch 119/150
+12/12 - 0s - loss: 3.3097 - auc: 0.9893 - 55ms/epoch - 5ms/step
+Epoch 120/150
+12/12 - 0s - loss: 3.3029 - auc: 0.9762 - 57ms/epoch - 5ms/step
+Epoch 121/150
+12/12 - 0s - loss: 3.2763 - auc: 1.0000 - 55ms/epoch - 5ms/step
+Epoch 122/150
+12/12 - 0s - loss: 3.2299 - auc: 1.0000 - 55ms/epoch - 5ms/step
+Epoch 123/150
+12/12 - 0s - loss: 3.1816 - auc: 0.9887 - 54ms/epoch - 5ms/step
+Epoch 124/150
+12/12 - 0s - loss: 3.2240 - auc: 0.9714 - 55ms/epoch - 5ms/step
+Epoch 125/150
+12/12 - 0s - loss: 3.2697 - auc: 0.9405 - 60ms/epoch - 5ms/step
+Epoch 126/150
+12/12 - 0s - loss: 3.2226 - auc: 0.9893 - 55ms/epoch - 5ms/step
+Epoch 127/150
+12/12 - 0s - loss: 3.2573 - auc: 0.9577 - 55ms/epoch - 5ms/step
+Epoch 128/150
+12/12 - 0s - loss: 3.1836 - auc: 0.9917 - 54ms/epoch - 4ms/step
+Epoch 129/150
+12/12 - 0s - loss: 3.1696 - auc: 1.0000 - 55ms/epoch - 5ms/step
+Epoch 130/150
+12/12 - 0s - loss: 3.1684 - auc: 0.9673 - 55ms/epoch - 5ms/step
+Epoch 131/150
+12/12 - 0s - loss: 3.0357 - auc: 1.0000 - 55ms/epoch - 5ms/step
+Epoch 132/150
+12/12 - 0s - loss: 3.0885 - auc: 0.9964 - 53ms/epoch - 4ms/step
+Epoch 133/150
+12/12 - 0s - loss: 3.0517 - auc: 0.9964 - 56ms/epoch - 5ms/step
+Epoch 134/150
+12/12 - 0s - loss: 3.1301 - auc: 0.9851 - 55ms/epoch - 5ms/step
+Epoch 135/150
+12/12 - 0s - loss: 3.1888 - auc: 0.9482 - 56ms/epoch - 5ms/step
+Epoch 136/150
+12/12 - 0s - loss: 3.1880 - auc: 0.9536 - 53ms/epoch - 4ms/step
+Epoch 137/150
+12/12 - 0s - loss: 3.2068 - auc: 0.9917 - 55ms/epoch - 5ms/step
+Epoch 138/150
+12/12 - 0s - loss: 3.1400 - auc: 0.9940 - 57ms/epoch - 5ms/step
+Epoch 139/150
+12/12 - 0s - loss: 3.0643 - auc: 0.9905 - 54ms/epoch - 5ms/step
+Epoch 140/150
+12/12 - 0s - loss: 3.0959 - auc: 0.9845 - 60ms/epoch - 5ms/step
+Epoch 141/150
+12/12 - 0s - loss: 3.1356 - auc: 0.9798 - 58ms/epoch - 5ms/step
+Epoch 142/150
+12/12 - 0s - loss: 3.1335 - auc: 0.9756 - 55ms/epoch - 5ms/step
+Epoch 143/150
+12/12 - 0s - loss: 3.2027 - auc: 0.9607 - 58ms/epoch - 5ms/step
+Epoch 144/150
+12/12 - 0s - loss: 3.1275 - auc: 0.9869 - 57ms/epoch - 5ms/step
+Epoch 145/150
+12/12 - 0s - loss: 3.2102 - auc: 0.9506 - 59ms/epoch - 5ms/step
+Epoch 146/150
+12/12 - 0s - loss: 3.1330 - auc: 0.9750 - 56ms/epoch - 5ms/step
+Epoch 147/150
+12/12 - 0s - loss: 3.1449 - auc: 0.9750 - 57ms/epoch - 5ms/step
+Epoch 148/150
+12/12 - 0s - loss: 3.1852 - auc: 0.9810 - 58ms/epoch - 5ms/step
+Epoch 149/150
+12/12 - 0s - loss: 3.1226 - auc: 0.9964 - 55ms/epoch - 5ms/step
+Epoch 150/150
+12/12 - 0s - loss: 3.0922 - auc: 0.9821 - 55ms/epoch - 5ms/step</code></pre>
+<pre class="r"><code>#history &lt;- model %&gt;% fit(
+#  x_train,y_train,
+#  epochs = 30, batch_size = 256, 
+#  validation_split = 0.2
+#)
+
+#plot(history)</code></pre>
+<pre class="r"><code>model %&gt;% evaluate(x_test,  y_test, verbose = 2)
+1/1 - 0s - loss: 4.5354 - auc: 0.9737 - 136ms/epoch - 136ms/step
+     loss       auc 
+4.5353580 0.9736842 </code></pre>
+<pre class="r"><code>#model %&gt;% predict(x_test) %&gt;% k_argmax() #only for softmax
+b&lt;-model %&gt;% predict(x_test) #%&gt;% `&gt;`(0.5) %&gt;% k_cast(&quot;int32&quot;) #for sigmoid.0
+1/1 - 0s - 61ms/epoch - 61ms/step
+b &lt;- as.numeric(b)
+b
+ [1] 0.6603139 0.1790317 0.6191009 0.7149007 0.6164845 0.9392020 0.2831569
+ [8] 0.2224904 0.8566977 0.4016270 0.8135931 0.8040830 0.7177238 0.5698699
+[15] 0.2889983 0.1429354 0.6454641 0.3611163 0.6688172 0.5154021 0.6794097
+[22] 0.6509840 0.6441412 0.6635723 0.8521053</code></pre>
+<pre class="r"><code>pROC::auc(as.numeric(y_test), b)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.9737
+
+FNR(b, y_test)
+     class.pred
+truth  0  1
+    0  5  1
+    1  2 17
+[1] 0.1052632
+FPR(b, y_test)
+     class.pred
+truth  0  1
+    0  5  1
+    1  2 17
+[1] 0.1666667</code></pre>
+<pre class="r"><code># Add to output
+res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(as.numeric(y_test), b), FNR(b, y_test), FPR(b, y_test)))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+rownames(res.testing)[nrow(res.testing)] &lt;- &#39;KerasNN&#39;</code></pre>
+<p>plot roc-auc curve</p>
+<pre class="r"><code>curve_values &lt;- pROC::roc(as.numeric(y_test), b)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+plot(curve_values ,main =&quot;ROC curve -- Feedforward Nnet &quot;)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-50-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p>LIME</p>
+<pre class="r"><code>######################
+# LIME
+######################
+model_type.keras.engine.sequential.Sequential &lt;- function(x, ...) {
+  &quot;classification&quot;
+}
+
+# Setup lime::predict_model()
+predict_model.keras.engine.sequential.Sequential &lt;- function (x, newdata, type, ...) {
+  
+  ## here you have to write function, that takes a data.frame
+  ## and transform it to shape that keras understands
+  
+  ## for example if u flatten your array before training CNN, you just use
+  ## as-matrix()
+  
+  ## if keras model expect 3d dataset, you write something like
+  ## as.array(newdata, dims(n,12,12))
+  
+  your_function &lt;- function(data){
+    as.matrix(newdata)
+  }
+  
+  pred &lt;- predict(object = x, x = your_function(newdata))
+  data.frame (pred) }
+
+
+x &lt;- as.data.frame(training.df[,-1])  
+x2 &lt;- as.data.frame(testing.df[,-1])  
+
+explainer &lt;- lime(x = x, model= model)
+
+
+
+explanation &lt;- lime::explain (
+  x=  x2[1:5,], 
+  explainer, n_features = 4,
+  n_labels     = 1,#explaining a `single class`
+  kernel_width = 0.5) # allows us to increase model_r2 value by shrinking the localized evaluation.
+782/782 - 1s - 783ms/epoch - 1ms/step</code></pre>
+<pre class="r"><code>#pdf(&quot;lime_plot_features_cn.pdf&quot;)
+plot_features (explanation) +
+  labs (title = &quot;LIME: Feature Importance Visualization&quot;) </code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-52-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#dev.off()</code></pre>
+<pre class="r"><code>#pdf(&quot;lime_feature_heatmaf_cn.pdf&quot;)
+plot_explanations (explanation) +
+  labs (title = &quot;LIME Feature Importance Heatmap&quot;,
+        subtitle = &quot;Hold Out (Test) Set, First 10 Cases Shown&quot;)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-53-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#dev.off()</code></pre>
+<pre class="r"><code>print(res.testing)
+                   AUC       FNR       FPR
+XGBOOST      0.7192982 0.4736842 0.0000000
+ADABOOST     0.6403509 0.5263158 0.1666667
+SVMLinear    0.7456140 0.3157895 0.3333333
+SVMRadial    0.7894737 0.1578947 0.5000000
+RandomForest 0.7456140 0.6315789 0.0000000
+ElasticNet   0.6929825 0.4736842 0.0000000
+KerasNN      0.9736842 0.1052632 0.1666667</code></pre>
 </div>
-<div id="session-information" class="section level1" number="5">
-<h1><span class="header-section-number">5</span> Session information</h1>
+<div id="session-information" class="section level1" number="9">
+<h1><span class="header-section-number">9</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
-R version 4.3.3 (2024-02-29)
-Platform: aarch64-apple-darwin20 (64-bit)
-Running under: macOS Ventura 13.5.1
+R version 4.4.0 (2024-04-24)
+Platform: x86_64-pc-linux-gnu
+Running under: Ubuntu 22.04.4 LTS
 
 Matrix products: default
-BLAS:   /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRblas.0.dylib 
-LAPACK: /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
+BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
 
 locale:
-[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
 
 time zone: Europe/Madrid
-tzcode source: internal
+tzcode source: system (glibc)
 
 attached base packages:
 [1] stats4    stats     graphics  grDevices utils     datasets  methods  
 [8] base     
 
 other attached packages:
- [1] randomForest_4.7-1.1        caTools_1.18.2             
- [3] edgeR_4.0.16                limma_3.58.1               
- [5] SummarizedExperiment_1.32.0 Biobase_2.62.0             
- [7] GenomicRanges_1.54.1        GenomeInfoDb_1.38.8        
- [9] IRanges_2.36.0              S4Vectors_0.40.2           
-[11] BiocGenerics_0.48.1         MatrixGenerics_1.14.0      
-[13] matrixStats_1.3.0           glmnet_4.1-8               
-[15] Matrix_1.6-5                kableExtra_1.4.0           
-[17] knitr_1.45                  BiocStyle_2.30.0           
+ [1] tfruns_1.5.3                keras_2.15.0               
+ [3] tensorflow_2.16.0.9000      edgeR_4.1.26               
+ [5] limma_3.59.10               SummarizedExperiment_1.33.3
+ [7] Biobase_2.63.1              GenomicRanges_1.55.4       
+ [9] GenomeInfoDb_1.39.14        IRanges_2.37.1             
+[11] S4Vectors_0.41.7            BiocGenerics_0.49.1        
+[13] MatrixGenerics_1.15.1       matrixStats_1.3.0          
+[15] randomForest_4.7-1.1        xgboost_1.7.7.1            
+[17] caret_6.0-94                lattice_0.22-5             
+[19] ggplot2_3.5.1               dplyr_1.1.4                
+[21] lime_0.5.3                  glmnet_4.1-8               
+[23] Matrix_1.6-5                kableExtra_1.4.0           
+[25] knitr_1.46                  BiocStyle_2.31.0           
 
 loaded via a namespace (and not attached):
- [1] shape_1.4.6.1           xfun_0.43               bslib_0.7.0            
- [4] lattice_0.22-6          tools_4.3.3             bitops_1.0-7           
- [7] highr_0.10              lifecycle_1.0.4         GenomeInfoDbData_1.2.11
-[10] compiler_4.3.3          stringr_1.5.1           statmod_1.5.0          
-[13] munsell_0.5.1           codetools_0.2-20        htmltools_0.5.8.1      
-[16] sass_0.4.9              RCurl_1.98-1.14         yaml_2.3.8             
-[19] crayon_1.5.2            jquerylib_0.1.4         cachem_1.0.8           
-[22] DelayedArray_0.28.0     iterators_1.0.14        abind_1.4-5            
-[25] foreach_1.5.2           locfit_1.5-9.9          digest_0.6.35          
-[28] stringi_1.8.3           bookdown_0.39           splines_4.3.3          
-[31] fastmap_1.1.1           grid_4.3.3              colorspace_2.1-0       
-[34] cli_3.6.2               SparseArray_1.2.4       magrittr_2.0.3         
-[37] S4Arrays_1.2.1          survival_3.6-4          scales_1.3.0           
-[40] rmarkdown_2.26          XVector_0.42.0          evaluate_0.23          
-[43] viridisLite_0.4.2       rlang_1.1.3             Rcpp_1.0.12            
-[46] glue_1.7.0              BiocManager_1.30.22     xml2_1.3.6             
-[49] pROC_1.18.5             svglite_2.1.3           rstudioapi_0.16.0      
-[52] jsonlite_1.8.8          plyr_1.8.9              R6_2.5.1               
-[55] systemfonts_1.0.6       zlibbioc_1.48.2        </code></pre>
+  [1] ada_2.0-5               pROC_1.18.5             rlang_1.1.3            
+  [4] magrittr_2.0.3          e1071_1.7-14            compiler_4.4.0         
+  [7] png_0.1-8               systemfonts_1.0.5       vctrs_0.6.5            
+ [10] reshape2_1.4.4          stringr_1.5.1           crayon_1.5.2           
+ [13] pkgconfig_2.0.3         shape_1.4.6             fastmap_1.1.1          
+ [16] XVector_0.43.1          labeling_0.4.3          utf8_1.2.4             
+ [19] rmarkdown_2.26          prodlim_2023.08.28      UCSC.utils_0.99.7      
+ [22] tinytex_0.49            purrr_1.0.2             xfun_0.43              
+ [25] zlibbioc_1.49.3         cachem_1.0.8            jsonlite_1.8.8         
+ [28] recipes_1.0.10          highr_0.9               DelayedArray_0.29.9    
+ [31] parallel_4.4.0          R6_2.5.1                bslib_0.7.0            
+ [34] stringi_1.8.3           reticulate_1.36.1       parallelly_1.36.0      
+ [37] rpart_4.1.23            lubridate_1.9.3         jquerylib_0.1.4        
+ [40] Rcpp_1.0.12             bookdown_0.39           assertthat_0.2.1       
+ [43] iterators_1.0.14        future.apply_1.11.1     base64enc_0.1-3        
+ [46] splines_4.4.0           nnet_7.3-19             timechange_0.3.0       
+ [49] tidyselect_1.2.1        abind_1.4-5             rstudioapi_0.16.0      
+ [52] yaml_2.3.8              timeDate_4032.109       codetools_0.2-19       
+ [55] listenv_0.9.1           tibble_3.2.1            plyr_1.8.9             
+ [58] withr_3.0.0             evaluate_0.23           future_1.33.1          
+ [61] survival_3.5-8          proxy_0.4-27            xml2_1.3.6             
+ [64] kernlab_0.9-32          pillar_1.9.0            BiocManager_1.30.22    
+ [67] whisker_0.4.1           foreach_1.5.2           generics_0.1.3         
+ [70] rprojroot_2.0.4         munsell_0.5.0           scales_1.3.0           
+ [73] globals_0.16.2          class_7.3-22            glue_1.7.0             
+ [76] tools_4.4.0             data.table_1.15.0       locfit_1.5-9.9         
+ [79] ModelMetrics_1.2.2.2    gower_1.0.0             grid_4.4.0             
+ [82] ipred_0.9-14            colorspace_2.1-0        nlme_3.1-163           
+ [85] GenomeInfoDbData_1.2.12 cli_3.6.2               rappdirs_0.3.3         
+ [88] fansi_1.0.6             S4Arrays_1.3.7          viridisLite_0.4.2      
+ [91] svglite_2.1.3           lava_1.7.3              gtable_0.3.4           
+ [94] zeallot_0.1.0           sass_0.4.9              digest_0.6.35          
+ [97] SparseArray_1.3.5       farver_2.1.1            htmltools_0.5.8.1      
+[100] lifecycle_1.0.4         here_1.0.1              hardhat_1.3.1          
+[103] httr_1.4.7              statmod_1.4.37          MASS_7.3-60.0.1        </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
-<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-Roskams2022" class="csl-entry">
 Roskams-Hieter, Breeshey, Hyun Ji Kim, Pavana Anur, Josiah T. Wagner, Rowan Callahan, Elias Spiliotopoulos, Charles Ward Kirschbaum, et al. 2022. <span>“Plasma Cell-Free RNA Profiling Distinguishes Cancers from Pre-Malignant Conditions in Solid and Hematologic Malignancies.”</span> <em>Npj Precision Oncology</em> 6. <a href="https://doi.org/10.1038/s41698-022-00270-y">https://doi.org/10.1038/s41698-022-00270-y</a>.
 </div>
