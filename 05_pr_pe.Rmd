@@ -25,6 +25,7 @@ bibliography: _bibliography.bib
 ```{r setup, echo=FALSE, cache=FALSE}
 library(knitr)
 library(kableExtra)
+library(caret)
 
 
 knitr::opts_chunk$set(
@@ -75,11 +76,932 @@ Train-testing subset creation: Intersection between differential expressed genes
 
 ```{r}
 set.seed(111)
-mask.lowly.testing <- rownames(dgeB.filt.testing$counts)
-intersection.genes <- intersect(mask.lowly.testing,DEgenes.trainingR)
-dgeR.DEgenes <- dgeR.filt.training$counts[intersection.genes,]
-dgeR.filt.training$counts <- dgeR.filt.training$counts[intersection.genes,]
-dgeB.filt.testing$counts <- dgeB.filt.testing$counts[intersection.genes,]
+intersection.genes <- Reduce(intersect, list(DEgenes.trainingM, rownames(dgeM.filt.testing), rownames(dgeD.filt.subset)))
+length(intersection.genes)
+
+#intersection.genes <- intersect(intersect(DEgenes.trainingM, rownames(dgeM.filt.testing)), rownames(dgeD.filt.subset))
+#length(intersection.genes)
+
+dgeM.intercept.training <- dgeM.filt.training[intersection.genes,]
+dim(dgeM.intercept.training)
+seM.intercept.training <- seM.filt.training[intersection.genes,]
+dim(seM.intercept.training)
+
+dgeM.intercept.testing <- dgeM.filt.testing[intersection.genes,]
+dim(dgeM.intercept.testing)
+seM.intercept.testing <- seM.filt.testing[intersection.genes,]
+dim(seM.intercept.testing)
+
+dgeD.intercept.testing <- dgeD.filt.subset[intersection.genes,]
+dim(dgeD.intercept.testing)
+seD.intercept.testing <- seD.filt.subset[intersection.genes,]
+dim(seD.intercept.testing)
+```
+## Pregnancy trimesters
+
+Gestational age is used to classify the samples into its corresponding trimester of pregnancy according to [NIH](https://www.nichd.nih.gov/health/topics/factsheets/pregnancy): first trimester (week 1 to week 12), second trimester (week 13 to week 28) and third trimester (week 29 to week 40).
+
+### Training data
+
+```{r}
+table(as.factor(seM.intercept.training$SamplingGAgroup))
+```
+
+```{r}
+mask <- seM.intercept.training$SamplingGA <= 12
+seM.intercept.training$SamplingGAgroup[mask] <- "First trimester"
+dgeM.intercept.training$samples$SamplingGAgroup[mask] <- "First trimester"
+
+mask <- seM.intercept.training$SamplingGA %in% c(13:28)
+seM.intercept.training$SamplingGAgroup[mask] <- "Second trimester"
+dgeM.intercept.training$samples$SamplingGAgroup[mask] <- "Second trimester"
+
+mask <- seM.intercept.training$SamplingGA %in% c(29:40)
+seM.intercept.training$SamplingGAgroup[mask] <- "Third trimester"
+dgeM.intercept.training$samples$SamplingGAgroup[mask] <- "Third trimester"
+```
+
+```{r}
+table(as.factor(seM.intercept.training$SamplingGAgroup))
+```
+
+### Testing data 1
+
+```{r}
+table(as.factor(seM.intercept.testing$SamplingGAgroup))
+```
+
+
+```{r}
+mask <- seM.intercept.testing$SamplingGA <= 12
+seM.intercept.testing$SamplingGAgroup[mask] <- "First trimester"
+dgeM.intercept.testing$samples$SamplingGAgroup[mask] <- "First trimester"
+
+mask <- seM.intercept.testing$SamplingGA %in% c(13:28)
+seM.intercept.testing$SamplingGAgroup[mask] <- "Second trimester"
+dgeM.intercept.testing$samples$SamplingGAgroup[mask] <- "Second trimester"
+
+mask <- seM.intercept.testing$SamplingGA %in% c(29:40)
+seM.intercept.testing$SamplingGAgroup[mask] <- "Third trimester"
+dgeM.intercept.testing$samples$SamplingGAgroup[mask] <- "Third trimester"
+```
+
+```{r}
+table(as.factor(seM.intercept.testing$SamplingGAgroup))
+```
+
+### Testing data 2
+
+```{r}
+table(as.factor(seD.intercept.testing$SamplingGAgroup))
+```
+
+```{r}
+mask <- seD.intercept.testing$SamplingGA <= 12
+seD.intercept.testing$SamplingGAgroup[mask] <- "First trimester"
+dgeD.intercept.testing$samples$SamplingGAgroup[mask] <- "First trimester"
+
+mask <- seD.intercept.testing$SamplingGA %in% c(13:28)
+seD.intercept.testing$SamplingGAgroup[mask] <- "Second trimester"
+dgeD.intercept.testing$samples$SamplingGAgroup[mask] <- "Second trimester"
+
+mask <- seD.intercept.testing$SamplingGA %in% c(29:40)
+seD.intercept.testing$SamplingGAgroup[mask] <- "Third trimester"
+dgeD.intercept.testing$samples$SamplingGAgroup[mask] <- "Third trimester"
+```
+
+```{r}
+table(as.factor(seD.intercept.testing$SamplingGAgroup))
+```
+
+## Dataframes creation
+
+### Training data
+
+```{r}
+# SamplingGA or samplingGAgroup?
+training.df <- data.frame(Preeclampsia = as.numeric(seM.intercept.training$Preeclampsia),
+                          #SamplingGA = scale(seM.intercept.training$SamplingGA, scale = TRUE, center = TRUE),
+                          SamplingGAgroup = seM.intercept.training$SamplingGAgroup,
+                          scale(t(assays(seM.intercept.training)$logCPM), scale = TRUE, center = TRUE)
+                          )
+```
+
+### Testing data 1
+
+```{r}
+testing.df1 <- data.frame(Preeclampsia = seM.intercept.testing$Preeclampsia,
+                          #SamplingGA = scale(seM.intercept.testing$SamplingGA, scale = TRUE, center = TRUE),
+                          SamplingGAgroup = seM.intercept.testing$SamplingGAgroup,
+                          scale(t(assays(seM.intercept.testing)$logCPM), scale = TRUE, center = TRUE)
+                          )
+```
+
+### Testing data 2
+
+```{r}
+testing.df2 <- data.frame(Preeclampsia = seD.intercept.testing$Preeclampsia,
+                          #SamplingGA = scale(seD.intercept.testing$SamplingGA, scale = TRUE, center = TRUE),
+                          SamplingGAgroup = seD.intercept.testing$SamplingGAgroup,
+                          scale(t(assays(seD.intercept.testing)$logCPM), scale = TRUE, center = TRUE)
+                          )
+```
+
+```{r}
+library(dataPreparation)
+
+target_encoding <- build_target_encoding(
+  training.df,
+  'SamplingGAgroup',
+  'Preeclampsia',
+  functions = "mean",
+  verbose = TRUE
+)
+
+target_encoding
+```
+```{r}
+training.df <- as.data.frame(target_encode(training.df, target_encoding, drop = TRUE, verbose = TRUE))
+testing.df1 <- as.data.frame(target_encode(testing.df1, target_encoding, drop = TRUE, verbose = TRUE))
+testing.df2 <- as.data.frame(target_encode(testing.df2, target_encoding, drop = TRUE, verbose = TRUE))
+```
+
+```{r}
+training.df$Preeclampsia <- factor(training.df$Preeclampsia, labels = c('yes', 'no'))
+```
+
+# Performance metrics 
+
+Given the application of the current paper, the False Negative Rate (FNR) metric is a particularly relevant metric, since it would imply classifying as healthy an individual with cancer. Therefore, that patients will not receive treatment, which will cause serious consequences. Furthermore, it could also be considered the False Positive Rate (FPR), which results in an undesirable situation where a proportion of healthy individuals are categorized as ill. This would subject a healthy patient to unnecessary treatment and its potential side effects. However, since the expected consequences are not that severe, FNR is prioritized in the analysis.
+
+```{r}
+FNR <- function(proba.pred, truth){
+  class.pred <- as.numeric(proba.pred > 0.5)
+  conf <- table(truth, class.pred)
+  print(conf)
+  FNR <- conf[2, 1] / sum(conf[2, 1], conf[2, 2])
+  return(FNR)
+}
+```
+
+```{r}
+FPR <- function(proba.pred, truth){
+  class.pred <- as.numeric(proba.pred > 0.5)
+  conf <- table(truth, class.pred)
+  print(conf)
+  FPR <- conf[1, 2] / sum(conf[1, 1], conf[1, 2])
+  return(FPR)
+}
+```
+
+```{r, include = FALSE}
+# Ouput matrix
+res.testing1 <- data.frame(
+  AUC = NA,
+  FNR = NA,
+  FPR = NA)
+```
+
+```{r, include = FALSE}
+# Ouput matrix
+res.testing2 <- data.frame(
+  AUC = NA,
+  FNR = NA,
+  FPR = NA)
+```
+
+
+# XGBOOST
+
+```{r}
+modelLookup("xgbTree")
+```
+
+
+```{r}
+# CV technique which will be passed into the train() function
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+# tuning grid
+set.seed(111)
+#xgboostGrid <-  expand.grid(max_depth = c(3, 5, 7, 9), 
+#                        nrounds = (1:10)*20,    # number of trees
+#                        eta = c(0.2,0.3,0.4),
+#                        gamma = c(0.5,1),
+#                        subsample = c(0.5, 0.6, 0.7), # common value: between 0.5 and 1
+#                        min_child_weight = c(1,2,3),
+#                        colsample_bytree = c(0.5, 0.6, 0.7) # common value: between 0.5 and 1
+#                        )
+
+
+xgboostGrid <- expand.grid(max_depth = c(3, 4), nrounds = (1:10)*20, eta = c(0.05, 0.1),gamma = c(0.5,1),subsample = c(0.8),min_child_weight = c(2),colsample_bytree = c(0.8))
+
+
+#auc = 0.61, 0.52 (fnr =0.95, 0.8) xgboostGrid <- expand.grid(max_depth = c(3, 4, 5, 6), nrounds = (1:10)*20, eta = c(0.2),gamma = c(0.5,1),subsample = c(0.8),min_child_weight = c(2),colsample_bytree = c(0.8)). nrounds = 80, max_depth = 5, eta = 0.2, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 2 and subsample = 0.8.
+
+# auc = 0.65, 0.56 fnr = 0.82, 0.87. max_depth = c(3, 4). nrounds = 200, max_depth = 4, eta = 0.2, gamma = 0.5, colsample_bytree = 0.8, min_child_weight = 2 and subsample = 0.8.
+
+#nrounds = (1:10)*40 no canvia el auc, fnr
+# auc = 0.42, 0.55. eta = c(0.01)
+# auc = 0.63, 0.55 fnr= 0.67, 0.87. eta = c(0.05,0.1)
+#auc = (0.66, 0.55) fnr=(0.89,0.92). gamma = c(2,3)
+# auc = (0.65, 0.56), fnr=0.82, 0.83. gamma = c(1,1.5)
+# auc = 0.65, 0.53 fnr= 0.75, 0.95. subsample = c(0.5)
+#auc =0.68, 0.50 fnr= 0.82, 0.91. subsample =c(0.6)
+#auc=0.68, 0.55 fnr=0.75, 0.95. min_child_weight = c(3)
+# colsample_bytree = c(0.8) empitjora
+
+
+# hyperparaemeter search for XGboost classifier tree model
+model = train(Preeclampsia~., data = training.df,
+              ######ALTERNATIVE#######
+              #x = trainMNX,
+              #y = trainMNY,
+              ########################
+              method = "xgbTree",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = xgboostGrid,
+              verbosity = 0,
+              verbose = FALSE,
+              #nthreads = 4 #cores in use
+              )
+
+print(model)
+```
+
+```{r}
+# CANVIAR $ PRECLAMPSIA ALS CHUNKS DELS ALTRES MÈTODES PERQUÈ S'ENTEN MILLOR
+#predict on test data
+pred1.y <- predict(model, testing.df1, type = "prob")[,2]
+
+# out of sample performance metrics
+test1.y <- as.numeric(testing.df1$Preeclampsia)-1
+
+pROC::auc(test1.y, pred1.y)
+
+FNR(pred1.y, test1.y)
+FPR(pred1.y, test1.y)
+```
+```{r, results = "hide"}
+# Add to output
+res.testing1[1, ] <- c(pROC::auc(test1.y, pred1.y), FNR(pred1.y, test1.y), FPR(pred1.y, test1.y))
+rownames(res.testing1)[nrow(res.testing1)] <- 'XGBOOST'
+```
+
+
+```{r}
+#predict on test data
+pred2.y <- predict(model, testing.df2, type = "prob")[,2]
+
+# out of sample performance metrics
+test2.y <- as.numeric(testing.df2$Preeclampsia)-1
+
+pROC::auc(test2.y, pred2.y)
+
+FNR(pred2.y, test2.y)
+FPR(pred2.y, test2.y)
+```
+```{r}
+# Add to output
+res.testing2[1, ] <- c(pROC::auc(test2.y, pred2.y), FNR(pred2.y, test2.y), FPR(pred2.y, test2.y))
+rownames(res.testing2)[nrow(res.testing2)] <- 'XGBOOST'
+```
+# Class imbalance
+
+Class imbalance is identified since there are 27.5% normotensive and 72.5% preeclampsia pregnancies. Unbalanced problems should be addressed when applying SVM, since it aims to separate the space into two parts. 
+
+```{r}
+remotes::install_github("cran/DMwR")
+```
+
+```{r}
+library(DMwR)
+set.seed(111)
+resampled.training.df <- SMOTE(Preeclampsia ~ ., training.df, perc.over = 110)
+table(resampled.training.df$Preeclampsia)
+```
+
+```{r}
+reweight <- function(pi, q1, r1) {
+  r0 <- 1 - r1
+  q0 <- 1 - q1
+  tot <- pi * (q1 / r1) + (1 - pi) * (q0 / r0)
+  w <- pi * (q1 / r1) / tot
+  return(w)
+}
+```
+
+
+
+# SVM models
+
+## svmLinearWeights (linear kernel + class weights)
+
+```{r}
+modelLookup("svmLinearWeights")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(50)
+# Customzing the tuning grid
+
+
+svmgrid <-  expand.grid(cost = c(0.001, 1, 10, 100, 1000), weight = c(0.5,1.5,2,3,4, 10, 100, 1000))
+
+
+# auc = 0.58, 0.48 cost = 0.01 and weight = 3. cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10) 
+
+# auc = 0.57, 0.48, fnr = 0.92, 0.83. cost = 0.05 and weight = 0.5. weight = c(0.01, 0.05,0.5)
+
+# auc = 0.64, 0.52. fnr=0.71,0.75. cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), weight = c(0.001, 0.01, 0.1, 1, 10, 100, 1000). optimal: cost 0.01, weight 1
+# auc = 0.64, 0.52 fnr=0.53, 0.75 (si poso un weight menor empitjora). svmgrid <-  expand.grid(cost = c(0.008, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1), weight = c(7,8,9,10,11,12))
+# auc = 0.64, 0.52 fnr=0.53, 0.75. cost = c(0.001, 1, 10, 100, 1000), weight = c(0.5,1.5,2,3,4, 10, 100, 1000)). cost = 1, weight =0.5
+
+
+
+# training a svm classifier with liearn kernel model while tuning parameters
+model = train(Preeclampsia~., data = resampled.training.df,
+              method = "svmLinearWeights",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = svmgrid)
+
+# summarizing the results
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred1.y <- predict(model, testing.df1, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs1 <- sapply(pred1.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test1.y <- as.numeric(testing.df1$Preeclampsia) -1
+
+pROC::auc(test1.y, reweighted.probs1)
+
+FNR(reweighted.probs1, test1.y)
+FPR(reweighted.probs1, test1.y)
+```
+
+
+```{r, results = "hide"}
+# Add to output
+res.testing1 <- rbind.data.frame(res.testing1, c(pROC::auc(test1.y, reweighted.probs1), FNR(reweighted.probs1, test1.y), FPR(reweighted.probs1, test1.y)))
+rownames(res.testing1)[nrow(res.testing1)] <- 'SVMLinear'
+```
+
+
+```{r}
+#predict on test data
+pred2.y <- predict(model, testing.df2, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs2 <- sapply(pred2.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test2.y <- as.numeric(testing.df2$Preeclampsia) -1
+
+pROC::auc(test2.y, reweighted.probs2)
+
+FNR(reweighted.probs2, test2.y)
+FPR(reweighted.probs2, test2.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing2 <- rbind.data.frame(res.testing2, c(pROC::auc(test2.y, reweighted.probs2), FNR(reweighted.probs2, test2.y), FPR(reweighted.probs2, test2.y)))
+rownames(res.testing2)[nrow(res.testing2)] <- 'SVMLinear'
+```
+
+## svmRadial (Support Vector Machines with Radial Basis Function Kernel)
+
+```{r}
+modelLookup("svmRadial")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(50)
+# Customzing the tuning grid
+#svmgrid <-  expand.grid(sigma = c(0.1,0.2,1),
+#                        C = c(1.2,1.4,1.6,1.8))
+
+svmgrid <-  expand.grid(sigma=c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10))
+
+
+# training a svm with rbf kernel classifier model while tuning parameters
+model = train(Preeclampsia~., data = training.df,
+              method = "svmRadial",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = svmgrid)
+
+# summarizing the results
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+
+```{r}
+#predict on test data
+pred1.y <- predict(model, testing.df1, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs1 <- sapply(pred1.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test1.y <- as.numeric(testing.df1[, 1])-1
+
+pROC::auc(test1.y, reweighted.probs1)
+
+FNR(reweighted.probs1, test1.y)
+FPR(reweighted.probs1, test1.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing1 <- rbind.data.frame(res.testing1, c(pROC::auc(test1.y, reweighted.probs1), FNR(reweighted.probs1, test1.y), FPR(reweighted.probs1, test1.y)))
+rownames(res.testing1)[nrow(res.testing1)] <- 'SVMRadial'
+```
+
+
+```{r}
+#predict on test data
+pred2.y <- predict(model, testing.df2, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs2 <- sapply(pred2.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test2.y <- as.numeric(testing.df2$Preeclampsia) -1
+
+pROC::auc(test2.y, reweighted.probs2)
+
+FNR(reweighted.probs2, test2.y)
+FPR(reweighted.probs2, test2.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing2 <- rbind.data.frame(res.testing2, c(pROC::auc(test2.y, reweighted.probs2), FNR(reweighted.probs2, test2.y), FPR(reweighted.probs2, test2.y)))
+rownames(res.testing2)[nrow(res.testing2)] <- 'SVMRadial'
+```
+
+## svmPoly (Support Vector Machines with Polynomial Kernel)
+
+```{r}
+modelLookup("svmPoly")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+svmgrid <-  expand.grid(degree = c(3,4,5),
+                        scale = c(3, 5),
+                        C = c(0.5,1,3,5,10)
+                        )
+
+# training a svm with poly kernel classifier tree model while tuning parameters
+model = train(Preeclampsia~., data = training.df,
+              method = "svmPoly",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = svmgrid)
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred1.y <- predict(model, testing.df1, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs1 <- sapply(pred1.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test1.y <- as.numeric(testing.df1[, 1])-1
+
+pROC::auc(test1.y, reweighted.probs1)
+
+FNR(reweighted.probs1, test1.y)
+FPR(reweighted.probs1, test1.y)
+```
+```{r, results = "hide"}
+# Add to output
+res.testing1 <- rbind.data.frame(res.testing1, c(pROC::auc(test1.y, reweighted.probs1), FNR(reweighted.probs1, test1.y), FPR(reweighted.probs1, test1.y)))
+rownames(res.testing1)[nrow(res.testing1)] <- 'SVMPoly'
+```
+
+```{r}
+#predict on test data
+pred2.y <- predict(model, testing.df2, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs2 <- sapply(pred2.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test2.y <- as.numeric(testing.df2$Preeclampsia) -1
+
+pROC::auc(test2.y, reweighted.probs2)
+
+FNR(reweighted.probs2, test2.y)
+FPR(reweighted.probs2, test2.y)
+```
+```{r, results = "hide"}
+# Add to output
+res.testing2 <- rbind.data.frame(res.testing2, c(pROC::auc(test2.y, reweighted.probs2), FNR(reweighted.probs2, test2.y), FPR(reweighted.probs2, test2.y)))
+rownames(res.testing2)[nrow(res.testing2)] <- 'SVMPoly'
+```
+
+# Random forest
+
+```{r}
+modelLookup("rf")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+rfgrid <-  expand.grid(mtry = c(1:15) #only parameter you can tune for rf in R
+                        )
+              
+# training a randomForest classifier tree model while tuning parameters
+model = train(Preeclampsia~., data = training.df,
+              method = "rf",
+              trControl = train_control,
+              metric = "ROC",
+              importance = T,
+              #manually set
+              ntree = 400, 
+              nodesize = 1, #default for classification
+              tuneGrid = rfgrid)
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred1.y <- predict(model, testing.df1, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs1 <- sapply(pred1.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test1.y <- as.numeric(testing.df1[, 1])-1
+
+pROC::auc(test1.y, reweighted.probs1)
+
+FNR(reweighted.probs1, test1.y)
+FPR(reweighted.probs1, test1.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing1 <- rbind.data.frame(res.testing1, c(pROC::auc(test1.y, reweighted.probs1), FNR(reweighted.probs1, test1.y), FPR(reweighted.probs1, test1.y)))
+rownames(res.testing1)[nrow(res.testing1)] <- 'RandomForest'
+```
+
+```{r}
+#predict on test data
+pred2.y <- predict(model, testing.df2, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs2 <- sapply(pred2.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test2.y <- as.numeric(testing.df2$Preeclampsia) -1
+
+pROC::auc(test2.y, reweighted.probs2)
+
+FNR(reweighted.probs2, test2.y)
+FPR(reweighted.probs2, test2.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing2 <- rbind.data.frame(res.testing2, c(pROC::auc(test2.y, reweighted.probs2), FNR(reweighted.probs2, test2.y), FPR(reweighted.probs2, test2.y)))
+rownames(res.testing2)[nrow(res.testing2)] <- 'RandomForest'
+```
+
+```{r}
+#feature_importance <- randomForest::importance(model)
+#sorted_importance <- feature_importance[order(-feature_importance[, #"MeanDecreaseGini"]),                                        ]
+#print(sorted_importance)
+```
+
+
+#  Elastic net
+
+```{r}
+modelLookup("glmnet")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+netgrid <-  expand.grid(alpha = c(0, 0.0001),
+                        lambda = c(0.7)
+                        )
+
+
+# auc = 0.63, 0.47. alpha = c(0),lambda = c(0.7)
+
+# auc = 0.59. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1),lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5,1). alpha = 0.005 and lambda = 1.
+# auc = 0.70. lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5). alpha = 0.005 and lambda = 0.5.
+# auc = 0.68. alpha = c(0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1) alpha = 0.01 and lambda = 0.5.
+# auc = 0.70. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5), lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4). alpha = 0.005 and lambda = 0.4.
+
+# training a elastic net classifier tree model while tuning parameters
+model = train(Preeclampsia~., data = training.df,
+              method = "glmnet",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = netgrid)
+
+# summarizing the results
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+#predict on test data
+pred1.y <- predict(model, testing.df1, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs1 <- sapply(pred1.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test1.y <- as.numeric(testing.df1[, 1])-1
+
+pROC::auc(test1.y, reweighted.probs1)
+
+FNR(reweighted.probs1, test1.y)
+FPR(reweighted.probs1, test1.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing1 <- rbind.data.frame(res.testing1, c(pROC::auc(test1.y, reweighted.probs1), FNR(reweighted.probs1, test1.y), FPR(reweighted.probs1, test1.y)))
+rownames(res.testing1)[nrow(res.testing1)] <- 'ElasticNet'
+```
+
+```{r}
+#predict on test data
+pred2.y <- predict(model, testing.df2, type = "prob")[,2]
+
+q1 <- sum(training.df$Preeclampsia == "yes") / length(training.df$Preeclampsia)
+r1 <- sum(resampled.training.df$Preeclampsia == "yes") / length(resampled.training.df$Preeclampsia)
+
+reweighted.probs2 <- sapply(pred2.y, reweight, q1 = q1, r1 = r1)
+
+# out of sample performance metrics
+test2.y <- as.numeric(testing.df2$Preeclampsia) -1
+
+pROC::auc(test2.y, reweighted.probs2)
+
+FNR(reweighted.probs2, test2.y)
+FPR(reweighted.probs2, test2.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing2 <- rbind.data.frame(res.testing2, c(pROC::auc(test2.y, reweighted.probs2), FNR(reweighted.probs2, test2.y), FPR(reweighted.probs2, test2.y)))
+rownames(res.testing2)[nrow(res.testing2)] <- 'ElasticNet'
+```
+
+
+# Keras NN
+
+```{r}
+library(tensorflow)
+library(keras)
+library(tfruns)
+tensorflow::set_random_seed(111)
+```
+
+```{r}
+#c(c(x_train, y_train), c(x_test, y_test)) %<-% keras::dataset_mnist()
+#x_train <- x_train / 255
+#x_test <-  x_test / 255
+```
+
+```{r}
+x_train <- as.matrix(training.df[,-1])
+y_train <- as.matrix(as.numeric(training.df[,1])-1)
+
+x_test1<- as.matrix(testing.df1[,-1])
+y_test1 <- as.matrix(as.numeric(testing.df1[,1])-1)
+
+x_test2<- as.matrix(testing.df2[,-1])
+y_test2 <- as.matrix(as.numeric(testing.df2[,1])-1)
+
+x_train_shape <- length(colnames(x_train))
+```
+
+
+```{r}
+#constraint_maxnorm(max_value = 2, axis = 0)
+# bias_regularizer = regularizer_l2(0.01)
+model <- keras_model_sequential()
+model %>%
+  layer_dense(units = 1000, activation = 'relu',
+              input_shape = c(x_train_shape),
+              kernel_regularizer = regularizer_l1_l2(l1 = 0.0000001, l2 = 0.000001),
+              bias_regularizer = regularizer_l1_l2(l1 = 0.00001, l2 = 0.0001),
+              kernel_constraint =constraint_maxnorm(max_value = 2, axis = 0),
+              #bias_constraint =constraint_maxnorm(max_value = 3, axis = 0),
+              activity_regularizer= regularizer_l1_l2(l1 = 0.01, l2 = 0.00001),
+              ) %>%  
+  layer_dropout(rate = 0.7) %>% 
+  layer_batch_normalization() %>%
+  layer_dense(units = 350, activation = 'relu',
+              kernel_regularizer = regularizer_l1_l2(l1 = 0.1, l2 = 0.1),
+              kernel_constraint = constraint_minmaxnorm(max_value = 2, min_value = 0, axis = 1),
+              bias_regularizer = regularizer_l1_l2(l1 = 0.00001, l2 = 0.000001),
+              #bias_constraint =constraint_maxnorm(max_value = 3, axis = 0),
+              activity_regularizer = regularizer_l1_l2(l1 = 0.1, l2 = 0.000001),
+              ) %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_batch_normalization() %>%
+  layer_dense(units = 125, activation = 'relu',
+              #kernel_regularizer = regularizer_l1_l2(l1 = 0.00001, l2 = 0.000001),
+              kernel_constraint = constraint_minmaxnorm(max_value = 2, min_value = 0, axis = 1),
+              #bias_regularizer = regularizer_l1_l2(l1 = 0.00001, l2 = 0.000001),
+              #bias_constraint =constraint_maxnorm(max_value = 3, axis = 0),
+              activity_regularizer = regularizer_l1_l2(l1 = 0.001, l2 = 0.000001),
+              ) %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_batch_normalization() %>%
+  layer_dense(units = 1, activation = 'sigmoid')
+```
+
+
+
+```{r}
+loss_fn <- loss_binary_crossentropy()
+auc <- metric_auc()
+adam <- optimizer_adam(learning_rate = 0.0001, ema_momentum = 0.8)
+
+model %>% compile(
+  optimizer = adam,
+  loss = loss_fn,
+  metrics = "AUC"
+)
+```
+
+```{r}
+model %>% fit(x_train, y_train, epochs = 75, batch_size =3)
+```
+
+
+```{r}
+#history <- model %>% fit(
+#  x_train,y_train,
+#  epochs = 30, batch_size = 256, 
+#  validation_split = 0.2
+#)
+
+#plot(history)
+```
+
+TESTING 1
+```{r}
+model %>% evaluate(x_test1,  y_test1, verbose = 2)
+```
+TESTING 2
+```{r}
+model %>% evaluate(x_test2,  y_test2, verbose = 2)
+```
+
+
+```{r}
+#model %>% predict(x_test) %>% k_argmax() #only for softmax
+b.1<-model %>% predict(x_test1) #%>% `>`(0.5) %>% k_cast("int32") #for sigmoid.0
+b.1 <- as.numeric(b.1)
+
+b.2<-model %>% predict(x_test2) #%>% `>`(0.5) %>% k_cast("int32") #for sigmoid.0
+b.2 <- as.numeric(b.2)
+```
+
+testing 1
+```{r}
+pROC::auc(as.numeric(y_test1), b.1)
+
+FNR(b.1, y_test1)
+FPR(b.1, y_test1)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing1 <- rbind.data.frame(res.testing1, c(pROC::auc(as.numeric(y_test1), b.1), FNR(b.1, y_test1), FPR(b.1, y_test1)))
+rownames(res.testing1)[nrow(res.testing1)] <- 'KerasNN'
+```
+
+testing 2 
+
+```{r}
+pROC::auc(as.numeric(y_test2), b.2)
+
+FNR(b.2, y_test2)
+FPR(b.2, y_test2)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing2 <- rbind.data.frame(res.testing2, c(pROC::auc(as.numeric(y_test2), b.2), FNR(b.2, y_test2), FPR(b.2, y_test2)))
+rownames(res.testing2)[nrow(res.testing2)] <- 'KerasNN'
+```
+
+# Results
+
+```{r}
+(res.testing1)
+```
+
+```{r}
+(res.testing2)
 ```
 
 # Session information
