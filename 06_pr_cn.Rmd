@@ -32,8 +32,7 @@ library(ggplot2)
 library(caret)
 library(xgboost)
 library(randomForest) 
-
-
+set.seed(111)
 
 knitr::opts_chunk$set(
   collapse=TRUE,
@@ -99,6 +98,8 @@ dim(seB.intercept)
 ```{r}
 training.df <- data.frame(Tumor = seR.intercept$Tumor,
                           scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE))
+len <- length(training.df)
+#colnames(training.df)[2:len] <- rowData(seR.intercept)[["Symbol"]]
 ```
 
 ### Testing data
@@ -106,6 +107,8 @@ training.df <- data.frame(Tumor = seR.intercept$Tumor,
 ```{r}
 testing.df <- data.frame(Tumor = seB.intercept$Tumor,
                           scale(t(assays(seB.intercept)$logCPM), scale = TRUE, center = TRUE))
+len <- length(testing.df)
+#colnames(testing.df)[2:len]  <- rowData(seB.intercept)[["Symbol"]]
 ```
 
 # Performance metrics 
@@ -114,7 +117,7 @@ Given the application of the current paper, the False Negative Rate (FNR) metric
 
 ```{r}
 FNR <- function(proba.pred, truth){
-  class.pred <- as.numeric(proba.pred > 0.5)
+  class.pred <- as.numeric(proba.pred > 0.35)
   conf <- table(truth, class.pred)
   print(conf)
   FNR <- conf[2, 1] / sum(conf[2, 1], conf[2, 2])
@@ -124,7 +127,7 @@ FNR <- function(proba.pred, truth){
 
 ```{r}
 FPR <- function(proba.pred, truth){
-  class.pred <- as.numeric(proba.pred > 0.5)
+  class.pred <- as.numeric(proba.pred > 0.35)
   conf <- table(truth, class.pred)
   print(conf)
   FPR <- conf[1, 2] / sum(conf[1, 1], conf[1, 2])
@@ -168,7 +171,7 @@ set.seed(111)
 #                        colsample_bytree = c(0.5, 0.6, 0.7) # common value: between 0.5 and 1
 #                        )
 
-xgboostGrid <- expand.grid(max_depth = c(3, 4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.3,0.4,0.5),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.7))
+xgboostGrid <- expand.grid(max_depth = c(3, 4, 5, 6, 7), nrounds = (1:10)*50,eta = c(0.03,0.4,0.5),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.7))
 
 # auc = 0.64 fnr= 0.47 fpr = 0. max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.8)
 # auc = 0.71 fnr= 0.47 fpr = 0.16. max_depth = c(3, 4, 5, 6, 7)
@@ -194,6 +197,7 @@ model = caret::train(Tumor~., data = training.df,
               tuneGrid = xgboostGrid,
               verbosity = 0,
               verbose = TRUE,
+              #num.threads = 16,
               #nthreads = 16 #cores in use
               )
 
@@ -254,7 +258,7 @@ adaGrid <-  expand.grid(iter = c(50),
 # auc = 0.67, fnr=0.52, fpr=0. iter = c(50), maxdepth = c(1,2),nu = c(0,0.01,0.05))
 
 # hyperparaemeter search for adaboost classifier tree model
-model = train(Tumor~., data = training.df,
+model = caret::train(Tumor~., data = training.df,
               method = "ada",
               trControl = train_control,
               metric = "ROC",
@@ -323,7 +327,7 @@ svmgrid <-  expand.grid(cost = c(0.01,0.015, 0.02),
 
 
 # training a svm classifier with liearn kernel model while tuning parameters
-model = train(Tumor~., data = training.df,
+model = caret::train(Tumor~., data = training.df,
               method = "svmLinearWeights",
               trControl = train_control,
               metric = "ROC",
@@ -385,7 +389,7 @@ svmgrid <-  expand.grid(sigma=c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5
 
 
 # training a svm with rbf kernel classifier model while tuning parameters
-model = train(Tumor~., data = training.df,
+model = caret::train(Tumor~., data = training.df,
               method = "svmRadial",
               trControl = train_control,
               metric = "ROC",
@@ -548,11 +552,23 @@ library(keras)
 library(tfruns)
 tensorflow::set_random_seed(111)
 ```
+Use gene names now. ADAboost was having a bug with with these names so this step was moved to this part.
+
+Training data
+```{r}
+training.df <- data.frame(Tumor = seR.intercept$Tumor,
+                          scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE))
+len <- length(training.df)
+colnames(training.df)[2:len] <- rowData(seR.intercept)[["Symbol"]]
+```
+
+Testing data
 
 ```{r}
-#c(c(x_train, y_train), c(x_test, y_test)) %<-% keras::dataset_mnist()
-#x_train <- x_train / 255
-#x_test <-  x_test / 255
+testing.df <- data.frame(Tumor = seB.intercept$Tumor,
+                          scale(t(assays(seB.intercept)$logCPM), scale = TRUE, center = TRUE))
+len <- length(testing.df)
+colnames(testing.df)[2:len]  <- rowData(seB.intercept)[["Symbol"]]
 ```
 
 ```{r}
@@ -638,20 +654,13 @@ pROC::auc(as.numeric(y_test), b)
 FNR(b, y_test)
 FPR(b, y_test)
 ```
-```{r, results = "hide"}
-# Add to output
-res.testing <- rbind.data.frame(res.testing, c(pROC::auc(as.numeric(y_test), b), FNR(b, y_test), FPR(b, y_test)))
-rownames(res.testing)[nrow(res.testing)] <- 'KerasNN'
-```
-
-
 plot roc-auc curve
 ```{r}
 curve_values <- pROC::roc(as.numeric(y_test), b)
-plot(curve_values ,main ="ROC curve -- Feedforward Nnet ")
+plot(curve_values ,main ="ROC curve -- Feedforward Nnet")
 ```
 
-LIME
+LIME (DISCARDED)
 
 ```{r}
 ######################
@@ -689,8 +698,8 @@ explainer <- lime(x = x, model= model)
 
 
 explanation <- lime::explain (
-  x=  x2[1:5,], 
-  explainer, n_features = 4,
+  x=  x2[1:10,], 
+  explainer, n_features = 5,
   n_labels     = 1,#explaining a `single class`
   kernel_width = 0.5) # allows us to increase model_r2 value by shrinking the localized evaluation.
 
@@ -712,9 +721,70 @@ plot_explanations (explanation) +
 #dev.off()
 ```
 
+SHAP value (Global explanation)
+
 ```{r}
-print(res.testing)
+library(kernelshap)
+library(shapviz)
+library(ggplot2)
+library(patchwork)
+X <- x_test 
+s <- shapviz(kernelshap(model, X, bg_X = x_train))
+sv_importance(s, kind = "bee", show_numbers = TRUE)
+#sv_dependence(s, colnames(X), color_var = NULL) &
+#  ylim(-4, 4)
+sv_importance(s, max_display=30)
+sv_waterfall(s, row_id = 3)
 ```
+Mean shap value for each gene
+```{r}
+shap.value.list<- colMeans(abs(s$S))
+ordered.shap.value.list <- shap.value.list[order(-abs(shap.value.list))]
+histogram(ordered.shap.value.list, breaks = 50)
+```
+
+```{r}
+names(ordered.shap.value.list)
+```
+
+Logistic regression with top 3 most important genes by shap.
+```{r}
+shap.cutoff <- 3
+
+new.train <- training.df[,c("Tumor",names(ordered.shap.value.list)[1:shap.cutoff])]
+new.test <- testing.df[,c("Tumor",names(ordered.shap.value.list)[1:shap.cutoff])]
+
+logistic.shap <- glm(Tumor ~., family = "binomial", data = new.train)
+
+summary(logistic.shap)
+```
+
+```{r}
+predicted.proba.logistic.shap.test <- predict(logistic.shap, new.test[-1], type="response")
+pROC::auc(new.test[,1], predicted.proba.logistic.shap.test)
+
+FNR(predicted.proba.logistic.shap.test, new.test[,1])
+FPR(predicted.proba.logistic.shap.test, new.test[,1])
+
+names(ordered.shap.value.list)[1:shap.cutoff]
+```
+
+
+Trial with 3 first genes without ordering by shap (unfinished: I would like to test random combinations and compute averaged metrics)
+
+```{r}
+trial.train <- training.df[,1:shap.cutoff]
+trial.test <- testing.df[,1:shap.cutoff]
+
+logistic.shap <- glm(Tumor ~., family = "binomial", data = trial.train)
+
+predicted.proba.logistic.shap.test <- predict(logistic.shap, trial.test[-1], type="response")
+pROC::auc(trial.test[,1], predicted.proba.logistic.shap.test)
+
+FNR(predicted.proba.logistic.shap.test, trial.test[,1])
+FPR(predicted.proba.logistic.shap.test, trial.test[,1])
+```
+
 
 # Session information
 
