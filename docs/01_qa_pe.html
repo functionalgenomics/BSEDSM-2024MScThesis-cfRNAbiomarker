@@ -10,6 +10,7 @@
 
 
 
+<meta name="date" content="2024-05-31" />
 
 <title>Quality assessment of preeclampsia data</title>
 
@@ -76,6 +77,7 @@ if (window.hljs) {
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
+  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -94,7 +96,7 @@ div.csl-indent {
 }
 </style>
 
-<link rel="stylesheet" href="/home/adam/R/x86_64-pc-linux-gnu-library/4.4/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -390,7 +392,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">abril 29, 2024</h4>
+<h4 class="date">May 31, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the preeclampsia data.</p>
 
@@ -405,8 +407,8 @@ objects.</p>
 
 seM &lt;- readRDS(file.path(&quot;_raw_data&quot;, &quot;se.Moufarrej22.GENCODEv44.hg38.rds&quot;))
 dim(seM)
-[1] 37928   404
-seD &lt;- readRDS(file.path(&quot;_raw_data&quot;, &quot;se.DelVecchio21.GENCODEv44.hg38.rds&quot;))
+[1] 37928   404</code></pre>
+<pre class="r"><code>seD &lt;- readRDS(file.path(&quot;_raw_data&quot;, &quot;se.DelVecchio21.GENCODEv44.hg38.rds&quot;))
 dim(seD)
 [1] 37928   134</code></pre>
 </div>
@@ -426,21 +428,21 @@ the <code>SummarizedExperiment</code> and <code>DGEList</code> types of objects,
 parallel to each other.</p>
 <pre class="r"><code>mask &lt;- filterByExpr(dgeM, group=seM$Preeclampsia)
 sum(mask)
-[1] 5344
-seM.filt &lt;- seM[mask, ]
+[1] 5344</code></pre>
+<pre class="r"><code>seM.filt &lt;- seM[mask, ]
 dim(seM.filt)
-[1] 5344  404
-dgeM.filt &lt;- dgeM[mask, , keep.lib.sizes=FALSE]
+[1] 5344  404</code></pre>
+<pre class="r"><code>dgeM.filt &lt;- dgeM[mask, , keep.lib.sizes=FALSE]
 dim(dgeM.filt)
-[1] 5344  404
-
+[1] 5344  404</code></pre>
+<pre class="r"><code>
 mask &lt;- filterByExpr(dgeD, group=seD$Preeclampsia)
 sum(mask)
-[1] 7313
-seD.filt &lt;- seD[mask, ]
+[1] 7313</code></pre>
+<pre class="r"><code>seD.filt &lt;- seD[mask, ]
 dim(seD.filt)
-[1] 7313  134
-dgeD.filt &lt;- dgeD[mask, , keep.lib.sizes=FALSE]
+[1] 7313  134</code></pre>
+<pre class="r"><code>dgeD.filt &lt;- dgeD[mask, , keep.lib.sizes=FALSE]
 dim(dgeD.filt)
 [1] 7313  134</code></pre>
 <p>Calculate normalization factors on the filtered data.</p>
@@ -457,23 +459,32 @@ delivery, labeled as <code>Post-partum</code> in the <code>SamplingGAgroup</code
 <pre class="r"><code>table(seM.filt$Cohort)
 
   Discovery Validation1 Validation2 
-        209         106          89 
-mask &lt;- seM.filt$Cohort %in% c(&quot;Discovery&quot;, &quot;Validation1&quot;) &amp;
+        209         106          89 </code></pre>
+<pre class="r"><code>mask &lt;- seM.filt$Cohort %in% c(&quot;Discovery&quot;, &quot;Validation1&quot;) &amp;
         !seM.filt$SamplingGAgroup %in% &quot;Post-partum&quot;
 seM.filt.training &lt;- seM.filt[, mask]
 dim(seM.filt.training)
-[1] 5344  244
-dgeM.filt.training &lt;- dgeM.filt[, mask]
+[1] 5344  244</code></pre>
+<pre class="r"><code>dgeM.filt.training &lt;- dgeM.filt[, mask]
 dim(dgeM.filt.training)
-[1] 5344  244
+[1] 5344  244</code></pre>
+<pre class="r"><code>table(seM.filt.training$Preeclampsia)
+
+ no yes 
+177  67 </code></pre>
+<pre class="r"><code>
 mask &lt;- seM.filt$Cohort %in% &quot;Validation2&quot; &amp;
         !seM.filt$SamplingGAgroup %in% &quot;Post-partum&quot;
 seM.filt.testing &lt;- seM.filt[, mask]
 dim(seM.filt.testing)
-[1] 5344   89
-dgeM.filt.testing &lt;- dgeM.filt[, mask]
+[1] 5344   89</code></pre>
+<pre class="r"><code>dgeM.filt.testing &lt;- dgeM.filt[, mask]
 dim(dgeM.filt.testing)
 [1] 5344   89</code></pre>
+<pre class="r"><code>table(seM.filt.testing$Preeclampsia)
+
+ no yes 
+ 61  28 </code></pre>
 <p>From the study by <span class="citation">(<a href="#ref-delvecchio2021cell">Del Vecchio et al. 2021</a>)</span>, discard samples from non-pregnant
 women, drawn after delivery, or taken from the cord blood of the neonate.</p>
 <pre class="r"><code>table(seD.filt$SamplingGAgroup)
@@ -485,15 +496,19 @@ women, drawn after delivery, or taken from the cord blood of the neonate.</p>
 Non pregnant Patient 2 Non pregnant Patient 3 Non pregnant Patient 4 
                      1                      1                      1 
 Non pregnant Patient 5 Non pregnant Patient 6 Non pregnant Patient 7 
-                     1                      1                      1 
-mask &lt;- !grepl(&quot;Non pregnant&quot;, seD.filt$SamplingGAgroup) &amp;
+                     1                      1                      1 </code></pre>
+<pre class="r"><code>mask &lt;- !grepl(&quot;Non pregnant&quot;, seD.filt$SamplingGAgroup) &amp;
         !seD.filt$SamplingGAgroup %in% c(&quot;delivery&quot;, &quot;cord blood&quot;)
 seD.filt.subset &lt;- seD.filt[, mask]
 dim(seD.filt.subset)
-[1] 7313   76
-dgeD.filt.subset &lt;- dgeD.filt[, mask]
+[1] 7313   76</code></pre>
+<pre class="r"><code>dgeD.filt.subset &lt;- dgeD.filt[, mask]
 dim(dgeD.filt.subset)
 [1] 7313   76</code></pre>
+<pre class="r"><code>table(seD.filt.subset$Preeclampsia)
+
+ no yes 
+ 52  24 </code></pre>
 <p>Figure <a href="#fig:mdsplot">1</a> below shows samples dissimilarity labeled by
 the diagnosis of preeclampsia in each of the three datasets.</p>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:mdsplot"></span>
@@ -547,27 +562,27 @@ dgeM.filt.training.interceptonly &lt;- estimateDisp(dgeM.filt.training, design=m
                                                  robust=TRUE)
 summary(dgeM.filt.training.interceptonly$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  8.338   8.442   8.572   8.512   8.572   8.572 
-mod &lt;- model.matrix(~ Preeclampsia, colData(seM.filt.training))
+  8.338   8.442   8.572   8.512   8.572   8.572 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia, colData(seM.filt.training))
 dgeM.filt.training.PE &lt;- estimateDisp(dgeM.filt.training, design=mod,
                                       robust=TRUE)
 summary(dgeM.filt.training.PE$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  8.394   8.394   8.639   8.572   8.639   8.639 
-mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.training))
+  8.394   8.394   8.639   8.572   8.639   8.639 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.training))
 dgeM.filt.training.PEGA &lt;- estimateDisp(dgeM.filt.training, design=mod,
                                         robust=TRUE)
 summary(dgeM.filt.training.PEGA$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  8.396   8.396   8.650   8.580   8.650   8.650 
-mod0 &lt;- model.matrix(~ SamplingGA, colData(seM.filt.training))
+  8.396   8.396   8.650   8.580   8.650   8.650 </code></pre>
+<pre class="r"><code>mod0 &lt;- model.matrix(~ SamplingGA, colData(seM.filt.training))
 IQRs &lt;- apply(assays(seM.filt.training)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seM.filt.training)$logCPM[mask, ],
           mod=mod, mod0=mod0)
 Number of significant surrogate variables is:  9 
-Iteration (out of 5 ):1  2  3  4  5  
-mod &lt;- cbind(mod, sv$sv)
+Iteration (out of 5 ):1  2  3  4  5  </code></pre>
+<pre class="r"><code>mod &lt;- cbind(mod, sv$sv)
 dgeM.filt.training.PEGASVs &lt;- estimateDisp(dgeM.filt.training,
                                            design=mod, robust=TRUE)
 summary(dgeM.filt.training.PEGASVs$prior.df)
@@ -585,7 +600,7 @@ Figure 2: <span class="caption-title">Biological coefficient of variation (BCV)<
 </div>
 <p>Table <a href="#tab:hypervargenesMtraining">1</a> below shows the top-20 hypervariable genes
 with lowest prior degrees of freedom for the last model.</p>
-<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="color: black; margin-left: auto; margin-right: auto; color: black; margin-left: auto; margin-right: auto;">
+<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
 <caption>
 <span id="tab:hypervargenesMtraining">Table 1: </span>Top-20 hypervariable genes for the model Preeclampsia + SamplingGA + SVs.
 </caption>
@@ -896,27 +911,27 @@ dgeM.filt.testing.interceptonly &lt;- estimateDisp(dgeM.filt.testing, design=mod
                                                 robust=TRUE)
 summary(dgeM.filt.testing.interceptonly$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  3.536   3.536   3.536   3.638   3.813   3.813 
-mod &lt;- model.matrix(~ Preeclampsia, colData(seM.filt.testing))
+  3.536   3.536   3.536   3.638   3.813   3.813 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia, colData(seM.filt.testing))
 dgeM.filt.testing.PE &lt;- estimateDisp(dgeM.filt.testing, design=mod,
                                      robust=TRUE)
 summary(dgeM.filt.testing.PE$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  3.613   3.613   3.613   3.714   3.881   3.881 
-mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.testing))
+  3.613   3.613   3.613   3.714   3.881   3.881 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seM.filt.testing))
 dgeM.filt.testing.PEGA &lt;- estimateDisp(dgeM.filt.testing, design=mod,
                                        robust=TRUE)
 summary(dgeM.filt.testing.PEGA$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  3.606   3.606   3.606   3.709   3.878   3.878 
-mod0 &lt;- model.matrix(~ SamplingGA, colData(seM.filt.testing))
+  3.606   3.606   3.606   3.709   3.878   3.878 </code></pre>
+<pre class="r"><code>mod0 &lt;- model.matrix(~ SamplingGA, colData(seM.filt.testing))
 IQRs &lt;- apply(assays(seM.filt.testing)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seM.filt.testing)$logCPM[mask, ],
           mod=mod, mod0=mod0)
 Number of significant surrogate variables is:  4 
-Iteration (out of 5 ):1  2  3  4  5  
-mod &lt;- cbind(mod, sv$sv)
+Iteration (out of 5 ):1  2  3  4  5  </code></pre>
+<pre class="r"><code>mod &lt;- cbind(mod, sv$sv)
 dgeM.filt.testing.PEGASVs &lt;- estimateDisp(dgeM.filt.testing,
                                           design=mod, robust=TRUE)
 summary(dgeM.filt.testing.PEGASVs$prior.df)
@@ -931,6 +946,309 @@ n log CPM units.</p>
 Figure 3: <span class="caption-title">Biological coefficient of variation (BCV)</span><br>BCV values as function of the average gene expression in log-CPM units.
 </p>
 </div>
+<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
+<caption>
+<span id="tab:hypervargenesMtesting">Table 2: </span>Top-20 hypervariable genes for the model Preeclampsia + SamplingGA + SVs.
+</caption>
+<thead>
+<tr>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+prior.df
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+BCV
+</th>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+Gene
+</th>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+Description
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+5.291823
+</td>
+<td style="text-align:right;">
+0.8676389
+</td>
+<td style="text-align:left;">
+MAGI2-AS3
+</td>
+<td style="text-align:left;">
+MAGI2 antisense RNA 3
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.291823
+</td>
+<td style="text-align:right;">
+0.8874649
+</td>
+<td style="text-align:left;">
+TMEM70
+</td>
+<td style="text-align:left;">
+transmembrane protein 70
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.291823
+</td>
+<td style="text-align:right;">
+0.8941953
+</td>
+<td style="text-align:left;">
+ABO
+</td>
+<td style="text-align:left;">
+ABO, alpha 1-3-N-acetylgalactosaminyltransferase and alpha 1-3-galactosyltransferase
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.291823
+</td>
+<td style="text-align:right;">
+0.9219868
+</td>
+<td style="text-align:left;">
+GCOM1
+</td>
+<td style="text-align:left;">
+GCOM1, MYZAP-POLR2M combined locus
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.291823
+</td>
+<td style="text-align:right;">
+0.8449318
+</td>
+<td style="text-align:left;">
+SPNS1
+</td>
+<td style="text-align:left;">
+SPNS lysolipid transporter 1, lysophospholipid
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.291823
+</td>
+<td style="text-align:right;">
+0.9620111
+</td>
+<td style="text-align:left;">
+CST7
+</td>
+<td style="text-align:left;">
+cystatin F
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.291823
+</td>
+<td style="text-align:right;">
+0.8165029
+</td>
+<td style="text-align:left;">
+PVALB
+</td>
+<td style="text-align:left;">
+parvalbumin
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.707770
+</td>
+<td style="text-align:right;">
+0.7745764
+</td>
+<td style="text-align:left;">
+TTN
+</td>
+<td style="text-align:left;">
+titin
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.707770
+</td>
+<td style="text-align:right;">
+0.7631880
+</td>
+<td style="text-align:left;">
+ANXA3
+</td>
+<td style="text-align:left;">
+annexin A3
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.707770
+</td>
+<td style="text-align:right;">
+0.8373243
+</td>
+<td style="text-align:left;">
+VTRNA1-2
+</td>
+<td style="text-align:left;">
+vault RNA 1-2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.892624
+</td>
+<td style="text-align:right;">
+0.6684776
+</td>
+<td style="text-align:left;">
+KLHL5
+</td>
+<td style="text-align:left;">
+kelch like family member 5
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.252762
+</td>
+<td style="text-align:right;">
+0.6564837
+</td>
+<td style="text-align:left;">
+VCAN
+</td>
+<td style="text-align:left;">
+versican
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.252762
+</td>
+<td style="text-align:right;">
+0.6669697
+</td>
+<td style="text-align:left;">
+RBPMS2
+</td>
+<td style="text-align:left;">
+RNA binding protein, mRNA processing factor 2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.532833
+</td>
+<td style="text-align:right;">
+0.5147473
+</td>
+<td style="text-align:left;">
+MTCO2P12
+</td>
+<td style="text-align:left;">
+MT-CO2 pseudogene 12
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.532833
+</td>
+<td style="text-align:right;">
+0.5535638
+</td>
+<td style="text-align:left;">
+MFN2
+</td>
+<td style="text-align:left;">
+mitofusin 2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.532833
+</td>
+<td style="text-align:right;">
+0.7356862
+</td>
+<td style="text-align:left;">
+IFI44L
+</td>
+<td style="text-align:left;">
+interferon induced protein 44 like
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.532833
+</td>
+<td style="text-align:right;">
+0.6359629
+</td>
+<td style="text-align:left;">
+OBSCN
+</td>
+<td style="text-align:left;">
+obscurin, cytoskeletal calmodulin and titin-interacting RhoGEF
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.532833
+</td>
+<td style="text-align:right;">
+0.6050213
+</td>
+<td style="text-align:left;">
+PDZK1IP1
+</td>
+<td style="text-align:left;">
+PDZK1 interacting protein 1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.532833
+</td>
+<td style="text-align:right;">
+0.5860977
+</td>
+<td style="text-align:left;">
+FCGR3B
+</td>
+<td style="text-align:left;">
+Fc gamma receptor IIIb
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6.532833
+</td>
+<td style="text-align:right;">
+0.7977558
+</td>
+<td style="text-align:left;">
+PIGC
+</td>
+<td style="text-align:left;">
+phosphatidylinositol glycan anchor biosynthesis class C
+</td>
+</tr>
+</tbody>
+</table></div>
 </div>
 <div id="subset-from-del-vecchio-et-al.-2021" class="section level2" number="3.3">
 <h2><span class="header-section-number">3.3</span> Subset from Del Vecchio et al. (2021)</h2>
@@ -939,27 +1257,27 @@ dgeD.filt.subset.interceptonly &lt;- estimateDisp(dgeD.filt.subset, design=mod,
                                                robust=TRUE)
 summary(dgeD.filt.subset.interceptonly$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
- 0.4514 11.2173 11.2173 10.3761 11.2173 11.2173 
-mod &lt;- model.matrix(~ Preeclampsia, colData(seD.filt.subset))
+ 0.4514 11.2173 11.2173 10.3761 11.2173 11.2173 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia, colData(seD.filt.subset))
 dgeD.filt.subset.PE &lt;- estimateDisp(dgeD.filt.subset, design=mod,
                                     robust=TRUE)
 summary(dgeD.filt.subset.PE$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  0.413  11.531  11.531  10.688  11.531  11.531 
-mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seD.filt.subset))
+  0.413  11.531  11.531  10.688  11.531  11.531 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Preeclampsia + SamplingGA, colData(seD.filt.subset))
 dgeD.filt.subset.PEGA &lt;- estimateDisp(dgeD.filt.subset, design=mod,
                                       robust=TRUE)
 summary(dgeD.filt.subset.PEGA$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
- 0.4149 11.7678 11.7678 10.8987 11.7678 11.7678 
-mod0 &lt;- model.matrix(~ SamplingGA, colData(seD.filt.subset))
+ 0.4149 11.7678 11.7678 10.8987 11.7678 11.7678 </code></pre>
+<pre class="r"><code>mod0 &lt;- model.matrix(~ SamplingGA, colData(seD.filt.subset))
 IQRs &lt;- apply(assays(seD.filt.subset)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seD.filt.subset)$logCPM[mask, ],
           mod=mod, mod0=mod0)
 Number of significant surrogate variables is:  8 
-Iteration (out of 5 ):1  2  3  4  5  
-mod &lt;- cbind(mod, sv$sv)
+Iteration (out of 5 ):1  2  3  4  5  </code></pre>
+<pre class="r"><code>mod &lt;- cbind(mod, sv$sv)
 dgeD.filt.subset.PEGASVs &lt;- estimateDisp(dgeD.filt.subset,
                                          design=mod, robust=TRUE)
 summary(dgeD.filt.subset.PEGASVs$prior.df)
@@ -974,11 +1292,11 @@ n log CPM units.</p>
 Figure 4: <span class="caption-title">Biological coefficient of variation (BCV)</span><br>BCV values as function of the average gene expression in log-CPM units.
 </p>
 </div>
-<p>Table <a href="#tab:hypervargenesDsubset">2</a> below shows the top-20 hypervariable genes
+<p>Table <a href="#tab:hypervargenesDsubset">3</a> below shows the top-20 hypervariable genes
 with lowest prior degrees of freedom for the last model.</p>
-<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="color: black; margin-left: auto; margin-right: auto; color: black; margin-left: auto; margin-right: auto;">
+<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
 <caption>
-<span id="tab:hypervargenesDsubset">Table 2: </span>Top-20 hypervariable genes for the model Preeclampsia + SamplingGA + SVs.
+<span id="tab:hypervargenesDsubset">Table 3: </span>Top-20 hypervariable genes for the model Preeclampsia + SamplingGA + SVs.
 </caption>
 <thead>
 <tr>
@@ -1285,68 +1603,63 @@ BCL2 interacting protein 3 like
 <h1><span class="header-section-number">4</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
 R version 4.4.0 (2024-04-24)
-Platform: x86_64-pc-linux-gnu
-Running under: Ubuntu 22.04.4 LTS
+Platform: x86_64-apple-darwin20
+Running under: macOS Ventura 13.5.1
 
 Matrix products: default
-BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
-LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+BLAS:   /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
 
 locale:
- [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
- [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=en_US.UTF-8    
- [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=en_US.UTF-8   
- [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
- [9] LC_ADDRESS=C               LC_TELEPHONE=C            
-[11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
 
 time zone: Europe/Madrid
-tzcode source: system (glibc)
+tzcode source: internal
 
 attached base packages:
 [1] stats4    stats     graphics  grDevices utils     datasets  methods  
 [8] base     
 
 other attached packages:
- [1] plotrix_3.8-2               sva_3.51.0                 
- [3] BiocParallel_1.37.1         genefilter_1.85.1          
- [5] mgcv_1.9-1                  nlme_3.1-163               
- [7] edgeR_4.1.26                limma_3.59.10              
- [9] SummarizedExperiment_1.33.3 Biobase_2.63.1             
-[11] GenomicRanges_1.55.4        GenomeInfoDb_1.39.14       
-[13] IRanges_2.37.1              S4Vectors_0.41.7           
-[15] BiocGenerics_0.49.1         MatrixGenerics_1.15.1      
+ [1] plotrix_3.8-4               sva_3.52.0                 
+ [3] BiocParallel_1.38.0         genefilter_1.86.0          
+ [5] mgcv_1.9-1                  nlme_3.1-164               
+ [7] edgeR_4.2.0                 limma_3.60.2               
+ [9] SummarizedExperiment_1.34.0 Biobase_2.64.0             
+[11] GenomicRanges_1.56.0        GenomeInfoDb_1.40.0        
+[13] IRanges_2.38.0              S4Vectors_0.42.0           
+[15] BiocGenerics_0.50.0         MatrixGenerics_1.16.0      
 [17] matrixStats_1.3.0           kableExtra_1.4.0           
-[19] knitr_1.46                  BiocStyle_2.31.0           
+[19] knitr_1.46                  BiocStyle_2.32.0           
 
 loaded via a namespace (and not attached):
- [1] viridisLite_0.4.0       blob_1.2.2              Biostrings_2.71.6      
- [4] fastmap_1.1.1           XML_3.99-0.9            digest_0.6.29          
- [7] lifecycle_1.0.1         survival_3.5-8          statmod_1.4.36         
-[10] KEGGREST_1.43.1         RSQLite_2.2.9           magrittr_2.0.2         
+ [1] viridisLite_0.4.2       blob_1.2.4              Biostrings_2.72.0      
+ [4] fastmap_1.2.0           XML_3.99-0.16.1         digest_0.6.35          
+ [7] lifecycle_1.0.4         survival_3.5-8          statmod_1.5.0          
+[10] KEGGREST_1.44.0         RSQLite_2.3.6           magrittr_2.0.3         
 [13] compiler_4.4.0          rlang_1.1.3             sass_0.4.9             
-[16] tools_4.4.0             yaml_2.3.5              S4Arrays_1.3.7         
-[19] bit_4.0.4               DelayedArray_0.29.9     xml2_1.3.3             
+[16] tools_4.4.0             yaml_2.3.8              S4Arrays_1.4.1         
+[19] bit_4.0.5               DelayedArray_0.30.1     xml2_1.3.6             
 [22] abind_1.4-5             grid_4.4.0              xtable_1.8-4           
-[25] colorspace_2.0-2        scales_1.1.1            tinytex_0.37           
-[28] cli_3.2.0               rmarkdown_2.26          crayon_1.5.0           
-[31] rstudioapi_0.13         httr_1.4.2              DBI_1.1.2              
-[34] cachem_1.0.6            stringr_1.4.0           zlibbioc_1.49.3        
-[37] splines_4.4.0           parallel_4.4.0          AnnotationDbi_1.65.2   
-[40] BiocManager_1.30.22     XVector_0.43.1          vctrs_0.3.8            
-[43] Matrix_1.6-5            jsonlite_1.7.3          bookdown_0.39          
-[46] bit64_4.0.5             systemfonts_1.0.4       locfit_1.5-9.9         
-[49] jquerylib_0.1.4         annotate_1.81.2         codetools_0.2-19       
-[52] stringi_1.7.6           UCSC.utils_0.99.7       munsell_0.5.0          
-[55] htmltools_0.5.8.1       GenomeInfoDbData_1.2.12 R6_2.5.1               
-[58] evaluate_0.15           lattice_0.22-5          highr_0.9              
-[61] png_0.1-7               memoise_2.0.1           bslib_0.7.0            
-[64] Rcpp_1.0.12             svglite_2.1.0           SparseArray_1.3.5      
-[67] xfun_0.43              </code></pre>
+[25] colorspace_2.1-0        scales_1.3.0            tinytex_0.51           
+[28] cli_3.6.2               rmarkdown_2.27          crayon_1.5.2           
+[31] rstudioapi_0.16.0       httr_1.4.7              DBI_1.2.2              
+[34] cachem_1.1.0            stringr_1.5.1           zlibbioc_1.50.0        
+[37] splines_4.4.0           parallel_4.4.0          AnnotationDbi_1.66.0   
+[40] BiocManager_1.30.23     XVector_0.44.0          vctrs_0.6.5            
+[43] Matrix_1.7-0            jsonlite_1.8.8          bookdown_0.39          
+[46] bit64_4.0.5             systemfonts_1.1.0       locfit_1.5-9.9         
+[49] jquerylib_0.1.4         annotate_1.82.0         glue_1.7.0             
+[52] codetools_0.2-20        stringi_1.8.4           UCSC.utils_1.0.0       
+[55] munsell_0.5.1           htmltools_0.5.8.1       GenomeInfoDbData_1.2.12
+[58] R6_2.5.1                evaluate_0.23           lattice_0.22-6         
+[61] highr_0.10              png_0.1-8               memoise_2.0.1          
+[64] bslib_0.7.0             Rcpp_1.0.12             svglite_2.1.3          
+[67] SparseArray_1.4.3       xfun_0.44              </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
-<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
 <div id="ref-delvecchio2021cell" class="csl-entry">
 Del Vecchio, Giorgia, Qingjiao Li, Wenyuan Li, Shanthie Thamotharan, Anela Tosevska, Marco Morselli, Kyunghyun Sung, et al. 2021. <span>“Cell-Free DNA Methylation and Transcriptomic Signature Prediction of Pregnancies with Adverse Outcomes.”</span> <em>Epigenetics</em> 16 (6): 642–61.
 </div>

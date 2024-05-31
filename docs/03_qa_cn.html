@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-05-13" />
+<meta name="date" content="2024-05-31" />
 
 <title>Quality assessment of cancer data</title>
 
@@ -96,7 +96,7 @@ div.csl-indent {
 }
 </style>
 
-<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -392,7 +392,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 13, 2024</h4>
+<h4 class="date">May 31, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.</p>
 
@@ -407,8 +407,8 @@ objects.</p>
 
 seR &lt;- readRDS(file.path(&quot;_raw_data&quot;, &quot;se.Roskams22.GENCODEv44.hg38.rds&quot;))
 dim(seR)
-[1] 37928    90
-seB &lt;- readRDS(file.path(&quot;_raw_data&quot;, &quot;se.Block22.GENCODEv44.hg38.rds&quot;))
+[1] 37928    90</code></pre>
+<pre class="r"><code>seB &lt;- readRDS(file.path(&quot;_raw_data&quot;, &quot;se.Block22.GENCODEv44.hg38.rds&quot;))
 dim(seB)
 [1] 37928    41</code></pre>
 </div>
@@ -416,34 +416,38 @@ dim(seB)
 <h1><span class="header-section-number">2</span> Filtering of lowly-expressed genes and normalization</h1>
 <p>In <span class="citation">(<a href="#ref-Roskams2022">Roskams-Hieter et al. 2022</a>)</span>, they sequenced plasma samples of eight hepatocellular carcinoma (HCC) and ten multiple myeloma (MM) patients, 12 patients of their respective precancerous conditions, and 20 non-cancer (NC) donors. To avoid within group heterogeneity, our study focuses on individuals with hepatocellular carcinoma (HCC) and non-cancer (NC) for the control. Otherwise, our analysis could increase between group variance and thus lead to spurious results.</p>
 <p>NOTA: See abstract from the paper and suplementary tables to modify this paragraph.</p>
-<p>For <span class="citation">(<a href="#ref-Block2022">Block et al. 2022</a>)</span>, the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma (i.e. with Microvesicle == ‘no’) and non-cancer (NC) for the control.</p>
 <pre class="r"><code>table(colData(seR)$Disease)
 
 Cirr  HCC MGUS   MM   NC 
-   4   28    9   19   30 
-mask &lt;- colData(seR)$Disease %in% c(&#39;NC&#39;, &#39;HCC&#39;)
+   4   28    9   19   30 </code></pre>
+<pre class="r"><code>mask &lt;- colData(seR)$Disease %in% c(&#39;NC&#39;, &#39;HCC&#39;)
 seR.subset &lt;- seR[,mask]
 dim(seR.subset)
-[1] 37928    58
-colData(seR.subset)$Tumor &lt;- factor(seR.subset$Disease == &#39;HCC&#39;, labels = c(&#39;no&#39;, &#39;yes&#39;))</code></pre>
+[1] 37928    58</code></pre>
+<pre class="r"><code>colData(seR.subset)$Tumor &lt;- factor(seR.subset$Disease == &#39;HCC&#39;, labels = c(&#39;no&#39;, &#39;yes&#39;))
+table(seR.subset$Disease)
+
+HCC  NC 
+ 28  30 </code></pre>
+<p>For <span class="citation">(<a href="#ref-Block2022">Block et al. 2022</a>)</span>, the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma and plasma related EVs and non-cancer (NC) for the control.</p>
 <pre class="r"><code>table(seB$SampleType)
 
 HCC LCS NHC NLS 
- 25   9   6   1 
-table(seB$SampleType, seB$Tissue)
+ 25   9   6   1 </code></pre>
+<pre class="r"><code>table(seB$SampleType, seB$Tissue)
      
       normal_liver plasma plasma_vesicles tumor_liver
   HCC            0     14               5           6
   LCS            0      9               0           0
   NHC            0      6               0           0
-  NLS            1      0               0           0
-mask &lt;- (seB$SampleType == &quot;HCC&quot; &amp;
+  NLS            1      0               0           0</code></pre>
+<pre class="r"><code>mask &lt;- (seB$SampleType == &quot;HCC&quot; &amp;
          (seB$Tissue %in% c(&quot;plasma&quot;, &quot;plasma_vesicles&quot;))) |
         seB$SampleType == &quot;NHC&quot;
 seB.subset &lt;- seB[,mask]
 dim(seB.subset)
-[1] 37928    25
-colData(seB.subset)$Tumor &lt;- factor(seB.subset$SampleType == &#39;HCC&#39;,
+[1] 37928    25</code></pre>
+<pre class="r"><code>colData(seB.subset)$Tumor &lt;- factor(seB.subset$SampleType == &#39;HCC&#39;,
                                     labels = c(&#39;no&#39;, &#39;yes&#39;))
 table(seB.subset$SampleType)
 
@@ -465,21 +469,21 @@ the <code>SummarizedExperiment</code> and <code>DGEList</code> types of objects,
 parallel to each other.</p>
 <pre class="r"><code>mask &lt;- filterByExpr(dgeR, group=seR.subset$Tumor)
 sum(mask)
-[1] 8387
-seR.filt &lt;- seR.subset[mask, ]
+[1] 8387</code></pre>
+<pre class="r"><code>seR.filt &lt;- seR.subset[mask, ]
 dim(seR.filt)
-[1] 8387   58
-dgeR.filt &lt;- dgeR[mask, , keep.lib.sizes=FALSE]
+[1] 8387   58</code></pre>
+<pre class="r"><code>dgeR.filt &lt;- dgeR[mask, , keep.lib.sizes=FALSE]
 dim(dgeR.filt)
-[1] 8387   58
-
+[1] 8387   58</code></pre>
+<pre class="r"><code>
 mask &lt;- filterByExpr(dgeB, group=seB.subset$Tumor)
 sum(mask)
-[1] 15613
-seB.filt &lt;- seB.subset[mask, ]
+[1] 15613</code></pre>
+<pre class="r"><code>seB.filt &lt;- seB.subset[mask, ]
 dim(seB.filt)
-[1] 15613    25
-dgeB.filt &lt;- dgeB[mask, , keep.lib.sizes=FALSE]
+[1] 15613    25</code></pre>
+<pre class="r"><code>dgeB.filt &lt;- dgeB[mask, , keep.lib.sizes=FALSE]
 dim(dgeB.filt)
 [1] 15613    25</code></pre>
 <p>Calculate normalization factors on the filtered data.</p>
@@ -508,15 +512,8 @@ Figure 1: <span class="caption-title">Sample dissimilarity labeled by the diagno
 <h1><span class="header-section-number">3</span> Data imputation</h1>
 <div id="testing-dataset" class="section level2" number="3.1">
 <h2><span class="header-section-number">3.1</span> Testing dataset</h2>
-<div id="variable-age" class="section level3" number="3.1.1">
-<h3><span class="header-section-number">3.1.1</span> Variable ‘Age’</h3>
-<p>Impute missing age values by mean.</p>
-<pre class="r"><code>mean.ageB &lt;- mean(seB.filt.testing$Age, na.rm = TRUE)
-mask &lt;- is.na(seB.filt.testing$Age)
-seB.filt.testing$Age[mask] &lt;- round(mean.ageB,3)</code></pre>
-</div>
-<div id="variable-sex" class="section level3" number="3.1.2">
-<h3><span class="header-section-number">3.1.2</span> Variable ‘Sex’</h3>
+<div id="variable-sex" class="section level3" number="3.1.1">
+<h3><span class="header-section-number">3.1.1</span> Variable ‘Sex’</h3>
 <p>The estimation of missing data for <code>Sex</code> covariate uses a KNN imputer (k = 3) based on the relationship between the expression of the MSY genes (genes from the male-specific region of the Y chromosome) and XIE genes (genes that escape X-chromosome inactivation).</p>
 <pre class="r"><code>library(SummarizedExperiment)
 library(edgeR)
@@ -533,7 +530,7 @@ XIE_genes &lt;- XIE_genes[XIE_genes %in% rownames(seB.filt.testing)]
 ## d&#39;expressio a cada mostra separadament pels gens MSY i XIE
 msyexp &lt;- colMeans(assays(seB.filt.testing)$logCPM[MSY_genes, ])
 xieexp &lt;- colMeans(assays(seB.filt.testing)$logCPM[XIE_genes, ])</code></pre>
-<p><img src="03_qa_cn_files/figure-html/unnamed-chunk-10-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="03_qa_cn_files/figure-html/unnamed-chunk-9-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <p>From Robert: Since cancer can cause chromosomal rearrangements, it could be that the signal we expect to see in the samples analyzed is distorted, and it should also be taken into account that these molecules of extracellular RNA are found in plasma and so they can come from a heterogeneous set of tissues that can give rise to more variability.</p>
 <p>In any case, there are two clusters, one of “male” and the other “female” samples. In the “female” cluster there are two samples labeled as males that can be great candidates for having sex reported incorrectly, and it is quite clear what gender the “missing” could correspond to.</p>
 <p>Correct the labeled from the two potential incorrectly classified samples.</p>
@@ -547,7 +544,7 @@ data.imputation$Sex &lt;- factor(data.imputation$Sex)
 levels(data.imputation$Sex) &lt;- c(&quot;female&quot;, &quot;male&quot;)
 seB.filt.testing$Sex &lt;- data.imputation$Sex
 dgeB.filt.testing$samples$Sex &lt;- data.imputation$Sex</code></pre>
-<p><img src="03_qa_cn_files/figure-html/unnamed-chunk-13-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="03_qa_cn_files/figure-html/unnamed-chunk-12-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <p>Save <code>DGEList</code> and <code>SummarizedExperiment</code> objects including filtered data,
 normalization factors and normalized log CPM units of expression.</p>
 <pre class="r"><code>saveRDS(dgeR.filt, file=file.path(&quot;_processed_data&quot;, &quot;dgeR.filt.rds&quot;))
@@ -573,7 +570,7 @@ saveRDS(seB.filt.testing,
 <span class="citation">(<a href="#ref-mccarthy2012differential">McCarthy, Chen, and Smyth 2012</a>)</span> and use them to identify hypervariable genes for
 different models of increasing complexity that will help us to select the most
 sensible one for the differential expression analysis between
-Cancer-affected and unafected individuals.</p>
+Cancer-affected and unaffected individuals.</p>
 <p>The four considered models are: (1) a model with the intercept term only,
 (2) a model with <code>Tumor</code> as main explanatory variable, (3) a model
 with <code>Tumor</code> as main explanatory variable and <code>Sex</code> as
@@ -589,35 +586,35 @@ dgeR.filt.training.interceptonly &lt;- estimateDisp(dgeR.filt.training, design=m
                                                  robust=TRUE)
 summary(dgeR.filt.training.interceptonly$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  4.443   4.948   4.948   4.871   4.948   4.948 
-
+  4.443   4.948   4.948   4.871   4.948   4.948 </code></pre>
+<pre class="r"><code>
 mod &lt;- model.matrix(~ Tumor, colData(seR.filt.training))
 dgeR.filt.training.PE &lt;- estimateDisp(dgeR.filt.training, design=mod,
                                       robust=TRUE)
 summary(dgeR.filt.training.PE$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  4.453   4.969   4.969   4.890   4.969   4.969 
-
+  4.453   4.969   4.969   4.890   4.969   4.969 </code></pre>
+<pre class="r"><code>
 mod &lt;- model.matrix(~ Tumor + Sex, colData(seR.filt.training))
 dgeR.filt.training.PEGA &lt;- estimateDisp(dgeR.filt.training, design=mod,
                                         robust=TRUE)
 summary(dgeR.filt.training.PEGA$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  4.460   4.987   4.987   4.906   4.987   4.987 
-
+  4.460   4.987   4.987   4.906   4.987   4.987 </code></pre>
+<pre class="r"><code>
 mod0 &lt;- model.matrix(~ Sex, colData(seR.filt.training))
 IQRs &lt;- apply(assays(seR.filt.training)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seR.filt.training)$logCPM[mask, ],
           mod=mod, mod0=mod0)
 Number of significant surrogate variables is:  3 
-Iteration (out of 5 ):1  2  3  4  5  
-mod &lt;- cbind(mod, sv$sv)
+Iteration (out of 5 ):1  2  3  4  5  </code></pre>
+<pre class="r"><code>mod &lt;- cbind(mod, sv$sv)
 dgeR.filt.training.PEGASVs &lt;- estimateDisp(dgeR.filt.training,
                                            design=mod, robust=TRUE)
 summary(dgeR.filt.training.PEGASVs$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
- 0.3698 10.9890 10.9890 10.2764 10.9890 10.9890 </code></pre>
+ 0.3699 10.9886 10.9886 10.2761 10.9886 10.9886 </code></pre>
 <p>Figure <a href="#fig:Mtrainingavglogcpmxvbcv">2</a> shows, for each considered model, the
 biological coefficient of variation (BCV) as function of the average expression,
 in log CPM units.</p>
@@ -652,10 +649,10 @@ Description
 <tbody>
 <tr>
 <td style="text-align:right;">
-0.3698417
+0.3698637
 </td>
 <td style="text-align:right;">
-1.3469176
+1.3469147
 </td>
 <td style="text-align:left;">
 RPL23AP25
@@ -666,10 +663,10 @@ ribosomal protein L23a pseudogene 25
 </tr>
 <tr>
 <td style="text-align:right;">
-0.3698417
+0.3698637
 </td>
 <td style="text-align:right;">
-1.2093621
+1.2093403
 </td>
 <td style="text-align:left;">
 RPL23AP7
@@ -680,10 +677,10 @@ ribosomal protein L23a pseudogene 7
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4558978
+0.4554537
 </td>
 <td style="text-align:right;">
-0.8648419
+0.8645347
 </td>
 <td style="text-align:left;">
 RMRP
@@ -694,10 +691,10 @@ RNA component of mitochondrial RNA processing endoribonuclease
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4558978
+0.4554537
 </td>
 <td style="text-align:right;">
-0.9898510
+0.9901164
 </td>
 <td style="text-align:left;">
 HBG1
@@ -708,10 +705,10 @@ hemoglobin subunit gamma 1
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4558978
+0.4554537
 </td>
 <td style="text-align:right;">
-1.0706268
+1.0709283
 </td>
 <td style="text-align:left;">
 HBG2
@@ -722,10 +719,10 @@ hemoglobin subunit gamma 2
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4558978
+0.4554537
 </td>
 <td style="text-align:right;">
-0.9374988
+0.9374738
 </td>
 <td style="text-align:left;">
 CENPBD2P
@@ -736,10 +733,10 @@ CENPB DNA-binding domains containing 2, pseudogene
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4745407
+0.4750820
 </td>
 <td style="text-align:right;">
-1.1543784
+1.1540559
 </td>
 <td style="text-align:left;">
 RNU5A-1
@@ -750,10 +747,10 @@ RNA, U5A small nuclear 1
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4912080
+0.4918121
 </td>
 <td style="text-align:right;">
-0.7946923
+0.7945010
 </td>
 <td style="text-align:left;">
 RNU11
@@ -764,10 +761,10 @@ RNA, U11 small nuclear
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4912080
+0.4918121
 </td>
 <td style="text-align:right;">
-0.8668384
+0.8666139
 </td>
 <td style="text-align:left;">
 TRNG
@@ -778,10 +775,10 @@ tRNA-Gly
 </tr>
 <tr>
 <td style="text-align:right;">
-0.4958599
+0.4964022
 </td>
 <td style="text-align:right;">
-0.8424359
+0.8422272
 </td>
 <td style="text-align:left;">
 SNORD3C
@@ -792,10 +789,10 @@ small nucleolar RNA, C/D box 3C
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5179521
+0.5186503
 </td>
 <td style="text-align:right;">
-1.3980551
+1.3980973
 </td>
 <td style="text-align:left;">
 RNF182
@@ -806,10 +803,10 @@ ring finger protein 182
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5179521
+0.5186503
 </td>
 <td style="text-align:right;">
-1.0657600
+1.0654181
 </td>
 <td style="text-align:left;">
 RNU5B-1
@@ -820,10 +817,10 @@ RNA, U5B small nuclear 1
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5179521
+0.5186503
 </td>
 <td style="text-align:right;">
-0.9582668
+0.9579641
 </td>
 <td style="text-align:left;">
 SNORD3A
@@ -834,10 +831,10 @@ small nucleolar RNA, C/D box 3A
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5244248
+0.5245310
 </td>
 <td style="text-align:right;">
-0.8066638
+0.8066379
 </td>
 <td style="text-align:left;">
 MAGI2-AS3
@@ -848,10 +845,10 @@ MAGI2 antisense RNA 3
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5244248
+0.5245310
 </td>
 <td style="text-align:right;">
-0.8584075
+0.8583442
 </td>
 <td style="text-align:left;">
 DEFA1B
@@ -862,10 +859,10 @@ defensin alpha 1B
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5244248
+0.5245310
 </td>
 <td style="text-align:right;">
-0.9654232
+0.9651638
 </td>
 <td style="text-align:left;">
 TRNL2
@@ -876,10 +873,10 @@ tRNA-Leu
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5380500
+0.5387416
 </td>
 <td style="text-align:right;">
-0.7573270
+0.7570211
 </td>
 <td style="text-align:left;">
 ALB
@@ -890,10 +887,10 @@ albumin
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5380500
+0.5387416
 </td>
 <td style="text-align:right;">
-0.7265875
+0.7263875
 </td>
 <td style="text-align:left;">
 FHDC1
@@ -904,10 +901,10 @@ FH2 domain containing 1
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5380500
+0.5387416
 </td>
 <td style="text-align:right;">
-0.7070285
+0.7070625
 </td>
 <td style="text-align:left;">
 ALAS2
@@ -918,10 +915,10 @@ ALAS2
 </tr>
 <tr>
 <td style="text-align:right;">
-0.5380500
+0.5387416
 </td>
 <td style="text-align:right;">
-0.8982991
+0.8980627
 </td>
 <td style="text-align:left;">
 TRNT
@@ -940,32 +937,32 @@ dgeB.filt.testing.interceptonly &lt;- estimateDisp(dgeB.filt.testing, design=mod
                                                 robust=TRUE)
 summary(dgeB.filt.testing.interceptonly$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  11.80   11.80   11.80   11.99   12.31   12.47 
-mod &lt;- model.matrix(~ Tumor, colData(seB.filt.testing))
+  11.80   11.80   11.80   11.99   12.31   12.47 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Tumor, colData(seB.filt.testing))
 dgeB.filt.testing.PE &lt;- estimateDisp(dgeB.filt.testing, design=mod,
                                      robust=TRUE)
 summary(dgeB.filt.testing.PE$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  13.67   13.67   13.67   13.89   14.30   14.41 
-mod &lt;- model.matrix(~ Tumor + Sex, colData(seB.filt.testing))
+  13.67   13.67   13.67   13.89   14.30   14.41 </code></pre>
+<pre class="r"><code>mod &lt;- model.matrix(~ Tumor + Sex, colData(seB.filt.testing))
 dgeB.filt.testing.PEGA &lt;- estimateDisp(dgeB.filt.testing, design=mod,
                                        robust=TRUE)
 summary(dgeB.filt.testing.PEGA$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  14.54   14.54   14.54   14.79   15.30   15.34 
-mod0 &lt;- model.matrix(~ Sex, colData(seB.filt.testing))
+  14.54   14.54   14.54   14.79   15.30   15.34 </code></pre>
+<pre class="r"><code>mod0 &lt;- model.matrix(~ Sex, colData(seB.filt.testing))
 IQRs &lt;- apply(assays(seB.filt.testing)$logCPM, 1, IQR)
 mask &lt;- IQRs &gt; quantile(IQRs, prob=0.9)
 sv &lt;- sva(assays(seB.filt.testing)$logCPM[mask, ],
           mod=mod, mod0=mod0)
 Number of significant surrogate variables is:  2 
-Iteration (out of 5 ):1  2  3  4  5  
-mod &lt;- cbind(mod, sv$sv)
+Iteration (out of 5 ):1  2  3  4  5  </code></pre>
+<pre class="r"><code>mod &lt;- cbind(mod, sv$sv)
 dgeB.filt.testing.PEGASVs &lt;- estimateDisp(dgeB.filt.testing,
                                           design=mod, robust=TRUE)
 summary(dgeB.filt.testing.PEGASVs$prior.df)
    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-  1.903  20.751  20.751  20.069  20.751  20.751 </code></pre>
+  1.908  20.739  20.739  20.058  20.739  20.739 </code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:Mtestingavglogcpmxvbcv"></span>
 <img src="03_qa_cn_files/figure-html/Mtestingavglogcpmxvbcv-1.png" alt="Biological coefficient of variation (BCV). BCV values as function of the average gene expression in log-CPM units." width="100%"  class="widefigure" />
 <p class="caption">
@@ -995,10 +992,10 @@ Description
 <tbody>
 <tr>
 <td style="text-align:right;">
-1.902908
+1.908441
 </td>
 <td style="text-align:right;">
-2.004395
+2.004104
 </td>
 <td style="text-align:left;">
 PRG4
@@ -1009,10 +1006,10 @@ proteoglycan 4
 </tr>
 <tr>
 <td style="text-align:right;">
-2.492170
+2.498044
 </td>
 <td style="text-align:right;">
-1.523362
+1.523221
 </td>
 <td style="text-align:left;">
 MUC5B
@@ -1023,10 +1020,10 @@ mucin 5B, oligomeric mucus/gel-forming
 </tr>
 <tr>
 <td style="text-align:right;">
-3.193997
+3.200988
 </td>
 <td style="text-align:right;">
-1.633936
+1.633711
 </td>
 <td style="text-align:left;">
 CRP
@@ -1037,10 +1034,10 @@ C-reactive protein
 </tr>
 <tr>
 <td style="text-align:right;">
-3.377253
+3.384632
 </td>
 <td style="text-align:right;">
-1.594955
+1.594721
 </td>
 <td style="text-align:left;">
 CPS1
@@ -1051,10 +1048,10 @@ carbamoyl-phosphate synthase 1
 </tr>
 <tr>
 <td style="text-align:right;">
-3.384285
+3.391529
 </td>
 <td style="text-align:right;">
-1.366147
+1.366000
 </td>
 <td style="text-align:left;">
 F5
@@ -1065,10 +1062,10 @@ coagulation factor V
 </tr>
 <tr>
 <td style="text-align:right;">
-3.567066
+3.574214
 </td>
 <td style="text-align:right;">
-1.334084
+1.333960
 </td>
 <td style="text-align:left;">
 CFH
@@ -1079,10 +1076,10 @@ complement factor H
 </tr>
 <tr>
 <td style="text-align:right;">
-3.567066
+3.574214
 </td>
 <td style="text-align:right;">
-1.479819
+1.479633
 </td>
 <td style="text-align:left;">
 CP
@@ -1093,10 +1090,10 @@ ceruloplasmin
 </tr>
 <tr>
 <td style="text-align:right;">
-3.567066
+3.574214
 </td>
 <td style="text-align:right;">
-1.241337
+1.241213
 </td>
 <td style="text-align:left;">
 PPBP
@@ -1107,10 +1104,10 @@ pro-platelet basic protein
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.386965
+1.386729
 </td>
 <td style="text-align:left;">
 CHI3L1
@@ -1121,10 +1118,10 @@ chitinase 3 like 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.320830
+1.320562
 </td>
 <td style="text-align:left;">
 KCNG3
@@ -1135,10 +1132,10 @@ potassium voltage-gated channel modifier subfamily G member 3
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.297528
+1.297313
 </td>
 <td style="text-align:left;">
 KNG1
@@ -1149,10 +1146,10 @@ kininogen 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.404206
+1.403902
 </td>
 <td style="text-align:left;">
 CLDN1
@@ -1163,10 +1160,10 @@ claudin 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.219601
+1.219425
 </td>
 <td style="text-align:left;">
 KLB
@@ -1177,10 +1174,10 @@ klotho beta
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.236044
+1.235799
 </td>
 <td style="text-align:left;">
 PF4V1
@@ -1191,10 +1188,10 @@ platelet factor 4 variant 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.213008
+1.212823
 </td>
 <td style="text-align:left;">
 TMEM271
@@ -1205,10 +1202,10 @@ transmembrane protein 271
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.304664
+1.304439
 </td>
 <td style="text-align:left;">
 HMX1
@@ -1219,10 +1216,10 @@ H6 family homeobox 1
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.238283
+1.237994
 </td>
 <td style="text-align:left;">
 TAF11L4
@@ -1233,10 +1230,10 @@ TATA-box binding protein associated factor 11 like 4
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.187443
+1.187288
 </td>
 <td style="text-align:left;">
 CFB
@@ -1247,10 +1244,10 @@ complement factor B
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.244776
+1.244549
 </td>
 <td style="text-align:left;">
 ALDOB
@@ -1261,10 +1258,10 @@ aldolase, fructose-bisphosphate B
 </tr>
 <tr>
 <td style="text-align:right;">
-5.562770
+5.573541
 </td>
 <td style="text-align:right;">
-1.172518
+1.172297
 </td>
 <td style="text-align:left;">
 SERPING1
@@ -1280,13 +1277,13 @@ serpin family G member 1
 <div id="session-information" class="section level1" number="5">
 <h1><span class="header-section-number">5</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
-R version 4.3.3 (2024-02-29)
-Platform: aarch64-apple-darwin20 (64-bit)
+R version 4.4.0 (2024-04-24)
+Platform: x86_64-apple-darwin20
 Running under: macOS Ventura 13.5.1
 
 Matrix products: default
-BLAS:   /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRblas.0.dylib 
-LAPACK: /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
+BLAS:   /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
 
 locale:
 [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
@@ -1299,47 +1296,47 @@ attached base packages:
 [8] methods   base     
 
 other attached packages:
- [1] plotrix_3.8-4               sva_3.50.0                 
- [3] BiocParallel_1.36.0         genefilter_1.84.0          
+ [1] plotrix_3.8-4               sva_3.52.0                 
+ [3] BiocParallel_1.38.0         genefilter_1.86.0          
  [5] mgcv_1.9-1                  nlme_3.1-164               
- [7] edgeR_4.0.16                limma_3.58.1               
- [9] SummarizedExperiment_1.32.0 Biobase_2.62.0             
-[11] GenomicRanges_1.54.1        GenomeInfoDb_1.38.8        
-[13] IRanges_2.36.0              S4Vectors_0.40.2           
-[15] BiocGenerics_0.48.1         MatrixGenerics_1.14.0      
+ [7] edgeR_4.2.0                 limma_3.60.2               
+ [9] SummarizedExperiment_1.34.0 Biobase_2.64.0             
+[11] GenomicRanges_1.56.0        GenomeInfoDb_1.40.0        
+[13] IRanges_2.38.0              S4Vectors_0.42.0           
+[15] BiocGenerics_0.50.0         MatrixGenerics_1.16.0      
 [17] matrixStats_1.3.0           VIM_6.2.2                  
 [19] colorspace_2.1-0            kableExtra_1.4.0           
-[21] knitr_1.45                  BiocStyle_2.30.0           
+[21] knitr_1.46                  BiocStyle_2.32.0           
 
 loaded via a namespace (and not attached):
- [1] DBI_1.2.2               bitops_1.0-7            rlang_1.1.3            
- [4] magrittr_2.0.3          e1071_1.7-14            compiler_4.3.3         
- [7] RSQLite_2.3.6           png_0.1-8               systemfonts_1.0.6      
-[10] vctrs_0.6.5             stringr_1.5.1           crayon_1.5.2           
-[13] fastmap_1.1.1           XVector_0.42.0          rmarkdown_2.26         
-[16] bit_4.0.5               xfun_0.43               zlibbioc_1.48.2        
-[19] cachem_1.0.8            jsonlite_1.8.8          blob_1.2.4             
-[22] highr_0.10              DelayedArray_0.28.0     parallel_4.3.3         
-[25] R6_2.5.1                bslib_0.7.0             stringi_1.8.3          
-[28] vcd_1.4-12              ranger_0.16.0           car_3.1-2              
-[31] boot_1.3-30             lmtest_0.9-40           jquerylib_0.1.4        
-[34] Rcpp_1.0.12             bookdown_0.39           zoo_1.8-12             
-[37] Matrix_1.6-5            splines_4.3.3           nnet_7.3-19            
-[40] rstudioapi_0.16.0       abind_1.4-5             yaml_2.3.8             
-[43] codetools_0.2-20        lattice_0.22-6          KEGGREST_1.42.0        
-[46] evaluate_0.23           survival_3.6-4          proxy_0.4-27           
-[49] xml2_1.3.6              Biostrings_2.70.3       BiocManager_1.30.22    
-[52] carData_3.0-5           sp_2.1-3                RCurl_1.98-1.14        
+ [1] DBI_1.2.2               rlang_1.1.3             magrittr_2.0.3         
+ [4] e1071_1.7-14            compiler_4.4.0          RSQLite_2.3.6          
+ [7] png_0.1-8               systemfonts_1.1.0       vctrs_0.6.5            
+[10] stringr_1.5.1           crayon_1.5.2            fastmap_1.2.0          
+[13] XVector_0.44.0          rmarkdown_2.27          UCSC.utils_1.0.0       
+[16] tinytex_0.51            bit_4.0.5               xfun_0.44              
+[19] zlibbioc_1.50.0         cachem_1.1.0            jsonlite_1.8.8         
+[22] blob_1.2.4              highr_0.10              DelayedArray_0.30.1    
+[25] parallel_4.4.0          R6_2.5.1                bslib_0.7.0            
+[28] stringi_1.8.4           vcd_1.4-12              ranger_0.16.0          
+[31] car_3.1-2               boot_1.3-30             lmtest_0.9-40          
+[34] jquerylib_0.1.4         Rcpp_1.0.12             bookdown_0.39          
+[37] zoo_1.8-12              Matrix_1.7-0            splines_4.4.0          
+[40] nnet_7.3-19             rstudioapi_0.16.0       abind_1.4-5            
+[43] yaml_2.3.8              codetools_0.2-20        lattice_0.22-6         
+[46] KEGGREST_1.44.0         evaluate_0.23           survival_3.5-8         
+[49] proxy_0.4-27            xml2_1.3.6              Biostrings_2.72.0      
+[52] BiocManager_1.30.23     carData_3.0-5           sp_2.1-4               
 [55] munsell_0.5.1           scales_1.3.0            laeken_0.5.3           
 [58] xtable_1.8-4            class_7.3-22            glue_1.7.0             
-[61] tools_4.3.3             robustbase_0.99-2       data.table_1.15.4      
-[64] annotate_1.80.0         locfit_1.5-9.9          XML_3.99-0.16.1        
-[67] AnnotationDbi_1.64.1    GenomeInfoDbData_1.2.11 cli_3.6.2              
-[70] S4Arrays_1.2.1          viridisLite_0.4.2       svglite_2.1.3          
+[61] tools_4.4.0             robustbase_0.99-2       data.table_1.15.4      
+[64] annotate_1.82.0         locfit_1.5-9.9          XML_3.99-0.16.1        
+[67] AnnotationDbi_1.66.0    GenomeInfoDbData_1.2.12 cli_3.6.2              
+[70] S4Arrays_1.4.1          viridisLite_0.4.2       svglite_2.1.3          
 [73] DEoptimR_1.1-3          sass_0.4.9              digest_0.6.35          
-[76] SparseArray_1.2.4       memoise_2.0.1           htmltools_0.5.8.1      
+[76] SparseArray_1.4.3       memoise_2.0.1           htmltools_0.5.8.1      
 [79] lifecycle_1.0.4         httr_1.4.7              statmod_1.5.0          
-[82] bit64_4.0.5             MASS_7.3-60.0.1        </code></pre>
+[82] bit64_4.0.5             MASS_7.3-60.2          </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
