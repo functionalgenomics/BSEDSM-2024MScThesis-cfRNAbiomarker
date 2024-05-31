@@ -63,15 +63,15 @@ In [@Roskams2022], they sequenced plasma samples of eight hepatocellular carcino
 
 NOTA: See abstract from the paper and suplementary tables to modify this paragraph.
 
-For [@Block2022], the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma (i.e. with Microvesicle == 'no') and non-cancer (NC) for the control.
-
 ```{r}
 table(colData(seR)$Disease)
 mask <- colData(seR)$Disease %in% c('NC', 'HCC')
 seR.subset <- seR[,mask]
 dim(seR.subset)
 colData(seR.subset)$Tumor <- factor(seR.subset$Disease == 'HCC', labels = c('no', 'yes'))
+table(seR.subset$Disease)
 ```
+For [@Block2022], the project also focus on individuals with hepatocellular carcinoma (HCC) in plasma and plasma related EVs and non-cancer (NC) for the control.
 
 ```{r}
 table(seB$SampleType)
@@ -167,16 +167,6 @@ labelPanel("b")
 
 ## Testing dataset
 
-### Variable 'Age'
-
-Impute missing age values by mean.
-
-```{r}
-mean.ageB <- mean(seB.filt.testing$Age, na.rm = TRUE)
-mask <- is.na(seB.filt.testing$Age)
-seB.filt.testing$Age[mask] <- round(mean.ageB,3)
-```
-
 ### Variable 'Sex'
 
 The estimation of missing data for `Sex` covariate uses a KNN imputer (k = 3) based on the relationship between the expression of the MSY genes (genes from the male-specific region of the Y chromosome) and XIE genes (genes that escape X-chromosome inactivation).
@@ -268,7 +258,7 @@ We calculate dispersion estimates and biological coefficients of variation
 [@mccarthy2012differential] and use them to identify hypervariable genes for
 different models of increasing complexity that will help us to select the most
 sensible one for the differential expression analysis between
-Cancer-affected and unafected individuals.
+Cancer-affected and unaffected individuals.
 
 The four considered models are: (1) a model with the intercept term only,
 (2) a model with `Tumor` as main explanatory variable, (3) a model

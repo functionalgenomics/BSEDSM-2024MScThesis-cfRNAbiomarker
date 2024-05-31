@@ -235,16 +235,16 @@ commonDEgenes <- intersect(DEgenes.training, DEgenes.testing)
 points(traininglfc[commonDEgenes], testinglfc[commonDEgenes], pch=19,
        col="darkred")
 fit <- lm(testinglfc[commonDEgenes] ~ traininglfc[commonDEgenes])
-#abline(fit, lwd=2, col="darkred")
+abline(fit, lwd=2, col="darkred")
 r2 <- sprintf("%.2f", summary(fit)$r.squared)
-#rhotest <- cor.test(traininglfc[commonDEgenes], testinglfc[commonDEgenes])
-#rho <- sprintf("%.2f", rhotest$estimate)
+rhotest <- cor.test(traininglfc[commonDEgenes], testinglfc[commonDEgenes])
+rho <- sprintf("%.2f", rhotest$estimate)
 pv <- ifelse(summary(fit)$coefficients[2, 4] < 0.001, "0.001",
                           sprintf("%.3f", summary(fit)$coefficients[2, 4]))
 rp <- vector('expression', 3)
-#rp[1] <- substitute(expression(italic(r) == RHO), list(RHO=rho))[2]
-#rp[2] <- substitute(expression(italic(R)^2 == RSQUARED), list(RSQUARED=r2))[2]
-#rp[3] <- substitute(expression(italic(P) < PVALUE), list(PVALUE=pv))[2]
+rp[1] <- substitute(expression(italic(r) == RHO), list(RHO=rho))[2]
+rp[2] <- substitute(expression(italic(R)^2 == RSQUARED), list(RSQUARED=r2))[2]
+rp[3] <- substitute(expression(italic(P) < PVALUE), list(PVALUE=pv))[2]
 legend("topleft", legend=rp, bty="n", text.col="darkred", cex=0.8)
 ```
 

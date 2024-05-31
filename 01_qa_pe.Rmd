@@ -115,12 +115,15 @@ seM.filt.training <- seM.filt[, mask]
 dim(seM.filt.training)
 dgeM.filt.training <- dgeM.filt[, mask]
 dim(dgeM.filt.training)
+table(seM.filt.training$Preeclampsia)
+
 mask <- seM.filt$Cohort %in% "Validation2" &
         !seM.filt$SamplingGAgroup %in% "Post-partum"
 seM.filt.testing <- seM.filt[, mask]
 dim(seM.filt.testing)
 dgeM.filt.testing <- dgeM.filt[, mask]
 dim(dgeM.filt.testing)
+table(seM.filt.testing$Preeclampsia)
 ```
 
 From the study by [@delvecchio2021cell], discard samples from non-pregnant
@@ -134,6 +137,7 @@ seD.filt.subset <- seD.filt[, mask]
 dim(seD.filt.subset)
 dgeD.filt.subset <- dgeD.filt[, mask]
 dim(dgeD.filt.subset)
+table(seD.filt.subset$Preeclampsia)
 ```
 
 Figure \@ref(fig:mdsplot) below shows samples dissimilarity labeled by
@@ -316,6 +320,19 @@ myplotbcv(dgeM.filt.testing.PEGA, "~ Preeclampsia + SamplingGA", rngbcv, syms,
 myplotbcv(dgeM.filt.testing.PEGASVs, "~ Preeclampsia + SamplingGA + SVs",
           rngbcv, syms, cutoffdisp1=1, cutoffdisp2=0.6, cutoffA=8)
 ```
+```{r hypervargenesMtesting, echo=FALSE}
+ord <- order(dgeM.filt.testing.PEGASVs$prior.df)
+dtf <- data.frame(prior.df=dgeM.filt.testing.PEGASVs$prior.df[ord],
+                  BCV=sqrt(dgeM.filt.testing.PEGASVs$tagwise.dispersion[ord]),
+                  Gene=dgeM.filt.testing.PEGASVs$genes$Symbol[ord],
+                  Description=dgeM.filt.testing.PEGASVs$genes$Description[ord])
+ktab <- kable(dtf[1:20, ], "html", escape=FALSE, row.names=FALSE,
+              caption="Top-20 hypervariable genes for the model Preeclampsia + SamplingGA + SVs.")
+ktab <- kable_styling(ktab, bootstrap_options=c("striped", "hover", "responsive"),
+                      fixed_thead=TRUE)
+kable_styling(ktab, position="center")
+```
+
 
 ## Subset from Del Vecchio et al. (2021)
 
