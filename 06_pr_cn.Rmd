@@ -171,7 +171,7 @@ set.seed(111)
 #                        colsample_bytree = c(0.5, 0.6, 0.7) # common value: between 0.5 and 1
 #                        )
 
-xgboostGrid <- expand.grid(max_depth = c(3, 4, 5, 6, 7), nrounds = (1:10)*50,eta = c(0.03,0.4,0.5),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.7))
+xgboostGrid <- expand.grid(max_depth = c(4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.2,0.4),gamma = c(0.6),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.7))
 
 # auc = 0.64 fnr= 0.47 fpr = 0. max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.8)
 # auc = 0.71 fnr= 0.47 fpr = 0.16. max_depth = c(3, 4, 5, 6, 7)
@@ -654,15 +654,21 @@ pROC::auc(as.numeric(y_test), b)
 FNR(b, y_test)
 FPR(b, y_test)
 ```
+
+```{r, results = "hide"}
+# Add to output
+res.testing <- rbind.data.frame(res.testing, c(pROC::auc(y_test, b), FNR(b, y_test), FPR(b, y_test)))
+rownames(res.testing)[nrow(res.testing)] <- 'Nnet'
+```
+
 plot roc-auc curve
 ```{r}
 curve_values <- pROC::roc(as.numeric(y_test), b)
 plot(curve_values ,main ="ROC curve -- Feedforward Nnet")
 ```
 
-LIME (DISCARDED)
 
-```{r}
+```{r, eval=FALSE, echo=FALSE}
 ######################
 # LIME
 ######################
@@ -705,7 +711,7 @@ explanation <- lime::explain (
 
 ```
 
-```{r}
+```{r, eval=FALSE, echo=FALSE}
 #pdf("lime_plot_features_cn.pdf")
 plot_features (explanation) +
   labs (title = "LIME: Feature Importance Visualization") 
@@ -713,7 +719,7 @@ plot_features (explanation) +
 ```
 
 
-```{r}
+```{r, eval=FALSE, echo=FALSE}
 #pdf("lime_feature_heatmaf_cn.pdf")
 plot_explanations (explanation) +
   labs (title = "LIME Feature Importance Heatmap",
@@ -721,7 +727,14 @@ plot_explanations (explanation) +
 #dev.off()
 ```
 
-SHAP value (Global explanation)
+# Results
+
+```{r}
+(res.testing)
+```
+
+
+# SHAP value (Global explanation)
 
 ```{r}
 library(kernelshap)
