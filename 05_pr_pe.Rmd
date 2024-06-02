@@ -378,7 +378,7 @@ model = caret::train(Preeclampsia~., data = pre17.training.df,
               tuneGrid = xgboostGrid,
               verbosity = 0,
               verbose = FALSE,
-              #nthreads = 4 #cores in use
+              #num.threads = 18 #cores in use
               )
 
 print(model)
@@ -428,7 +428,7 @@ rownames(res.testing2)[nrow(res.testing2)] <- 'XGBOOST'
 Class imbalance is identified since there are 27.5% normotensive and 72.5% preeclampsia pregnancies. Unbalanced problems should be addressed when applying SVM, since it aims to separate the space into two parts. 
 
 ```{r}
-remotes::install_github("cran/DMwR")
+#remotes::install_github("cran/DMwR")
 ```
 
 ```{r}

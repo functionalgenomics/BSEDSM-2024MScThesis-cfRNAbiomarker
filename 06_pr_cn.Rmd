@@ -229,11 +229,13 @@ rownames(res.testing)[nrow(res.testing)] <- 'XGBOOST'
 
 # ADABOOST
 
+Not used in the final version due to poor performance and slow training.
+
 ```{r}
 modelLookup("ada")
 ```
 
-```{r}
+```{r, eval=FALSE}
 # CV technique which will be passed into the train() function
 train_control = trainControl(method = "cv", number = 10, search = "grid",
                              ## Evaluate performance using 
@@ -270,11 +272,11 @@ model = caret::train(Tumor~., data = training.df,
 print(model)
 ```
 
-```{r}
+```{r, eval = FALSE}
 plot(model)
 ```
 
-```{r}
+```{r,  eval = FALSE}
 #predict on test data
 pred.y <- predict(model, testing.df, type = "prob")[,2]
 
@@ -415,11 +417,69 @@ pROC::auc(test.y, pred.y)
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
 ```
+
 ```{r, results = "hide"}
 # Add to output
 res.testing <- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
 rownames(res.testing)[nrow(res.testing)] <- 'SVMRadial'
 ```
+
+
+## svmPoly (Support Vector Machines with Polynomial Kernel)
+
+```{r}
+modelLookup("svmPoly")
+```
+
+```{r}
+train_control = trainControl(method = "cv", number = 10, search = "grid",
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+svmgrid <-  expand.grid(degree = c(2,3,4,5),
+                        scale = c(0.001,0.01,0.5,1),
+                        C = c(0.1,0.5,1,5,10, 100)
+                        )
+
+# training a svm with poly kernel classifier tree model while tuning parameters
+model = caret::train(Tumor~., data = training.df,
+              method = "svmPoly",
+              trControl = train_control,
+              metric = "ROC",
+              tuneGrid = svmgrid)
+
+print(model)
+```
+
+```{r}
+plot(model)
+```
+
+
+```{r}
+#predict on test data
+pred.y <- predict(model, testing.df, type = "prob")[,2]
+
+# out of sample performance metrics
+test.y <- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+
+FNR(pred.y, test.y)
+FPR(pred.y, test.y)
+```
+
+```{r, results = "hide"}
+# Add to output
+res.testing <- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
+rownames(res.testing)[nrow(res.testing)] <- 'SVMPoly'
+```
+
 
 
 # Random forest
@@ -743,12 +803,19 @@ library(ggplot2)
 library(patchwork)
 X <- x_test 
 s <- shapviz(kernelshap(model, X, bg_X = x_train))
-sv_importance(s, kind = "bee", show_numbers = TRUE)
+sv_importance(s, kind = "bee", show_numbers = TRUE) + theme_classic()
 #sv_dependence(s, colnames(X), color_var = NULL) &
 #  ylim(-4, 4)
 sv_importance(s, max_display=30)
 sv_waterfall(s, row_id = 3)
 ```
+
+```{r}
+#pdf("beeswarm_features_cn.pdf")
+#sv_importance(s, kind = "bee", show_numbers = TRUE) + theme_classic()
+#dev.off()
+```
+
 Mean shap value for each gene
 ```{r}
 shap.value.list<- colMeans(abs(s$S))
@@ -762,7 +829,7 @@ names(ordered.shap.value.list)
 
 Logistic regression with top 3 most important genes by shap.
 ```{r}
-shap.cutoff <- 3
+shap.cutoff <- 6
 
 new.train <- training.df[,c("Tumor",names(ordered.shap.value.list)[1:shap.cutoff])]
 new.test <- testing.df[,c("Tumor",names(ordered.shap.value.list)[1:shap.cutoff])]
@@ -781,6 +848,7 @@ FPR(predicted.proba.logistic.shap.test, new.test[,1])
 
 names(ordered.shap.value.list)[1:shap.cutoff]
 ```
+
 
 
 Trial with 3 first genes without ordering by shap (unfinished: I would like to test random combinations and compute averaged metrics)

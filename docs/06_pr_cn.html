@@ -388,7 +388,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">junio 1, 2024</h4>
+<h4 class="date">junio 3, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a prediction of candidate biomarkers in cancer cfRNA sequencing data.</p>
 
@@ -679,6 +679,7 @@ Setting direction: controls &lt; cases</code></pre>
 </div>
 <div id="adaboost" class="section level1" number="4">
 <h1><span class="header-section-number">4</span> ADABOOST</h1>
+<p>Not used in the final version due to poor performance and slow training.</p>
 <pre class="r"><code>modelLookup(&quot;ada&quot;)
   model parameter          label forReg forClass probModel
 1   ada      iter         #Trees  FALSE     TRUE      TRUE
@@ -717,31 +718,8 @@ model = caret::train(Tumor~., data = training.df,
               type = &quot;discrete&quot;
               )
 
-print(model)
-Boosted Classification Trees 
-
- 58 samples
-561 predictors
-  2 classes: &#39;no&#39;, &#39;yes&#39; 
-
-No pre-processing
-Resampling: Cross-Validated (10 fold) 
-Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
-Resampling results across tuning parameters:
-
-  nu    maxdepth  ROC        Sens       Spec     
-  0.00  1         0.5000000  0.3666667  0.7000000
-  0.00  2         0.5000000  0.4333333  0.4833333
-  0.01  1         0.8000000  0.9000000  0.5833333
-  0.01  2         0.9222222  0.9333333  0.7166667
-  0.05  1         0.8833333  0.9000000  0.5000000
-  0.05  2         0.9555556  0.9000000  0.6833333
-
-Tuning parameter &#39;iter&#39; was held constant at a value of 50
-ROC was used to select the optimal model using the largest value.
-The final values used for the model were iter = 50, maxdepth = 2 and nu = 0.05.</code></pre>
+print(model)</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-15-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
 pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
 
@@ -749,22 +727,9 @@ pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
 test.y &lt;- as.numeric(testing.df[, 1]) -1
 
 pROC::auc(test.y, pred.y)
-Setting levels: control = 0, case = 1
-Setting direction: controls &lt; cases
-Area under the curve: 0.6404</code></pre>
-<pre class="r"><code>
+
 FNR(pred.y, test.y)
-     class.pred
-truth  0  1
-    0  4  2
-    1  9 10
-[1] 0.4736842</code></pre>
-<pre class="r"><code>FPR(pred.y, test.y)
-     class.pred
-truth  0  1
-    0  4  2
-    1  9 10
-[1] 0.3333333</code></pre>
+FPR(pred.y, test.y)</code></pre>
 <pre class="r"><code># Add to output
 res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
 Setting levels: control = 0, case = 1
@@ -993,6 +958,177 @@ Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases</code></pre>
 <pre class="r"><code>rownames(res.testing)[nrow(res.testing)] &lt;- &#39;SVMRadial&#39;</code></pre>
 </div>
+<div id="svmpoly-support-vector-machines-with-polynomial-kernel" class="section level2" number="5.3">
+<h2><span class="header-section-number">5.3</span> svmPoly (Support Vector Machines with Polynomial Kernel)</h2>
+<pre class="r"><code>modelLookup(&quot;svmPoly&quot;)
+    model parameter             label forReg forClass probModel
+1 svmPoly    degree Polynomial Degree   TRUE     TRUE      TRUE
+2 svmPoly     scale             Scale   TRUE     TRUE      TRUE
+3 svmPoly         C              Cost   TRUE     TRUE      TRUE</code></pre>
+<pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
+                             ## Evaluate performance using 
+                             ## the following function
+                             summaryFunction = twoClassSummary,
+                             allowParallel = TRUE,
+                             # Estimate class probabilities
+                             classProbs=TRUE)
+
+set.seed(111)
+svmgrid &lt;-  expand.grid(degree = c(2,3,4,5),
+                        scale = c(0.001,0.01,0.5,1),
+                        C = c(0.1,0.5,1,5,10, 100)
+                        )
+
+# training a svm with poly kernel classifier tree model while tuning parameters
+model = caret::train(Tumor~., data = training.df,
+              method = &quot;svmPoly&quot;,
+              trControl = train_control,
+              metric = &quot;ROC&quot;,
+              tuneGrid = svmgrid)
+
+print(model)
+Support Vector Machines with Polynomial Kernel 
+
+ 58 samples
+561 predictors
+  2 classes: &#39;no&#39;, &#39;yes&#39; 
+
+No pre-processing
+Resampling: Cross-Validated (10 fold) 
+Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
+Resampling results across tuning parameters:
+
+  degree  scale  C      ROC        Sens       Spec     
+  2       0.001    0.1  0.8388889  0.6666667  0.7833333
+  2       0.001    0.5  0.9777778  0.7666667  0.8166667
+  2       0.001    1.0  0.9888889  0.9000000  0.8166667
+  2       0.001    5.0  0.9888889  0.9000000  0.8666667
+  2       0.001   10.0  0.9888889  0.9666667  0.8833333
+  2       0.001  100.0  0.9888889  0.9666667  0.8000000
+  2       0.010    0.1  0.9666667  0.9333333  0.8000000
+  2       0.010    0.5  0.9777778  0.9333333  0.8000000
+  2       0.010    1.0  0.9777778  0.9333333  0.8000000
+  2       0.010    5.0  0.9777778  0.9333333  0.7666667
+  2       0.010   10.0  0.9777778  0.9333333  0.8000000
+  2       0.010  100.0  0.9777778  0.9333333  0.7666667
+  2       0.500    0.1  0.8388889  0.8000000  0.7000000
+  2       0.500    0.5  0.8388889  0.8666667  0.6666667
+  2       0.500    1.0  0.8388889  0.8333333  0.7333333
+  2       0.500    5.0  0.8388889  0.8666667  0.7000000
+  2       0.500   10.0  0.8388889  0.8666667  0.7333333
+  2       0.500  100.0  0.8388889  0.8666667  0.6333333
+  2       1.000    0.1  0.8388889  0.8333333  0.7333333
+  2       1.000    0.5  0.8388889  0.7666667  0.6500000
+  2       1.000    1.0  0.8388889  0.8333333  0.7000000
+  2       1.000    5.0  0.8388889  0.8333333  0.7000000
+  2       1.000   10.0  0.8388889  0.8333333  0.6166667
+  2       1.000  100.0  0.8388889  0.8666667  0.6333333
+  3       0.001    0.1  0.8888889  0.7000000  0.7833333
+  3       0.001    0.5  0.9888889  0.8000000  0.8166667
+  3       0.001    1.0  1.0000000  0.9000000  0.8333333
+  3       0.001    5.0  0.9888889  0.9666667  0.8333333
+  3       0.001   10.0  0.9888889  0.9666667  0.8333333
+  3       0.001  100.0  0.9888889  0.9666667  0.8666667
+  3       0.010    0.1  0.9777778  0.9666667  0.9166667
+  3       0.010    0.5  0.9777778  0.9666667  0.8666667
+  3       0.010    1.0  0.9777778  0.9333333  0.8666667
+  3       0.010    5.0  0.9777778  0.9666667  0.9166667
+  3       0.010   10.0  0.9777778  0.9666667  0.9000000
+  3       0.010  100.0  0.9777778  0.9666667  0.9666667
+  3       0.500    0.1  0.9888889  0.9666667  0.8666667
+  3       0.500    0.5  0.9888889  0.9666667  0.8333333
+  3       0.500    1.0  0.9888889  0.9666667  0.8666667
+  3       0.500    5.0  0.9888889  0.9666667  0.8333333
+  3       0.500   10.0  0.9888889  0.9666667  0.8333333
+  3       0.500  100.0  0.9888889  0.9666667  0.8333333
+  3       1.000    0.1  0.9888889  0.9333333  0.8333333
+  3       1.000    0.5  0.9888889  0.9666667  0.8666667
+  3       1.000    1.0  0.9888889  0.9666667  0.8666667
+  3       1.000    5.0  0.9888889  0.9666667  0.8333333
+  3       1.000   10.0  0.9888889  0.9666667  0.8666667
+  3       1.000  100.0  0.9888889  0.9666667  0.8666667
+  4       0.001    0.1  0.9388889  0.7333333  0.7833333
+  4       0.001    0.5  0.9888889  0.9000000  0.8166667
+  4       0.001    1.0  1.0000000  0.9333333  0.8666667
+  4       0.001    5.0  1.0000000  0.9666667  0.8333333
+  4       0.001   10.0  1.0000000  0.9666667  0.8666667
+  4       0.001  100.0  1.0000000  0.9666667  0.8666667
+  4       0.010    0.1  0.9777778  0.9333333  0.8833333
+  4       0.010    0.5  0.9777778  0.9333333  0.9333333
+  4       0.010    1.0  0.9777778  0.9333333  0.9333333
+  4       0.010    5.0  0.9777778  0.9666667  0.8333333
+  4       0.010   10.0  0.9777778  0.9333333  0.8333333
+  4       0.010  100.0  0.9777778  0.9333333  0.8333333
+  4       0.500    0.1  0.8666667  0.8333333  0.4500000
+  4       0.500    0.5  0.8666667  0.8666667  0.4333333
+  4       0.500    1.0  0.8666667  0.8333333  0.4333333
+  4       0.500    5.0  0.8666667  0.8333333  0.4833333
+  4       0.500   10.0  0.8666667  0.8000000  0.4500000
+  4       0.500  100.0  0.8666667  0.8333333  0.4000000
+  4       1.000    0.1  0.8500000  0.8666667  0.4000000
+  4       1.000    0.5  0.7944444  0.7666667  0.4333333
+  4       1.000    1.0  0.8500000  0.8333333  0.3666667
+  4       1.000    5.0  0.8500000  0.9333333  0.4500000
+  4       1.000   10.0  0.7500000  0.8333333  0.4000000
+  4       1.000  100.0  0.8500000  0.8000000  0.4000000
+  5       0.001    0.1  0.9666667  0.8000000  0.8166667
+  5       0.001    0.5  1.0000000  0.9333333  0.8666667
+  5       0.001    1.0  1.0000000  0.9666667  0.8666667
+  5       0.001    5.0  1.0000000  0.9666667  0.8666667
+  5       0.001   10.0  1.0000000  0.9666667  0.8666667
+  5       0.001  100.0  1.0000000  0.9666667  0.8666667
+  5       0.010    0.1  0.9777778  0.9333333  0.8833333
+  5       0.010    0.5  0.9777778  0.9333333  0.9000000
+  5       0.010    1.0  0.9777778  0.9000000  0.8500000
+  5       0.010    5.0  0.9777778  0.9333333  0.8333333
+  5       0.010   10.0  0.9777778  0.9000000  0.8833333
+  5       0.010  100.0  0.9777778  0.9333333  0.8666667
+  5       0.500    0.1  0.9777778  0.9333333  0.7333333
+  5       0.500    0.5  0.9777778  0.9333333  0.6666667
+  5       0.500    1.0  0.9777778  0.9333333  0.7166667
+  5       0.500    5.0  0.9777778  0.9000000  0.7500000
+  5       0.500   10.0  0.9777778  0.9666667  0.7833333
+  5       0.500  100.0  0.9777778  0.9000000  0.8166667
+  5       1.000    0.1  0.9777778  0.9000000  0.8166667
+  5       1.000    0.5  0.9777778  0.9333333  0.6666667
+  5       1.000    1.0  0.9777778  0.9000000  0.7000000
+  5       1.000    5.0  0.9777778  0.9333333  0.8500000
+  5       1.000   10.0  0.9777778  0.9000000  0.7666667
+  5       1.000  100.0  0.9777778  0.9666667  0.7000000
+
+ROC was used to select the optimal model using the largest value.
+The final values used for the model were degree = 3, scale = 0.001 and C = 1.</code></pre>
+<pre class="r"><code>plot(model)</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-30-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#predict on test data
+pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
+
+# out of sample performance metrics
+test.y &lt;- as.numeric(testing.df[, 1]) -1
+
+pROC::auc(test.y, pred.y)
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases
+Area under the curve: 0.7281</code></pre>
+<pre class="r"><code>
+FNR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  1  5
+    1  4 15
+[1] 0.2105263</code></pre>
+<pre class="r"><code>FPR(pred.y, test.y)
+     class.pred
+truth  0  1
+    0  1  5
+    1  4 15
+[1] 0.8333333</code></pre>
+<pre class="r"><code># Add to output
+res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
+Setting levels: control = 0, case = 1
+Setting direction: controls &lt; cases</code></pre>
+<pre class="r"><code>rownames(res.testing)[nrow(res.testing)] &lt;- &#39;SVMPoly&#39;</code></pre>
+</div>
 </div>
 <div id="random-forest" class="section level1" number="6">
 <h1><span class="header-section-number">6</span> Random forest</h1>
@@ -1069,7 +1205,7 @@ Resampling results across tuning parameters:
 ROC was used to select the optimal model using the largest value.
 The final value used for the model was mtry = 27.</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-30-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-35-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
 pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
 
@@ -1206,7 +1342,7 @@ Resampling results across tuning parameters:
 ROC was used to select the optimal model using the largest value.
 The final values used for the model were alpha = 0.1 and lambda = 0.1.</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-36-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-41-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
 pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
 
@@ -1305,305 +1441,305 @@ model %&gt;% compile(
 )</code></pre>
 <pre class="r"><code>model %&gt;% fit(x_train, y_train, epochs = 150, batch_size =5)
 Epoch 1/150
-12/12 - 1s - loss: 2113.9067 - auc: 0.6238 - 730ms/epoch - 61ms/step
+12/12 - 1s - loss: 2113.9067 - auc: 0.6238 - 1s/epoch - 84ms/step
 Epoch 2/150
-12/12 - 0s - loss: 2023.2312 - auc: 0.6351 - 63ms/epoch - 5ms/step
+12/12 - 0s - loss: 2023.2312 - auc: 0.6351 - 66ms/epoch - 6ms/step
 Epoch 3/150
-12/12 - 0s - loss: 1935.0557 - auc: 0.7143 - 54ms/epoch - 5ms/step
+12/12 - 0s - loss: 1935.0557 - auc: 0.7143 - 60ms/epoch - 5ms/step
 Epoch 4/150
-12/12 - 0s - loss: 1849.0638 - auc: 0.7935 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 1849.0638 - auc: 0.7935 - 63ms/epoch - 5ms/step
 Epoch 5/150
-12/12 - 0s - loss: 1765.3984 - auc: 0.6196 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 1765.3984 - auc: 0.6196 - 62ms/epoch - 5ms/step
 Epoch 6/150
-12/12 - 0s - loss: 1683.6586 - auc: 0.8405 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 1683.6586 - auc: 0.8405 - 62ms/epoch - 5ms/step
 Epoch 7/150
-12/12 - 0s - loss: 1604.3063 - auc: 0.6839 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 1604.3063 - auc: 0.6839 - 61ms/epoch - 5ms/step
 Epoch 8/150
-12/12 - 0s - loss: 1526.7941 - auc: 0.7845 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 1526.7941 - auc: 0.7845 - 65ms/epoch - 5ms/step
 Epoch 9/150
-12/12 - 0s - loss: 1451.5165 - auc: 0.7768 - 51ms/epoch - 4ms/step
+12/12 - 0s - loss: 1451.5165 - auc: 0.7768 - 66ms/epoch - 5ms/step
 Epoch 10/150
-12/12 - 0s - loss: 1378.1769 - auc: 0.9196 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 1378.1769 - auc: 0.9196 - 62ms/epoch - 5ms/step
 Epoch 11/150
-12/12 - 0s - loss: 1306.9674 - auc: 0.9065 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 1306.9674 - auc: 0.9065 - 67ms/epoch - 6ms/step
 Epoch 12/150
-12/12 - 0s - loss: 1237.8754 - auc: 0.8512 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 1237.8754 - auc: 0.8512 - 67ms/epoch - 6ms/step
 Epoch 13/150
-12/12 - 0s - loss: 1170.8612 - auc: 0.8220 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 1170.8612 - auc: 0.8220 - 63ms/epoch - 5ms/step
 Epoch 14/150
-12/12 - 0s - loss: 1105.7782 - auc: 0.8196 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 1105.7782 - auc: 0.8196 - 68ms/epoch - 6ms/step
 Epoch 15/150
-12/12 - 0s - loss: 1042.8875 - auc: 0.7994 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 1042.8875 - auc: 0.7994 - 62ms/epoch - 5ms/step
 Epoch 16/150
-12/12 - 0s - loss: 981.8745 - auc: 0.7339 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 981.8745 - auc: 0.7339 - 66ms/epoch - 6ms/step
 Epoch 17/150
-12/12 - 0s - loss: 922.7252 - auc: 0.8940 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 922.7252 - auc: 0.8940 - 64ms/epoch - 5ms/step
 Epoch 18/150
-12/12 - 0s - loss: 865.6814 - auc: 0.9399 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 865.6814 - auc: 0.9399 - 66ms/epoch - 6ms/step
 Epoch 19/150
-12/12 - 0s - loss: 810.7270 - auc: 0.8673 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 810.7270 - auc: 0.8673 - 70ms/epoch - 6ms/step
 Epoch 20/150
-12/12 - 0s - loss: 757.5825 - auc: 0.8345 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 757.5825 - auc: 0.8345 - 65ms/epoch - 5ms/step
 Epoch 21/150
-12/12 - 0s - loss: 706.3023 - auc: 0.8321 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 706.3023 - auc: 0.8321 - 63ms/epoch - 5ms/step
 Epoch 22/150
-12/12 - 0s - loss: 656.9178 - auc: 0.9137 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 656.9178 - auc: 0.9137 - 66ms/epoch - 6ms/step
 Epoch 23/150
-12/12 - 0s - loss: 609.5785 - auc: 0.8685 - 54ms/epoch - 5ms/step
+12/12 - 0s - loss: 609.5785 - auc: 0.8685 - 63ms/epoch - 5ms/step
 Epoch 24/150
-12/12 - 0s - loss: 563.9918 - auc: 0.9423 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 563.9918 - auc: 0.9423 - 63ms/epoch - 5ms/step
 Epoch 25/150
-12/12 - 0s - loss: 520.2892 - auc: 0.9173 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 520.2892 - auc: 0.9173 - 71ms/epoch - 6ms/step
 Epoch 26/150
-12/12 - 0s - loss: 478.5826 - auc: 0.9179 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 478.5826 - auc: 0.9179 - 62ms/epoch - 5ms/step
 Epoch 27/150
-12/12 - 0s - loss: 438.5147 - auc: 0.9857 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 438.5147 - auc: 0.9857 - 64ms/epoch - 5ms/step
 Epoch 28/150
-12/12 - 0s - loss: 400.5921 - auc: 0.8786 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 400.5921 - auc: 0.8786 - 65ms/epoch - 5ms/step
 Epoch 29/150
-12/12 - 0s - loss: 364.1777 - auc: 0.9643 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 364.1777 - auc: 0.9643 - 69ms/epoch - 6ms/step
 Epoch 30/150
-12/12 - 0s - loss: 329.7297 - auc: 0.9470 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 329.7297 - auc: 0.9470 - 65ms/epoch - 5ms/step
 Epoch 31/150
-12/12 - 0s - loss: 297.1255 - auc: 0.9321 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 297.1255 - auc: 0.9321 - 65ms/epoch - 5ms/step
 Epoch 32/150
-12/12 - 0s - loss: 266.2651 - auc: 0.9714 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 266.2651 - auc: 0.9714 - 69ms/epoch - 6ms/step
 Epoch 33/150
-12/12 - 0s - loss: 237.2941 - auc: 0.9315 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 237.2941 - auc: 0.9315 - 71ms/epoch - 6ms/step
 Epoch 34/150
-12/12 - 0s - loss: 210.0003 - auc: 0.9679 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 210.0003 - auc: 0.9679 - 71ms/epoch - 6ms/step
 Epoch 35/150
-12/12 - 0s - loss: 184.5664 - auc: 0.9685 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 184.5664 - auc: 0.9685 - 70ms/epoch - 6ms/step
 Epoch 36/150
-12/12 - 0s - loss: 160.7209 - auc: 0.9887 - 60ms/epoch - 5ms/step
+12/12 - 0s - loss: 160.7209 - auc: 0.9887 - 64ms/epoch - 5ms/step
 Epoch 37/150
-12/12 - 0s - loss: 138.6783 - auc: 0.9857 - 60ms/epoch - 5ms/step
+12/12 - 0s - loss: 138.6783 - auc: 0.9857 - 61ms/epoch - 5ms/step
 Epoch 38/150
-12/12 - 0s - loss: 118.4997 - auc: 0.9738 - 58ms/epoch - 5ms/step
+12/12 - 0s - loss: 118.4997 - auc: 0.9738 - 66ms/epoch - 6ms/step
 Epoch 39/150
-12/12 - 0s - loss: 100.0956 - auc: 0.9768 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 100.0956 - auc: 0.9768 - 68ms/epoch - 6ms/step
 Epoch 40/150
-12/12 - 0s - loss: 83.3834 - auc: 0.9470 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 83.3834 - auc: 0.9470 - 69ms/epoch - 6ms/step
 Epoch 41/150
-12/12 - 0s - loss: 68.3865 - auc: 0.9048 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 68.3865 - auc: 0.9048 - 63ms/epoch - 5ms/step
 Epoch 42/150
-12/12 - 0s - loss: 54.9629 - auc: 0.9917 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 54.9629 - auc: 0.9917 - 60ms/epoch - 5ms/step
 Epoch 43/150
-12/12 - 0s - loss: 43.3439 - auc: 0.9702 - 51ms/epoch - 4ms/step
+12/12 - 0s - loss: 43.3439 - auc: 0.9702 - 62ms/epoch - 5ms/step
 Epoch 44/150
-12/12 - 0s - loss: 33.3953 - auc: 0.9845 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 33.3953 - auc: 0.9845 - 64ms/epoch - 5ms/step
 Epoch 45/150
-12/12 - 0s - loss: 25.2836 - auc: 0.9976 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 25.2836 - auc: 0.9976 - 63ms/epoch - 5ms/step
 Epoch 46/150
-12/12 - 0s - loss: 18.8536 - auc: 0.9893 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 18.8536 - auc: 0.9893 - 64ms/epoch - 5ms/step
 Epoch 47/150
-12/12 - 0s - loss: 13.9455 - auc: 0.9196 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 13.9455 - auc: 0.9196 - 68ms/epoch - 6ms/step
 Epoch 48/150
-12/12 - 0s - loss: 10.5289 - auc: 0.9982 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 10.5289 - auc: 0.9982 - 63ms/epoch - 5ms/step
 Epoch 49/150
-12/12 - 0s - loss: 8.3803 - auc: 0.9423 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 8.3803 - auc: 0.9423 - 69ms/epoch - 6ms/step
 Epoch 50/150
-12/12 - 0s - loss: 6.8573 - auc: 0.9839 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 6.8573 - auc: 0.9839 - 68ms/epoch - 6ms/step
 Epoch 51/150
-12/12 - 0s - loss: 5.9742 - auc: 0.9768 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 5.9742 - auc: 0.9768 - 63ms/epoch - 5ms/step
 Epoch 52/150
-12/12 - 0s - loss: 5.4299 - auc: 0.9357 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 5.4299 - auc: 0.9357 - 63ms/epoch - 5ms/step
 Epoch 53/150
-12/12 - 0s - loss: 5.0250 - auc: 0.9298 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 5.0250 - auc: 0.9298 - 66ms/epoch - 5ms/step
 Epoch 54/150
-12/12 - 0s - loss: 4.7439 - auc: 0.9863 - 51ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.7439 - auc: 0.9863 - 64ms/epoch - 5ms/step
 Epoch 55/150
-12/12 - 0s - loss: 4.5923 - auc: 0.9863 - 54ms/epoch - 5ms/step
+12/12 - 0s - loss: 4.5923 - auc: 0.9863 - 66ms/epoch - 6ms/step
 Epoch 56/150
-12/12 - 0s - loss: 4.4641 - auc: 0.9851 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.4641 - auc: 0.9851 - 65ms/epoch - 5ms/step
 Epoch 57/150
-12/12 - 0s - loss: 4.3333 - auc: 0.9750 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.3333 - auc: 0.9750 - 64ms/epoch - 5ms/step
 Epoch 58/150
-12/12 - 0s - loss: 4.2689 - auc: 0.9893 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.2689 - auc: 0.9893 - 63ms/epoch - 5ms/step
 Epoch 59/150
-12/12 - 0s - loss: 4.2297 - auc: 0.9685 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.2297 - auc: 0.9685 - 65ms/epoch - 5ms/step
 Epoch 60/150
-12/12 - 0s - loss: 4.1626 - auc: 0.9887 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.1626 - auc: 0.9887 - 63ms/epoch - 5ms/step
 Epoch 61/150
-12/12 - 0s - loss: 4.1246 - auc: 0.9946 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.1246 - auc: 0.9946 - 63ms/epoch - 5ms/step
 Epoch 62/150
-12/12 - 0s - loss: 4.0869 - auc: 0.9935 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.0869 - auc: 0.9935 - 64ms/epoch - 5ms/step
 Epoch 63/150
-12/12 - 0s - loss: 4.0726 - auc: 0.9792 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.0726 - auc: 0.9792 - 64ms/epoch - 5ms/step
 Epoch 64/150
-12/12 - 0s - loss: 4.0368 - auc: 0.9780 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 4.0368 - auc: 0.9780 - 66ms/epoch - 5ms/step
 Epoch 65/150
-12/12 - 0s - loss: 3.9607 - auc: 1.0000 - 60ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.9607 - auc: 1.0000 - 66ms/epoch - 6ms/step
 Epoch 66/150
-12/12 - 0s - loss: 3.9672 - auc: 1.0000 - 59ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.9672 - auc: 1.0000 - 67ms/epoch - 6ms/step
 Epoch 67/150
-12/12 - 0s - loss: 3.9407 - auc: 0.9839 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.9407 - auc: 0.9839 - 71ms/epoch - 6ms/step
 Epoch 68/150
-12/12 - 0s - loss: 3.8820 - auc: 0.9940 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.8820 - auc: 0.9940 - 67ms/epoch - 6ms/step
 Epoch 69/150
-12/12 - 0s - loss: 3.9031 - auc: 0.9810 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.9031 - auc: 0.9810 - 64ms/epoch - 5ms/step
 Epoch 70/150
-12/12 - 0s - loss: 3.8489 - auc: 0.9744 - 57ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.8489 - auc: 0.9744 - 65ms/epoch - 5ms/step
 Epoch 71/150
-12/12 - 0s - loss: 3.8654 - auc: 0.9821 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.8654 - auc: 0.9821 - 63ms/epoch - 5ms/step
 Epoch 72/150
-12/12 - 0s - loss: 3.8262 - auc: 0.9750 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.8262 - auc: 0.9750 - 63ms/epoch - 5ms/step
 Epoch 73/150
-12/12 - 0s - loss: 3.8035 - auc: 0.9637 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.8035 - auc: 0.9637 - 63ms/epoch - 5ms/step
 Epoch 74/150
-12/12 - 0s - loss: 3.7606 - auc: 0.9929 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.7606 - auc: 0.9929 - 66ms/epoch - 5ms/step
 Epoch 75/150
-12/12 - 0s - loss: 3.7517 - auc: 0.9976 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.7517 - auc: 0.9976 - 65ms/epoch - 5ms/step
 Epoch 76/150
-12/12 - 0s - loss: 3.7170 - auc: 0.9524 - 51ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.7170 - auc: 0.9524 - 63ms/epoch - 5ms/step
 Epoch 77/150
-12/12 - 0s - loss: 3.7901 - auc: 0.9792 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.7901 - auc: 0.9792 - 63ms/epoch - 5ms/step
 Epoch 78/150
-12/12 - 0s - loss: 3.7586 - auc: 0.9821 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.7586 - auc: 0.9821 - 69ms/epoch - 6ms/step
 Epoch 79/150
-12/12 - 0s - loss: 3.6860 - auc: 0.9976 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6860 - auc: 0.9976 - 66ms/epoch - 5ms/step
 Epoch 80/150
-12/12 - 0s - loss: 3.7206 - auc: 0.9857 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.7206 - auc: 0.9857 - 65ms/epoch - 5ms/step
 Epoch 81/150
-12/12 - 0s - loss: 3.7343 - auc: 0.9619 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.7343 - auc: 0.9619 - 67ms/epoch - 6ms/step
 Epoch 82/150
-12/12 - 0s - loss: 3.7411 - auc: 0.9738 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.7411 - auc: 0.9738 - 63ms/epoch - 5ms/step
 Epoch 83/150
-12/12 - 0s - loss: 3.6818 - auc: 0.9952 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.6818 - auc: 0.9952 - 65ms/epoch - 5ms/step
 Epoch 84/150
-12/12 - 0s - loss: 3.6692 - auc: 0.9946 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.6692 - auc: 0.9946 - 67ms/epoch - 6ms/step
 Epoch 85/150
-12/12 - 0s - loss: 3.6500 - auc: 0.9762 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6500 - auc: 0.9762 - 64ms/epoch - 5ms/step
 Epoch 86/150
-12/12 - 0s - loss: 3.6793 - auc: 0.9804 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6793 - auc: 0.9804 - 63ms/epoch - 5ms/step
 Epoch 87/150
-12/12 - 0s - loss: 3.6457 - auc: 0.9810 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6457 - auc: 0.9810 - 68ms/epoch - 6ms/step
 Epoch 88/150
-12/12 - 0s - loss: 3.5832 - auc: 0.9768 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.5832 - auc: 0.9768 - 65ms/epoch - 5ms/step
 Epoch 89/150
-12/12 - 0s - loss: 3.6147 - auc: 0.9595 - 57ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.6147 - auc: 0.9595 - 64ms/epoch - 5ms/step
 Epoch 90/150
-12/12 - 0s - loss: 3.6338 - auc: 0.9643 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.6338 - auc: 0.9643 - 63ms/epoch - 5ms/step
 Epoch 91/150
-12/12 - 0s - loss: 3.6561 - auc: 1.0000 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.6561 - auc: 1.0000 - 68ms/epoch - 6ms/step
 Epoch 92/150
-12/12 - 0s - loss: 3.6609 - auc: 0.9548 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6609 - auc: 0.9548 - 65ms/epoch - 5ms/step
 Epoch 93/150
-12/12 - 0s - loss: 3.6139 - auc: 0.9869 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6139 - auc: 0.9869 - 63ms/epoch - 5ms/step
 Epoch 94/150
-12/12 - 0s - loss: 3.5737 - auc: 0.9821 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.5737 - auc: 0.9821 - 69ms/epoch - 6ms/step
 Epoch 95/150
-12/12 - 0s - loss: 3.6366 - auc: 0.9298 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6366 - auc: 0.9298 - 66ms/epoch - 5ms/step
 Epoch 96/150
-12/12 - 0s - loss: 3.6219 - auc: 0.9768 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6219 - auc: 0.9768 - 66ms/epoch - 6ms/step
 Epoch 97/150
-12/12 - 0s - loss: 3.6176 - auc: 0.9470 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.6176 - auc: 0.9470 - 65ms/epoch - 5ms/step
 Epoch 98/150
-12/12 - 0s - loss: 3.5417 - auc: 0.9780 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.5417 - auc: 0.9780 - 64ms/epoch - 5ms/step
 Epoch 99/150
-12/12 - 0s - loss: 3.4109 - auc: 0.9940 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4109 - auc: 0.9940 - 67ms/epoch - 6ms/step
 Epoch 100/150
-12/12 - 0s - loss: 3.4657 - auc: 0.9917 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4657 - auc: 0.9917 - 65ms/epoch - 5ms/step
 Epoch 101/150
-12/12 - 0s - loss: 3.4299 - auc: 0.9964 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4299 - auc: 0.9964 - 66ms/epoch - 5ms/step
 Epoch 102/150
-12/12 - 0s - loss: 3.4527 - auc: 0.9810 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4527 - auc: 0.9810 - 70ms/epoch - 6ms/step
 Epoch 103/150
-12/12 - 0s - loss: 3.3951 - auc: 0.9917 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.3951 - auc: 0.9917 - 73ms/epoch - 6ms/step
 Epoch 104/150
-12/12 - 0s - loss: 3.4112 - auc: 0.9857 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4112 - auc: 0.9857 - 63ms/epoch - 5ms/step
 Epoch 105/150
-12/12 - 0s - loss: 3.4042 - auc: 0.9756 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4042 - auc: 0.9756 - 61ms/epoch - 5ms/step
 Epoch 106/150
-12/12 - 0s - loss: 3.4395 - auc: 0.9714 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4395 - auc: 0.9714 - 61ms/epoch - 5ms/step
 Epoch 107/150
-12/12 - 0s - loss: 3.4332 - auc: 0.9780 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4332 - auc: 0.9780 - 61ms/epoch - 5ms/step
 Epoch 108/150
-12/12 - 0s - loss: 3.3749 - auc: 0.9929 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.3749 - auc: 0.9929 - 63ms/epoch - 5ms/step
 Epoch 109/150
-12/12 - 0s - loss: 3.4168 - auc: 0.9726 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4168 - auc: 0.9726 - 62ms/epoch - 5ms/step
 Epoch 110/150
-12/12 - 0s - loss: 3.4550 - auc: 0.9696 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4550 - auc: 0.9696 - 62ms/epoch - 5ms/step
 Epoch 111/150
-12/12 - 0s - loss: 3.4070 - auc: 0.9905 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.4070 - auc: 0.9905 - 69ms/epoch - 6ms/step
 Epoch 112/150
-12/12 - 0s - loss: 3.2842 - auc: 1.0000 - 51ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2842 - auc: 1.0000 - 65ms/epoch - 5ms/step
 Epoch 113/150
-12/12 - 0s - loss: 3.3370 - auc: 0.9804 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.3370 - auc: 0.9804 - 64ms/epoch - 5ms/step
 Epoch 114/150
-12/12 - 0s - loss: 3.3679 - auc: 0.9720 - 51ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.3679 - auc: 0.9720 - 67ms/epoch - 6ms/step
 Epoch 115/150
-12/12 - 0s - loss: 3.2789 - auc: 0.9976 - 58ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.2789 - auc: 0.9976 - 65ms/epoch - 5ms/step
 Epoch 116/150
-12/12 - 0s - loss: 3.2887 - auc: 0.9863 - 51ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2887 - auc: 0.9863 - 63ms/epoch - 5ms/step
 Epoch 117/150
-12/12 - 0s - loss: 3.1959 - auc: 1.0000 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1959 - auc: 1.0000 - 64ms/epoch - 5ms/step
 Epoch 118/150
-12/12 - 0s - loss: 3.2946 - auc: 0.9869 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2946 - auc: 0.9869 - 66ms/epoch - 5ms/step
 Epoch 119/150
-12/12 - 0s - loss: 3.3097 - auc: 0.9893 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.3097 - auc: 0.9893 - 63ms/epoch - 5ms/step
 Epoch 120/150
-12/12 - 0s - loss: 3.3029 - auc: 0.9762 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.3029 - auc: 0.9762 - 68ms/epoch - 6ms/step
 Epoch 121/150
-12/12 - 0s - loss: 3.2763 - auc: 1.0000 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2763 - auc: 1.0000 - 64ms/epoch - 5ms/step
 Epoch 122/150
-12/12 - 0s - loss: 3.2299 - auc: 1.0000 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2299 - auc: 1.0000 - 63ms/epoch - 5ms/step
 Epoch 123/150
-12/12 - 0s - loss: 3.1816 - auc: 0.9887 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.1816 - auc: 0.9887 - 73ms/epoch - 6ms/step
 Epoch 124/150
-12/12 - 0s - loss: 3.2240 - auc: 0.9714 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2240 - auc: 0.9714 - 61ms/epoch - 5ms/step
 Epoch 125/150
-12/12 - 0s - loss: 3.2697 - auc: 0.9405 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2697 - auc: 0.9405 - 62ms/epoch - 5ms/step
 Epoch 126/150
-12/12 - 0s - loss: 3.2226 - auc: 0.9893 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2226 - auc: 0.9893 - 62ms/epoch - 5ms/step
 Epoch 127/150
-12/12 - 0s - loss: 3.2573 - auc: 0.9577 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.2573 - auc: 0.9577 - 66ms/epoch - 6ms/step
 Epoch 128/150
-12/12 - 0s - loss: 3.1836 - auc: 0.9917 - 54ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.1836 - auc: 0.9917 - 64ms/epoch - 5ms/step
 Epoch 129/150
-12/12 - 0s - loss: 3.1696 - auc: 1.0000 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1696 - auc: 1.0000 - 64ms/epoch - 5ms/step
 Epoch 130/150
-12/12 - 0s - loss: 3.1684 - auc: 0.9673 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1684 - auc: 0.9673 - 63ms/epoch - 5ms/step
 Epoch 131/150
-12/12 - 0s - loss: 3.0357 - auc: 1.0000 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.0357 - auc: 1.0000 - 63ms/epoch - 5ms/step
 Epoch 132/150
-12/12 - 0s - loss: 3.0885 - auc: 0.9964 - 54ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.0885 - auc: 0.9964 - 63ms/epoch - 5ms/step
 Epoch 133/150
-12/12 - 0s - loss: 3.0517 - auc: 0.9964 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.0517 - auc: 0.9964 - 63ms/epoch - 5ms/step
 Epoch 134/150
-12/12 - 0s - loss: 3.1301 - auc: 0.9851 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.1301 - auc: 0.9851 - 63ms/epoch - 5ms/step
 Epoch 135/150
-12/12 - 0s - loss: 3.1888 - auc: 0.9482 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1888 - auc: 0.9482 - 65ms/epoch - 5ms/step
 Epoch 136/150
-12/12 - 0s - loss: 3.1880 - auc: 0.9536 - 57ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.1880 - auc: 0.9536 - 65ms/epoch - 5ms/step
 Epoch 137/150
-12/12 - 0s - loss: 3.2068 - auc: 0.9917 - 55ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.2068 - auc: 0.9917 - 62ms/epoch - 5ms/step
 Epoch 138/150
-12/12 - 0s - loss: 3.1400 - auc: 0.9940 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1400 - auc: 0.9940 - 63ms/epoch - 5ms/step
 Epoch 139/150
-12/12 - 0s - loss: 3.0643 - auc: 0.9905 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.0643 - auc: 0.9905 - 66ms/epoch - 6ms/step
 Epoch 140/150
-12/12 - 0s - loss: 3.0959 - auc: 0.9845 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.0959 - auc: 0.9845 - 66ms/epoch - 5ms/step
 Epoch 141/150
-12/12 - 0s - loss: 3.1356 - auc: 0.9798 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1356 - auc: 0.9798 - 62ms/epoch - 5ms/step
 Epoch 142/150
-12/12 - 0s - loss: 3.1335 - auc: 0.9756 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1335 - auc: 0.9756 - 66ms/epoch - 6ms/step
 Epoch 143/150
-12/12 - 0s - loss: 3.2027 - auc: 0.9607 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2027 - auc: 0.9607 - 65ms/epoch - 5ms/step
 Epoch 144/150
-12/12 - 0s - loss: 3.1275 - auc: 0.9869 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1275 - auc: 0.9869 - 63ms/epoch - 5ms/step
 Epoch 145/150
-12/12 - 0s - loss: 3.2102 - auc: 0.9506 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.2102 - auc: 0.9506 - 67ms/epoch - 6ms/step
 Epoch 146/150
-12/12 - 0s - loss: 3.1330 - auc: 0.9750 - 56ms/epoch - 5ms/step
+12/12 - 0s - loss: 3.1330 - auc: 0.9750 - 63ms/epoch - 5ms/step
 Epoch 147/150
-12/12 - 0s - loss: 3.1449 - auc: 0.9750 - 53ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1449 - auc: 0.9750 - 63ms/epoch - 5ms/step
 Epoch 148/150
-12/12 - 0s - loss: 3.1852 - auc: 0.9810 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1852 - auc: 0.9810 - 64ms/epoch - 5ms/step
 Epoch 149/150
-12/12 - 0s - loss: 3.1226 - auc: 0.9964 - 52ms/epoch - 4ms/step
+12/12 - 0s - loss: 3.1226 - auc: 0.9964 - 61ms/epoch - 5ms/step
 Epoch 150/150
-12/12 - 0s - loss: 3.0922 - auc: 0.9821 - 52ms/epoch - 4ms/step</code></pre>
+12/12 - 0s - loss: 3.0922 - auc: 0.9821 - 63ms/epoch - 5ms/step</code></pre>
 <pre class="r"><code>#history &lt;- model %&gt;% fit(
 #  x_train,y_train,
 #  epochs = 30, batch_size = 256, 
@@ -1612,12 +1748,12 @@ Epoch 150/150
 
 #plot(history)</code></pre>
 <pre class="r"><code>model %&gt;% evaluate(x_test,  y_test, verbose = 2)
-1/1 - 0s - loss: 4.5354 - auc: 0.9737 - 136ms/epoch - 136ms/step
+1/1 - 0s - loss: 4.5354 - auc: 0.9737 - 155ms/epoch - 155ms/step
      loss       auc 
 4.5353580 0.9736842 </code></pre>
 <pre class="r"><code>#model %&gt;% predict(x_test) %&gt;% k_argmax() #only for softmax
 b&lt;-model %&gt;% predict(x_test) #%&gt;% `&gt;`(0.5) %&gt;% k_cast(&quot;int32&quot;) #for sigmoid.0
-1/1 - 0s - 59ms/epoch - 59ms/step</code></pre>
+1/1 - 0s - 63ms/epoch - 63ms/step</code></pre>
 <pre class="r"><code>b &lt;- as.numeric(b)
 b
  [1] 0.6603139 0.1790317 0.6191009 0.7149007 0.6164845 0.9392020 0.2831569
@@ -1654,16 +1790,17 @@ Setting direction: controls &lt; cases</code></pre>
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases</code></pre>
 <pre class="r"><code>plot(curve_values ,main =&quot;ROC curve -- Feedforward Nnet&quot;)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-51-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-56-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 </div>
 <div id="results" class="section level1" number="9">
 <h1><span class="header-section-number">9</span> Results</h1>
 <pre class="r"><code>(res.testing)
                    AUC       FNR       FPR
 XGBOOST      0.7368421 0.3684211 0.1666667
-ADABOOST     0.6403509 0.4736842 0.3333333
+ADABOOST     0.7368421 0.3684211 0.1666667
 SVMLinear    0.7456140 0.1052632 0.6666667
 SVMRadial    0.7894737 0.1578947 0.6666667
+SVMPoly      0.7280702 0.2105263 0.8333333
 RandomForest 0.7456140 0.1052632 0.8333333
 ElasticNet   0.6929825 0.2631579 0.6666667
 Nnet         0.9736842 0.0000000 0.1666667</code></pre>
@@ -1681,145 +1818,148 @@ s &lt;- shapviz(kernelshap(model, X, bg_X = x_train))
 Kernel SHAP values by the hybrid strategy of degree 1
 
   |                                                                            
-  |                                                                      |   0%2034/2034 - 2s - 2s/epoch - 969us/step
-2034/2034 - 2s - 2s/epoch - 981us/step
-2034/2034 - 2s - 2s/epoch - 983us/step
-
-  |                                                                            
-  |===                                                                   |   4%2034/2034 - 2s - 2s/epoch - 973us/step
-2034/2034 - 2s - 2s/epoch - 978us/step
-2034/2034 - 2s - 2s/epoch - 981us/step
-
-  |                                                                            
-  |======                                                                |   8%2034/2034 - 2s - 2s/epoch - 985us/step
-2034/2034 - 2s - 2s/epoch - 991us/step
-2034/2034 - 2s - 2s/epoch - 973us/step
-
-  |                                                                            
-  |========                                                              |  12%2034/2034 - 2s - 2s/epoch - 976us/step
-2034/2034 - 2s - 2s/epoch - 985us/step
-2034/2034 - 2s - 2s/epoch - 979us/step
-
-  |                                                                            
-  |===========                                                           |  16%2034/2034 - 2s - 2s/epoch - 975us/step
-2034/2034 - 2s - 2s/epoch - 978us/step
-2034/2034 - 2s - 2s/epoch - 971us/step
-
-  |                                                                            
-  |==============                                                        |  20%2034/2034 - 2s - 2s/epoch - 983us/step
-2034/2034 - 2s - 2s/epoch - 971us/step
-2034/2034 - 2s - 2s/epoch - 983us/step
-
-  |                                                                            
-  |=================                                                     |  24%2034/2034 - 2s - 2s/epoch - 968us/step
-2034/2034 - 2s - 2s/epoch - 985us/step
-2034/2034 - 2s - 2s/epoch - 971us/step
-
-  |                                                                            
-  |====================                                                  |  28%2034/2034 - 2s - 2s/epoch - 986us/step
-2034/2034 - 2s - 2s/epoch - 975us/step
-2034/2034 - 2s - 2s/epoch - 958us/step
-
-  |                                                                            
-  |======================                                                |  32%2034/2034 - 2s - 2s/epoch - 983us/step
-2034/2034 - 2s - 2s/epoch - 958us/step
-2034/2034 - 2s - 2s/epoch - 980us/step
-
-  |                                                                            
-  |=========================                                             |  36%2034/2034 - 2s - 2s/epoch - 966us/step
-2034/2034 - 2s - 2s/epoch - 968us/step
-2034/2034 - 2s - 2s/epoch - 980us/step
-
-  |                                                                            
-  |============================                                          |  40%2034/2034 - 2s - 2s/epoch - 978us/step
-2034/2034 - 2s - 2s/epoch - 979us/step
-2034/2034 - 2s - 2s/epoch - 983us/step
-
-  |                                                                            
-  |===============================                                       |  44%2034/2034 - 2s - 2s/epoch - 974us/step
-2034/2034 - 2s - 2s/epoch - 984us/step
-2034/2034 - 2s - 2s/epoch - 971us/step
-
-  |                                                                            
-  |==================================                                    |  48%2034/2034 - 2s - 2s/epoch - 973us/step
-2034/2034 - 2s - 2s/epoch - 976us/step
-2034/2034 - 2s - 2s/epoch - 976us/step
-
-  |                                                                            
-  |====================================                                  |  52%2034/2034 - 2s - 2s/epoch - 957us/step
-2034/2034 - 2s - 2s/epoch - 966us/step
-2034/2034 - 2s - 2s/epoch - 975us/step
-
-  |                                                                            
-  |=======================================                               |  56%2034/2034 - 2s - 2s/epoch - 991us/step
+  |                                                                      |   0%2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 965us/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |==========================================                            |  60%2034/2034 - 2s - 2s/epoch - 981us/step
-2034/2034 - 2s - 2s/epoch - 954us/step
-2034/2034 - 2s - 2s/epoch - 966us/step
+  |===                                                                   |   4%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |=============================================                         |  64%2034/2034 - 2s - 2s/epoch - 971us/step
-2034/2034 - 2s - 2s/epoch - 978us/step
-2034/2034 - 2s - 2s/epoch - 975us/step
+  |======                                                                |   8%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |================================================                      |  68%2034/2034 - 2s - 2s/epoch - 980us/step
-2034/2034 - 2s - 2s/epoch - 972us/step
-2034/2034 - 2s - 2s/epoch - 965us/step
+  |========                                                              |  12%2034/2034 - 3s - 3s/epoch - 2ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |==================================================                    |  72%2034/2034 - 2s - 2s/epoch - 972us/step
-2034/2034 - 2s - 2s/epoch - 977us/step
-2034/2034 - 2s - 2s/epoch - 985us/step
+  |===========                                                           |  16%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |=====================================================                 |  76%2034/2034 - 2s - 2s/epoch - 979us/step
-2034/2034 - 2s - 2s/epoch - 971us/step
-2034/2034 - 2s - 2s/epoch - 981us/step
+  |==============                                                        |  20%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |========================================================              |  80%2034/2034 - 2s - 2s/epoch - 973us/step
-2034/2034 - 2s - 2s/epoch - 967us/step
-2034/2034 - 2s - 2s/epoch - 981us/step
+  |=================                                                     |  24%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |===========================================================           |  84%2034/2034 - 2s - 2s/epoch - 973us/step
-2034/2034 - 2s - 2s/epoch - 990us/step
-2034/2034 - 2s - 2s/epoch - 970us/step
+  |====================                                                  |  28%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |==============================================================        |  88%2034/2034 - 2s - 2s/epoch - 981us/step
-2034/2034 - 2s - 2s/epoch - 976us/step
-2034/2034 - 2s - 2s/epoch - 971us/step
+  |======================                                                |  32%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |================================================================      |  92%2034/2034 - 2s - 2s/epoch - 967us/step
-2034/2034 - 2s - 2s/epoch - 974us/step
-2034/2034 - 2s - 2s/epoch - 978us/step
+  |=========================                                             |  36%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |===================================================================   |  96%2034/2034 - 2s - 2s/epoch - 967us/step
-2034/2034 - 2s - 2s/epoch - 982us/step
-2034/2034 - 2s - 2s/epoch - 978us/step
+  |============================                                          |  40%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |===============================                                       |  44%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |==================================                                    |  48%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |====================================                                  |  52%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |=======================================                               |  56%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |==========================================                            |  60%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |=============================================                         |  64%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |================================================                      |  68%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |==================================================                    |  72%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |=====================================================                 |  76%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |========================================================              |  80%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |===========================================================           |  84%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |==============================================================        |  88%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |================================================================      |  92%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |===================================================================   |  96%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
   |======================================================================| 100%</code></pre>
-<pre class="r"><code>sv_importance(s, kind = &quot;bee&quot;, show_numbers = TRUE)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-56-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>sv_importance(s, kind = &quot;bee&quot;, show_numbers = TRUE) + theme_classic()</code></pre>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-61-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#sv_dependence(s, colnames(X), color_var = NULL) &amp;
 #  ylim(-4, 4)
 sv_importance(s, max_display=30)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-56-2.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-61-2.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>sv_waterfall(s, row_id = 3)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-56-3.png" width="100%"  class="widefigure" style="display: block; margin: auto;" />
-Mean shap value for each gene</p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-61-3.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#pdf(&quot;beeswarm_features_cn.pdf&quot;)
+#sv_importance(s, kind = &quot;bee&quot;, show_numbers = TRUE) + theme_classic()
+#dev.off()</code></pre>
+<p>Mean shap value for each gene</p>
 <pre class="r"><code>shap.value.list&lt;- colMeans(abs(s$S))
 ordered.shap.value.list &lt;- shap.value.list[order(-abs(shap.value.list))]
 histogram(ordered.shap.value.list, breaks = 50)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-57-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-63-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>names(ordered.shap.value.list)
   [1] &quot;CTSW&quot;                   &quot;CD96&quot;                   &quot;AIF1L&quot;                 
   [4] &quot;IFNGR1&quot;                 &quot;PTPRF&quot;                  &quot;TMSB4XP4&quot;              
@@ -2009,7 +2149,7 @@ histogram(ordered.shap.value.list, breaks = 50)</code></pre>
 [556] &quot;PBX1&quot;                   &quot;IL6ST&quot;                  &quot;PHACTR2&quot;               
 [559] &quot;DDX11L16&quot;               &quot;GSTM2&quot;                  &quot;DICER1&quot;                </code></pre>
 <p>Logistic regression with top 3 most important genes by shap.</p>
-<pre class="r"><code>shap.cutoff &lt;- 3
+<pre class="r"><code>shap.cutoff &lt;- 6
 
 new.train &lt;- training.df[,c(&quot;Tumor&quot;,names(ordered.shap.value.list)[1:shap.cutoff])]
 new.test &lt;- testing.df[,c(&quot;Tumor&quot;,names(ordered.shap.value.list)[1:shap.cutoff])]
@@ -2022,42 +2162,45 @@ Call:
 glm(formula = Tumor ~ ., family = &quot;binomial&quot;, data = new.train)
 
 Coefficients:
-            Estimate Std. Error z value Pr(&gt;|z|)   
-(Intercept) -0.01305    0.35996  -0.036  0.97108   
-CTSW         0.78221    0.48859   1.601  0.10939   
-CD96         1.49858    0.57762   2.594  0.00948 **
-AIF1L        1.39691    0.50626   2.759  0.00579 **
+            Estimate Std. Error z value Pr(&gt;|z|)  
+(Intercept)   0.2381     0.9460   0.252   0.8012  
+CTSW          5.1808     2.5782   2.009   0.0445 *
+CD96          3.4575     2.1812   1.585   0.1129  
+AIF1L         1.8421     1.4668   1.256   0.2092  
+IFNGR1        3.1401     1.5358   2.045   0.0409 *
+PTPRF        -6.0612     3.0610  -1.980   0.0477 *
+TMSB4XP4     -4.1677     1.9517  -2.135   0.0327 *
 ---
 Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 
 (Dispersion parameter for binomial family taken to be 1)
 
     Null deviance: 80.336  on 57  degrees of freedom
-Residual deviance: 50.019  on 54  degrees of freedom
-AIC: 58.019
+Residual deviance: 13.900  on 51  degrees of freedom
+AIC: 27.9
 
-Number of Fisher Scoring iterations: 5</code></pre>
+Number of Fisher Scoring iterations: 9</code></pre>
 <pre class="r"><code>predicted.proba.logistic.shap.test &lt;- predict(logistic.shap, new.test[-1], type=&quot;response&quot;)
 pROC::auc(new.test[,1], predicted.proba.logistic.shap.test)
 Setting levels: control = no, case = yes
 Setting direction: controls &lt; cases
-Area under the curve: 0.7632</code></pre>
+Area under the curve: 0.7018</code></pre>
 <pre class="r"><code>
 FNR(predicted.proba.logistic.shap.test, new.test[,1])
      class.pred
 truth  0  1
   no   5  1
-  yes  6 13
-[1] 0.3157895</code></pre>
+  yes  8 11
+[1] 0.4210526</code></pre>
 <pre class="r"><code>FPR(predicted.proba.logistic.shap.test, new.test[,1])
      class.pred
 truth  0  1
   no   5  1
-  yes  6 13
+  yes  8 11
 [1] 0.1666667</code></pre>
 <pre class="r"><code>
 names(ordered.shap.value.list)[1:shap.cutoff]
-[1] &quot;CTSW&quot;  &quot;CD96&quot;  &quot;AIF1L&quot;</code></pre>
+[1] &quot;CTSW&quot;     &quot;CD96&quot;     &quot;AIF1L&quot;    &quot;IFNGR1&quot;   &quot;PTPRF&quot;    &quot;TMSB4XP4&quot;</code></pre>
 <p>Trial with 3 first genes without ordering by shap (unfinished: I would like to test random combinations and compute averaged metrics)</p>
 <pre class="r"><code>trial.train &lt;- training.df[,1:shap.cutoff]
 trial.test &lt;- testing.df[,1:shap.cutoff]
@@ -2067,20 +2210,20 @@ logistic.shap &lt;- glm(Tumor ~., family = &quot;binomial&quot;, data = trial.tr
 predicted.proba.logistic.shap.test &lt;- predict(logistic.shap, trial.test[-1], type=&quot;response&quot;)
 pROC::auc(trial.test[,1], predicted.proba.logistic.shap.test)
 Setting levels: control = no, case = yes
-Setting direction: controls &lt; cases
-Area under the curve: 0.5088</code></pre>
+Setting direction: controls &gt; cases
+Area under the curve: 0.614</code></pre>
 <pre class="r"><code>
 FNR(predicted.proba.logistic.shap.test, trial.test[,1])
      class.pred
 truth  0  1
   no   0  6
-  yes  8 11
-[1] 0.4210526</code></pre>
+  yes  9 10
+[1] 0.4736842</code></pre>
 <pre class="r"><code>FPR(predicted.proba.logistic.shap.test, trial.test[,1])
      class.pred
 truth  0  1
   no   0  6
-  yes  8 11
+  yes  9 10
 [1] 1</code></pre>
 </div>
 <div id="session-information" class="section level1" number="11">
@@ -2162,7 +2305,7 @@ loaded via a namespace (and not attached):
  [97] gower_1.0.0             assertthat_0.2.1        listenv_0.9.1          
 [100] viridisLite_0.4.2       ipred_0.9-14            scales_1.3.0           
 [103] prodlim_2023.08.28      e1071_1.7-14            purrr_1.0.2            
-[106] crayon_1.5.2            rlang_1.1.3             ada_2.0-5              </code></pre>
+[106] crayon_1.5.2            rlang_1.1.3            </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
