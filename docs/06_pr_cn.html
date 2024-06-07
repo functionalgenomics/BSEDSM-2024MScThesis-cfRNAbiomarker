@@ -388,7 +388,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">junio 3, 2024</h4>
+<h4 class="date">junio 8, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a prediction of candidate biomarkers in cancer cfRNA sequencing data.</p>
 
@@ -418,7 +418,7 @@ seB.filt.testing &lt;- readRDS(file.path(&quot;_processed_data&quot;,
 DEgenes.trainingR &lt;- readRDS(file.path(&quot;_processed_data&quot;, 
                                       &quot;DEgenes.trainingR.rds&quot;))</code></pre>
 <p>Create a subset with the differential expressed genes from the training dataset from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span>.</p>
-<p>Train-testing subset creation: Intersection between differential expressed genes from training set from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span> and lowly expressed genes from testing set.</p>
+<p>Train-testing subset creation: Intersection between differential expressed genes from training set from <span class="citation">Roskams-Hieter et al. (<a href="#ref-Roskams2022">2022</a>)</span> and lowly expressed genes from testing set <span class="citation">(<a href="#ref-Block2022">Block et al. 2022</a>)</span>.</p>
 <pre class="r"><code>set.seed(111)
 intersection.genes &lt;- intersect(rownames(dgeB.filt.testing),DEgenes.trainingR)
 length(intersection.genes)
@@ -443,15 +443,13 @@ dim(seB.intercept)
 <h3><span class="header-section-number">1.1.1</span> Training data</h3>
 <pre class="r"><code>training.df &lt;- data.frame(Tumor = seR.intercept$Tumor,
                           scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE))
-len &lt;- length(training.df)
-#colnames(training.df)[2:len] &lt;- rowData(seR.intercept)[[&quot;Symbol&quot;]]</code></pre>
+len &lt;- length(training.df)</code></pre>
 </div>
 <div id="testing-data" class="section level3" number="1.1.2">
 <h3><span class="header-section-number">1.1.2</span> Testing data</h3>
 <pre class="r"><code>testing.df &lt;- data.frame(Tumor = seB.intercept$Tumor,
                           scale(t(assays(seB.intercept)$logCPM), scale = TRUE, center = TRUE))
-len &lt;- length(testing.df)
-#colnames(testing.df)[2:len]  &lt;- rowData(seB.intercept)[[&quot;Symbol&quot;]]</code></pre>
+len &lt;- length(testing.df)</code></pre>
 </div>
 </div>
 </div>
@@ -492,10 +490,9 @@ len &lt;- length(testing.df)
 5      TRUE
 6      TRUE
 7      TRUE</code></pre>
-<pre class="r"><code># CV technique which will be passed into the train() function
+<pre class="r"><code># CV grid search
 train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
-                             ## Evaluate performance using 
-                             ## the following function
+
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -503,152 +500,25 @@ train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quo
 
 # tuning grid
 set.seed(111)
-#xgboostGrid &lt;-  expand.grid(max_depth = c(3, 5, 7, 9), 
-#                        nrounds = (1:10)*20,    # number of trees
-#                        eta = c(0.2,0.3,0.4),
-#                        gamma = c(0.5,1),
-#                        subsample = c(0.5, 0.6, 0.7), # common value: between 0.5 and 1
-#                        min_child_weight = c(1,2,3),
-#                        colsample_bytree = c(0.5, 0.6, 0.7) # common value: between 0.5 and 1
-#                        )
 
 xgboostGrid &lt;- expand.grid(max_depth = c(4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.2,0.4),gamma = c(0.6),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.7))
-
-# auc = 0.64 fnr= 0.47 fpr = 0. max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.8)
-# auc = 0.71 fnr= 0.47 fpr = 0.16. max_depth = c(3, 4, 5, 6, 7)
-# auc = 0.75 fnr= 0.47 fpr = 0.16. colsample_bytree = c(0.7)
-# auc = 0.58, fnr = 0.52, fpr=0. min_child_weight = c(2)
-# auc = 0.68, fnr = 0.47, fpr=0. min_child_weight = c(3)
-# auc = 0.56, fnr=0.57, fpr=0.eta = c(0.2,0.3,0.4, 0.5),gamma = c(0.5,1) colsample_bytree = c(0.7,0.8)
-# auc = 0.73, fnr=0.47, fpr=0.subsample = c(0.8)
-# auc = 0.57, fnr=0.47, fpr=0.33.subsample = c(0.8)
-#auc = 0.52, fnr=0.57, fpr=0. max_depth = c(4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(0.8),min_child_weight = c(1),colsample_bytree = c(0.7))
-# auc = 0.74, fnr = 0.52, fpr=0.eta = c(0.2,0.4)
 
 
 # hyperparaemeter search for XGboost classifier tree model
 model = caret::train(Tumor~., data = training.df,
-              ######ALTERNATIVE#######
-              #x = trainMNX,
-              #y = trainMNY,
-              ########################
               method = &quot;xgbTree&quot;,
               trControl = train_control,
               metric = &quot;ROC&quot;,
               tuneGrid = xgboostGrid,
               verbosity = 0,
               verbose = TRUE,
-              #num.threads = 16,
-              #nthreads = 16 #cores in use
+              #num.threads = 18,
               )
 
-print(model)
-eXtreme Gradient Boosting 
-
- 58 samples
-561 predictors
-  2 classes: &#39;no&#39;, &#39;yes&#39; 
-
-No pre-processing
-Resampling: Cross-Validated (10 fold) 
-Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
-Resampling results across tuning parameters:
-
-  eta  max_depth  nrounds  ROC        Sens       Spec     
-  0.2  4           20      0.8611111  0.8333333  0.6833333
-  0.2  4           40      0.8888889  0.8333333  0.7833333
-  0.2  4           60      0.8888889  0.8333333  0.7833333
-  0.2  4           80      0.8888889  0.8333333  0.7833333
-  0.2  4          100      0.8888889  0.8333333  0.7833333
-  0.2  4          120      0.8888889  0.8333333  0.7833333
-  0.2  4          140      0.8888889  0.8333333  0.7833333
-  0.2  4          160      0.8888889  0.8333333  0.7833333
-  0.2  4          180      0.8888889  0.8333333  0.7833333
-  0.2  4          200      0.8888889  0.8333333  0.7833333
-  0.2  5           20      0.8666667  0.8333333  0.6500000
-  0.2  5           40      0.8777778  0.8666667  0.6500000
-  0.2  5           60      0.8777778  0.8666667  0.6500000
-  0.2  5           80      0.8777778  0.8666667  0.6500000
-  0.2  5          100      0.8777778  0.8666667  0.6500000
-  0.2  5          120      0.8777778  0.8666667  0.6500000
-  0.2  5          140      0.8777778  0.8666667  0.6500000
-  0.2  5          160      0.8777778  0.8666667  0.6500000
-  0.2  5          180      0.8777778  0.8666667  0.6500000
-  0.2  5          200      0.8777778  0.8666667  0.6500000
-  0.2  6           20      0.9166667  0.8666667  0.7333333
-  0.2  6           40      0.9277778  0.8666667  0.8000000
-  0.2  6           60      0.9277778  0.8666667  0.8000000
-  0.2  6           80      0.9277778  0.8666667  0.8000000
-  0.2  6          100      0.9277778  0.8666667  0.8000000
-  0.2  6          120      0.9277778  0.8666667  0.8000000
-  0.2  6          140      0.9277778  0.8666667  0.8000000
-  0.2  6          160      0.9277778  0.8666667  0.8000000
-  0.2  6          180      0.9277778  0.8666667  0.8000000
-  0.2  6          200      0.9277778  0.8666667  0.8000000
-  0.2  7           20      0.9333333  0.8666667  0.6833333
-  0.2  7           40      0.9111111  0.8666667  0.6833333
-  0.2  7           60      0.9111111  0.8666667  0.6833333
-  0.2  7           80      0.9111111  0.8666667  0.6833333
-  0.2  7          100      0.9111111  0.8666667  0.6833333
-  0.2  7          120      0.9111111  0.8666667  0.6833333
-  0.2  7          140      0.9111111  0.8666667  0.6833333
-  0.2  7          160      0.9111111  0.8666667  0.6833333
-  0.2  7          180      0.9111111  0.8666667  0.6833333
-  0.2  7          200      0.9111111  0.8666667  0.6833333
-  0.4  4           20      0.9444444  0.8666667  0.7500000
-  0.4  4           40      0.9444444  0.8666667  0.7500000
-  0.4  4           60      0.9444444  0.8666667  0.7500000
-  0.4  4           80      0.9444444  0.8666667  0.7500000
-  0.4  4          100      0.9444444  0.8666667  0.7500000
-  0.4  4          120      0.9444444  0.8666667  0.7500000
-  0.4  4          140      0.9444444  0.8666667  0.7500000
-  0.4  4          160      0.9444444  0.8666667  0.7500000
-  0.4  4          180      0.9444444  0.8666667  0.7500000
-  0.4  4          200      0.9444444  0.8666667  0.7500000
-  0.4  5           20      0.8833333  0.8000000  0.6666667
-  0.4  5           40      0.8833333  0.8000000  0.6666667
-  0.4  5           60      0.8833333  0.8000000  0.6666667
-  0.4  5           80      0.8833333  0.8000000  0.6666667
-  0.4  5          100      0.8833333  0.8000000  0.6666667
-  0.4  5          120      0.8833333  0.8000000  0.6666667
-  0.4  5          140      0.8833333  0.8000000  0.6666667
-  0.4  5          160      0.8833333  0.8000000  0.6666667
-  0.4  5          180      0.8833333  0.8000000  0.6666667
-  0.4  5          200      0.8833333  0.8000000  0.6666667
-  0.4  6           20      0.9111111  0.8333333  0.6666667
-  0.4  6           40      0.9111111  0.8333333  0.7166667
-  0.4  6           60      0.9111111  0.8333333  0.7166667
-  0.4  6           80      0.9111111  0.8333333  0.7166667
-  0.4  6          100      0.9111111  0.8333333  0.7166667
-  0.4  6          120      0.9111111  0.8333333  0.7166667
-  0.4  6          140      0.9111111  0.8333333  0.7166667
-  0.4  6          160      0.9111111  0.8333333  0.7166667
-  0.4  6          180      0.9111111  0.8333333  0.7166667
-  0.4  6          200      0.9111111  0.8333333  0.7166667
-  0.4  7           20      0.9888889  0.9333333  0.8833333
-  0.4  7           40      0.9888889  0.9333333  0.8833333
-  0.4  7           60      0.9888889  0.9333333  0.8833333
-  0.4  7           80      0.9888889  0.9333333  0.8833333
-  0.4  7          100      0.9888889  0.9333333  0.8833333
-  0.4  7          120      0.9888889  0.9333333  0.8833333
-  0.4  7          140      0.9888889  0.9333333  0.8833333
-  0.4  7          160      0.9888889  0.9333333  0.8833333
-  0.4  7          180      0.9888889  0.9333333  0.8833333
-  0.4  7          200      0.9888889  0.9333333  0.8833333
-
-Tuning parameter &#39;gamma&#39; was held constant at a value of 0.6
-Tuning
-
-Tuning parameter &#39;min_child_weight&#39; was held constant at a value of 1
-
-Tuning parameter &#39;subsample&#39; was held constant at a value of 1
-ROC was used to select the optimal model using the largest value.
-The final values used for the model were nrounds = 20, max_depth = 7, eta
- = 0.4, gamma = 0.6, colsample_bytree = 0.7, min_child_weight = 1 and
- subsample = 1.</code></pre>
+#print(model)</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-10-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
-<pre class="r"><code>#predict on test data
+<pre class="r"><code># predict on test data
 pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
 
 # out of sample performance metrics
@@ -671,6 +541,8 @@ truth  0  1
     0  5  1
     1  7 12
 [1] 0.1666667</code></pre>
+<pre class="r"><code>
+roc_xgboost_cn &lt;- ROCit::rocit(score=pred.y,class=test.y)</code></pre>
 <pre class="r"><code># Add to output
 res.testing[1, ] &lt;- c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y))
 Setting levels: control = 0, case = 1
@@ -685,10 +557,7 @@ Setting direction: controls &lt; cases</code></pre>
 1   ada      iter         #Trees  FALSE     TRUE      TRUE
 2   ada  maxdepth Max Tree Depth  FALSE     TRUE      TRUE
 3   ada        nu  Learning Rate  FALSE     TRUE      TRUE</code></pre>
-<pre class="r"><code># CV technique which will be passed into the train() function
-train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
-                             ## Evaluate performance using 
-                             ## the following function
+<pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -719,7 +588,6 @@ model = caret::train(Tumor~., data = training.df,
               )
 
 print(model)</code></pre>
-<pre class="r"><code>plot(model)</code></pre>
 <pre class="r"><code>#predict on test data
 pred.y &lt;- predict(model, testing.df, type = &quot;prob&quot;)[,2]
 
@@ -745,8 +613,6 @@ Setting direction: controls &lt; cases</code></pre>
 1 svmLinearWeights      cost         Cost  FALSE     TRUE      TRUE
 2 svmLinearWeights    weight Class Weight  FALSE     TRUE      TRUE</code></pre>
 <pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -758,14 +624,6 @@ svmgrid &lt;-  expand.grid(cost = c(0.01,0.015, 0.02),
                         weight = c(0.45) 
                         )
 
-#svmgrid &lt;-  expand.grid(cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10))
-
-# auc = 0.70, fnr = 0.2, fpr = 0.33. cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10)
-# auc = 0.72, fnr = 0.31, fpr = 0.33. (cost = c(0.01,0.015, 0.02),weight = c(0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5)
-#empitjora. cost = c(0.015, 0.02)
-#auc = 0.73, fnr=0.31, fpr=0.33. cost = c(0.01,0.015, 0.02), weight = c(0.4, 0.5) 
-#auc = 0.74, fnr=0.31, fpr=0.33. weight = c(0.45)
-
 
 
 # training a svm classifier with liearn kernel model while tuning parameters
@@ -776,26 +634,7 @@ model = caret::train(Tumor~., data = training.df,
               tuneGrid = svmgrid)
 
 # summarizing the results
-print(model)
-Linear Support Vector Machines with Class Weights 
-
- 58 samples
-561 predictors
-  2 classes: &#39;no&#39;, &#39;yes&#39; 
-
-No pre-processing
-Resampling: Cross-Validated (10 fold) 
-Summary of sample sizes: 52, 52, 52, 52, 52, 53, ... 
-Resampling results across tuning parameters:
-
-  cost   ROC        Sens       Spec     
-  0.010  0.9777778  1.0000000  0.8333333
-  0.015  0.9777778  0.9666667  0.9000000
-  0.020  0.9777778  0.9666667  0.8666667
-
-Tuning parameter &#39;weight&#39; was held constant at a value of 0.45
-ROC was used to select the optimal model using the largest value.
-The final values used for the model were cost = 0.01 and weight = 0.45.</code></pre>
+#print(model)</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-20-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
@@ -821,6 +660,8 @@ truth  0  1
     0  2  4
     1  2 17
 [1] 0.6666667</code></pre>
+<pre class="r"><code>
+roc_svmlinear_cn &lt;- ROCit::rocit(score=pred.y,class=test.y)</code></pre>
 <pre class="r"><code># Add to output
 res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
 Setting levels: control = 0, case = 1
@@ -834,8 +675,6 @@ Setting direction: controls &lt; cases</code></pre>
 1 svmRadial     sigma Sigma   TRUE     TRUE      TRUE
 2 svmRadial         C  Cost   TRUE     TRUE      TRUE</code></pre>
 <pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -843,15 +682,6 @@ Setting direction: controls &lt; cases</code></pre>
 
 set.seed(50)
 svmgrid &lt;-  expand.grid(sigma=c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10))
-# Customzing the tuning grid
-#svmgrid &lt;-  expand.grid(sigma = c(0.01, 0.05,0.5,1,3, 5, 10),
-#                        C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
-#                        )
-
-# auc = 0.67. sigma = 0.01 and C = 3. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10)
-# auc = 0.67. sigma = 0.01 and C = 2. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,2,3,4,5,10)
-# auc = 0.67. sigma = 0.01 and C = 1.1. sigma = c(0.01, 0.05,0.5,1,3, 5, 10),C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
-
 
 # training a svm with rbf kernel classifier model while tuning parameters
 model = caret::train(Tumor~., data = training.df,
@@ -859,74 +689,9 @@ model = caret::train(Tumor~., data = training.df,
               trControl = train_control,
               metric = &quot;ROC&quot;,
               tuneGrid = svmgrid)
-maximum number of iterations reached 0.00268881 0.002650758maximum number of iterations reached -7.276945e-05 -7.20996e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001400671 -0.0001335992maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.001170128 0.001162313maximum number of iterations reached -7.450682e-05 -7.382098e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001418675 -0.0001353166maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.00180695 0.001781904maximum number of iterations reached -7.381918e-05 -7.313968e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001414372 -0.0001349062maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.002120339 0.002089864maximum number of iterations reached -7.195484e-05 -7.12925e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001406794 -0.0001341833maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.003420223 0.003370502maximum number of iterations reached -7.51796e-05 -7.448755e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001394993 -0.0001330577maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.003413203 0.003359624maximum number of iterations reached -7.399193e-05 -7.331084e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001410354 -0.000134523maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.004032239 0.003958937maximum number of iterations reached -7.369166e-05 -7.301331e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001451065 -0.0001384058maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached 0.003798631 0.003736572maximum number of iterations reached -7.259397e-05 -7.192574e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -7.6153e-05 -7.545203e-05maximum number of iterations reached -0.0001429317 -0.0001363316maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754maximum number of iterations reached -0.0001452837 -0.0001385754</code></pre>
-<pre class="r"><code>
+
 # summarizing the results
-print(model)
-Support Vector Machines with Radial Basis Function Kernel 
-
- 58 samples
-561 predictors
-  2 classes: &#39;no&#39;, &#39;yes&#39; 
-
-No pre-processing
-Resampling: Cross-Validated (10 fold) 
-Summary of sample sizes: 52, 52, 52, 52, 52, 53, ... 
-Resampling results across tuning parameters:
-
-  sigma  C      ROC         Sens       Spec     
-   0.01   0.01  0.74444444  0.7000000  0.7333333
-   0.01   0.05  0.73333333  0.7333333  0.7333333
-   0.01   0.50  0.93333333  0.6333333  0.7333333
-   0.01   1.00  0.94444444  0.8333333  0.9000000
-   0.01   3.00  0.95555556  0.9000000  0.9000000
-   0.01   5.00  0.95555556  0.8666667  0.9000000
-   0.01  10.00  0.95555556  0.8666667  0.9000000
-   0.05   0.01  0.07222222  1.0000000  0.0000000
-   0.05   0.05  0.07222222  1.0000000  0.0000000
-   0.05   0.50  0.07222222  1.0000000  0.0000000
-   0.05   1.00  0.07222222  1.0000000  0.0000000
-   0.05   3.00  0.07222222  1.0000000  0.0000000
-   0.05   5.00  0.07222222  1.0000000  0.0000000
-   0.05  10.00  0.07222222  1.0000000  0.0000000
-   0.50   0.01  0.50000000  1.0000000  0.0000000
-   0.50   0.05  0.50000000  1.0000000  0.0000000
-   0.50   0.50  0.50000000  1.0000000  0.0000000
-   0.50   1.00  0.50000000  1.0000000  0.0000000
-   0.50   3.00  0.50000000  1.0000000  0.0000000
-   0.50   5.00  0.50000000  1.0000000  0.0000000
-   0.50  10.00  0.50000000  1.0000000  0.0000000
-   1.00   0.01  0.50000000  1.0000000  0.0000000
-   1.00   0.05  0.50000000  1.0000000  0.0000000
-   1.00   0.50  0.50000000  1.0000000  0.0000000
-   1.00   1.00  0.50000000  1.0000000  0.0000000
-   1.00   3.00  0.50000000  1.0000000  0.0000000
-   1.00   5.00  0.50000000  1.0000000  0.0000000
-   1.00  10.00  0.50000000  1.0000000  0.0000000
-   3.00   0.01  0.50000000  1.0000000  0.0000000
-   3.00   0.05  0.50000000  1.0000000  0.0000000
-   3.00   0.50  0.50000000  1.0000000  0.0000000
-   3.00   1.00  0.50000000  1.0000000  0.0000000
-   3.00   3.00  0.50000000  1.0000000  0.0000000
-   3.00   5.00  0.50000000  1.0000000  0.0000000
-   3.00  10.00  0.50000000  1.0000000  0.0000000
-   5.00   0.01  0.50000000  1.0000000  0.0000000
-   5.00   0.05  0.50000000  1.0000000  0.0000000
-   5.00   0.50  0.50000000  1.0000000  0.0000000
-   5.00   1.00  0.50000000  1.0000000  0.0000000
-   5.00   3.00  0.50000000  1.0000000  0.0000000
-   5.00   5.00  0.50000000  1.0000000  0.0000000
-   5.00  10.00  0.50000000  1.0000000  0.0000000
-  10.00   0.01  0.50000000  1.0000000  0.0000000
-  10.00   0.05  0.50000000  1.0000000  0.0000000
-  10.00   0.50  0.50000000  1.0000000  0.0000000
-  10.00   1.00  0.50000000  1.0000000  0.0000000
-  10.00   3.00  0.50000000  1.0000000  0.0000000
-  10.00   5.00  0.50000000  1.0000000  0.0000000
-  10.00  10.00  0.50000000  1.0000000  0.0000000
-
-ROC was used to select the optimal model using the largest value.
-The final values used for the model were sigma = 0.01 and C = 3.</code></pre>
+#print(model)</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-25-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
@@ -952,6 +717,8 @@ truth  0  1
     0  2  4
     1  3 16
 [1] 0.6666667</code></pre>
+<pre class="r"><code>
+roc_svmradial_cn &lt;- ROCit::rocit(score=pred.y,class=test.y)</code></pre>
 <pre class="r"><code># Add to output
 res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
 Setting levels: control = 0, case = 1
@@ -966,8 +733,6 @@ Setting direction: controls &lt; cases</code></pre>
 2 svmPoly     scale             Scale   TRUE     TRUE      TRUE
 3 svmPoly         C              Cost   TRUE     TRUE      TRUE</code></pre>
 <pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -986,118 +751,7 @@ model = caret::train(Tumor~., data = training.df,
               metric = &quot;ROC&quot;,
               tuneGrid = svmgrid)
 
-print(model)
-Support Vector Machines with Polynomial Kernel 
-
- 58 samples
-561 predictors
-  2 classes: &#39;no&#39;, &#39;yes&#39; 
-
-No pre-processing
-Resampling: Cross-Validated (10 fold) 
-Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
-Resampling results across tuning parameters:
-
-  degree  scale  C      ROC        Sens       Spec     
-  2       0.001    0.1  0.8388889  0.6666667  0.7833333
-  2       0.001    0.5  0.9777778  0.7666667  0.8166667
-  2       0.001    1.0  0.9888889  0.9000000  0.8166667
-  2       0.001    5.0  0.9888889  0.9000000  0.8666667
-  2       0.001   10.0  0.9888889  0.9666667  0.8833333
-  2       0.001  100.0  0.9888889  0.9666667  0.8000000
-  2       0.010    0.1  0.9666667  0.9333333  0.8000000
-  2       0.010    0.5  0.9777778  0.9333333  0.8000000
-  2       0.010    1.0  0.9777778  0.9333333  0.8000000
-  2       0.010    5.0  0.9777778  0.9333333  0.7666667
-  2       0.010   10.0  0.9777778  0.9333333  0.8000000
-  2       0.010  100.0  0.9777778  0.9333333  0.7666667
-  2       0.500    0.1  0.8388889  0.8000000  0.7000000
-  2       0.500    0.5  0.8388889  0.8666667  0.6666667
-  2       0.500    1.0  0.8388889  0.8333333  0.7333333
-  2       0.500    5.0  0.8388889  0.8666667  0.7000000
-  2       0.500   10.0  0.8388889  0.8666667  0.7333333
-  2       0.500  100.0  0.8388889  0.8666667  0.6333333
-  2       1.000    0.1  0.8388889  0.8333333  0.7333333
-  2       1.000    0.5  0.8388889  0.7666667  0.6500000
-  2       1.000    1.0  0.8388889  0.8333333  0.7000000
-  2       1.000    5.0  0.8388889  0.8333333  0.7000000
-  2       1.000   10.0  0.8388889  0.8333333  0.6166667
-  2       1.000  100.0  0.8388889  0.8666667  0.6333333
-  3       0.001    0.1  0.8888889  0.7000000  0.7833333
-  3       0.001    0.5  0.9888889  0.8000000  0.8166667
-  3       0.001    1.0  1.0000000  0.9000000  0.8333333
-  3       0.001    5.0  0.9888889  0.9666667  0.8333333
-  3       0.001   10.0  0.9888889  0.9666667  0.8333333
-  3       0.001  100.0  0.9888889  0.9666667  0.8666667
-  3       0.010    0.1  0.9777778  0.9666667  0.9166667
-  3       0.010    0.5  0.9777778  0.9666667  0.8666667
-  3       0.010    1.0  0.9777778  0.9333333  0.8666667
-  3       0.010    5.0  0.9777778  0.9666667  0.9166667
-  3       0.010   10.0  0.9777778  0.9666667  0.9000000
-  3       0.010  100.0  0.9777778  0.9666667  0.9666667
-  3       0.500    0.1  0.9888889  0.9666667  0.8666667
-  3       0.500    0.5  0.9888889  0.9666667  0.8333333
-  3       0.500    1.0  0.9888889  0.9666667  0.8666667
-  3       0.500    5.0  0.9888889  0.9666667  0.8333333
-  3       0.500   10.0  0.9888889  0.9666667  0.8333333
-  3       0.500  100.0  0.9888889  0.9666667  0.8333333
-  3       1.000    0.1  0.9888889  0.9333333  0.8333333
-  3       1.000    0.5  0.9888889  0.9666667  0.8666667
-  3       1.000    1.0  0.9888889  0.9666667  0.8666667
-  3       1.000    5.0  0.9888889  0.9666667  0.8333333
-  3       1.000   10.0  0.9888889  0.9666667  0.8666667
-  3       1.000  100.0  0.9888889  0.9666667  0.8666667
-  4       0.001    0.1  0.9388889  0.7333333  0.7833333
-  4       0.001    0.5  0.9888889  0.9000000  0.8166667
-  4       0.001    1.0  1.0000000  0.9333333  0.8666667
-  4       0.001    5.0  1.0000000  0.9666667  0.8333333
-  4       0.001   10.0  1.0000000  0.9666667  0.8666667
-  4       0.001  100.0  1.0000000  0.9666667  0.8666667
-  4       0.010    0.1  0.9777778  0.9333333  0.8833333
-  4       0.010    0.5  0.9777778  0.9333333  0.9333333
-  4       0.010    1.0  0.9777778  0.9333333  0.9333333
-  4       0.010    5.0  0.9777778  0.9666667  0.8333333
-  4       0.010   10.0  0.9777778  0.9333333  0.8333333
-  4       0.010  100.0  0.9777778  0.9333333  0.8333333
-  4       0.500    0.1  0.8666667  0.8333333  0.4500000
-  4       0.500    0.5  0.8666667  0.8666667  0.4333333
-  4       0.500    1.0  0.8666667  0.8333333  0.4333333
-  4       0.500    5.0  0.8666667  0.8333333  0.4833333
-  4       0.500   10.0  0.8666667  0.8000000  0.4500000
-  4       0.500  100.0  0.8666667  0.8333333  0.4000000
-  4       1.000    0.1  0.8500000  0.8666667  0.4000000
-  4       1.000    0.5  0.7944444  0.7666667  0.4333333
-  4       1.000    1.0  0.8500000  0.8333333  0.3666667
-  4       1.000    5.0  0.8500000  0.9333333  0.4500000
-  4       1.000   10.0  0.7500000  0.8333333  0.4000000
-  4       1.000  100.0  0.8500000  0.8000000  0.4000000
-  5       0.001    0.1  0.9666667  0.8000000  0.8166667
-  5       0.001    0.5  1.0000000  0.9333333  0.8666667
-  5       0.001    1.0  1.0000000  0.9666667  0.8666667
-  5       0.001    5.0  1.0000000  0.9666667  0.8666667
-  5       0.001   10.0  1.0000000  0.9666667  0.8666667
-  5       0.001  100.0  1.0000000  0.9666667  0.8666667
-  5       0.010    0.1  0.9777778  0.9333333  0.8833333
-  5       0.010    0.5  0.9777778  0.9333333  0.9000000
-  5       0.010    1.0  0.9777778  0.9000000  0.8500000
-  5       0.010    5.0  0.9777778  0.9333333  0.8333333
-  5       0.010   10.0  0.9777778  0.9000000  0.8833333
-  5       0.010  100.0  0.9777778  0.9333333  0.8666667
-  5       0.500    0.1  0.9777778  0.9333333  0.7333333
-  5       0.500    0.5  0.9777778  0.9333333  0.6666667
-  5       0.500    1.0  0.9777778  0.9333333  0.7166667
-  5       0.500    5.0  0.9777778  0.9000000  0.7500000
-  5       0.500   10.0  0.9777778  0.9666667  0.7833333
-  5       0.500  100.0  0.9777778  0.9000000  0.8166667
-  5       1.000    0.1  0.9777778  0.9000000  0.8166667
-  5       1.000    0.5  0.9777778  0.9333333  0.6666667
-  5       1.000    1.0  0.9777778  0.9000000  0.7000000
-  5       1.000    5.0  0.9777778  0.9333333  0.8500000
-  5       1.000   10.0  0.9777778  0.9000000  0.7666667
-  5       1.000  100.0  0.9777778  0.9666667  0.7000000
-
-ROC was used to select the optimal model using the largest value.
-The final values used for the model were degree = 3, scale = 0.001 and C = 1.</code></pre>
+#print(model)</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-30-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
@@ -1123,6 +777,8 @@ truth  0  1
     0  1  5
     1  4 15
 [1] 0.8333333</code></pre>
+<pre class="r"><code>
+roc_svmpoly_cn &lt;- ROCit::rocit(score=pred.y,class=test.y)</code></pre>
 <pre class="r"><code># Add to output
 res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
 Setting levels: control = 0, case = 1
@@ -1136,8 +792,6 @@ Setting direction: controls &lt; cases</code></pre>
   model parameter                         label forReg forClass probModel
 1    rf      mtry #Randomly Selected Predictors   TRUE     TRUE      TRUE</code></pre>
 <pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -1158,52 +812,7 @@ model = caret::train(Tumor~., data = training.df,
               nodesize = 1, #default for classification
               tuneGrid = rfgrid)
 
-print(model)
-Random Forest 
-
- 58 samples
-561 predictors
-  2 classes: &#39;no&#39;, &#39;yes&#39; 
-
-No pre-processing
-Resampling: Cross-Validated (10 fold) 
-Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
-Resampling results across tuning parameters:
-
-  mtry  ROC        Sens       Spec     
-   1    0.9333333  0.9000000  0.7166667
-   2    0.9222222  0.8000000  0.7500000
-   3    0.9111111  0.8000000  0.7500000
-   4    0.9333333  0.8000000  0.7833333
-   5    0.9000000  0.8000000  0.7833333
-   6    0.9000000  0.8333333  0.7500000
-   7    0.8888889  0.8333333  0.6833333
-   8    0.8916667  0.8333333  0.7166667
-   9    0.9277778  0.8666667  0.7166667
-  10    0.8666667  0.8333333  0.6833333
-  11    0.9111111  0.8666667  0.7833333
-  12    0.8888889  0.8333333  0.7166667
-  13    0.9111111  0.8333333  0.7500000
-  14    0.9111111  0.9000000  0.7166667
-  15    0.8944444  0.8666667  0.7166667
-  16    0.8722222  0.8666667  0.7166667
-  17    0.9333333  0.8333333  0.7500000
-  18    0.9111111  0.8666667  0.7166667
-  19    0.9277778  0.8666667  0.7833333
-  20    0.9000000  0.8333333  0.7166667
-  21    0.8944444  0.8666667  0.7166667
-  22    0.9166667  0.8666667  0.7166667
-  23    0.9111111  0.8333333  0.7166667
-  24    0.8888889  0.8666667  0.7166667
-  25    0.9333333  0.9333333  0.7166667
-  26    0.9055556  0.8666667  0.7166667
-  27    0.9388889  0.8666667  0.7500000
-  28    0.9277778  0.8666667  0.7500000
-  29    0.9222222  0.9333333  0.7166667
-  30    0.9333333  0.8666667  0.7500000
-
-ROC was used to select the optimal model using the largest value.
-The final value used for the model was mtry = 27.</code></pre>
+#print(model)</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-35-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
@@ -1229,14 +838,13 @@ truth  0  1
     0  1  5
     1  2 17
 [1] 0.8333333</code></pre>
+<pre class="r"><code>
+roc_rf_cn &lt;- ROCit::rocit(score=pred.y,class=test.y)</code></pre>
 <pre class="r"><code># Add to output
 res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
 Setting levels: control = 0, case = 1
 Setting direction: controls &lt; cases</code></pre>
 <pre class="r"><code>rownames(res.testing)[nrow(res.testing)] &lt;- &#39;RandomForest&#39;</code></pre>
-<pre class="r"><code>#feature_importance &lt;- randomForest::importance(model)
-#sorted_importance &lt;- feature_importance[order(-feature_importance[, #&quot;MeanDecreaseGini&quot;]),                                        ]
-#print(sorted_importance)</code></pre>
 </div>
 <div id="elastic-net" class="section level1" number="7">
 <h1><span class="header-section-number">7</span> Elastic net</h1>
@@ -1245,22 +853,16 @@ Setting direction: controls &lt; cases</code></pre>
 1 glmnet     alpha        Mixing Percentage   TRUE     TRUE      TRUE
 2 glmnet    lambda Regularization Parameter   TRUE     TRUE      TRUE</code></pre>
 <pre class="r"><code>train_control = trainControl(method = &quot;cv&quot;, number = 10, search = &quot;grid&quot;,
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
                              classProbs=TRUE)
 
 set.seed(111)
-netgrid &lt;-  expand.grid(alpha = c(0.1, 0.2, 0.5, 0.7, 0.9), # every time model selected 0 auc was 1
-                        lambda = c(0,0.05,0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 1, 5, 10) # 0 is logistic
+netgrid &lt;-  expand.grid(alpha = c(0.1, 0.2, 0.5, 0.7, 0.9), 
+                        lambda = c(0,0.05,0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 1, 5, 10) 
                         )
 
-# auc = 0.59. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1),lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5,1). alpha = 0.005 and lambda = 1.
-# auc = 0.70. lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5). alpha = 0.005 and lambda = 0.5.
-# auc = 0.68. alpha = c(0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1) alpha = 0.01 and lambda = 0.5.
-# auc = 0.70. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5), lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4). alpha = 0.005 and lambda = 0.4.
 
 # training a elastic net classifier tree model while tuning parameters
 model = caret::train(Tumor~., data = training.df,
@@ -1270,77 +872,7 @@ model = caret::train(Tumor~., data = training.df,
               tuneGrid = netgrid)
 
 # summarizing the results
-print(model)
-glmnet 
-
- 58 samples
-561 predictors
-  2 classes: &#39;no&#39;, &#39;yes&#39; 
-
-No pre-processing
-Resampling: Cross-Validated (10 fold) 
-Summary of sample sizes: 53, 53, 52, 52, 52, 52, ... 
-Resampling results across tuning parameters:
-
-  alpha  lambda  ROC        Sens       Spec     
-  0.1     0.00   0.9888889  0.9000000  0.8500000
-  0.1     0.05   0.9888889  0.9000000  0.8000000
-  0.1     0.10   0.9888889  0.9000000  0.8000000
-  0.1     0.20   0.9722222  0.9000000  0.8000000
-  0.1     0.25   0.9833333  0.9000000  0.8000000
-  0.1     0.30   0.9833333  0.9000000  0.8000000
-  0.1     0.35   0.9722222  0.9000000  0.8000000
-  0.1     0.40   0.9722222  0.9000000  0.8000000
-  0.1     1.00   0.8722222  0.9000000  0.6833333
-  0.1     5.00   0.5000000  1.0000000  0.0000000
-  0.1    10.00   0.5000000  1.0000000  0.0000000
-  0.2     0.00   0.9722222  0.9000000  0.8500000
-  0.2     0.05   0.9722222  0.9000000  0.8000000
-  0.2     0.10   0.9722222  0.9000000  0.8000000
-  0.2     0.20   0.9722222  0.9000000  0.8000000
-  0.2     0.25   0.9611111  0.9000000  0.8000000
-  0.2     0.30   0.9444444  0.9000000  0.8000000
-  0.2     0.35   0.9444444  0.9000000  0.7666667
-  0.2     0.40   0.9444444  0.9000000  0.7666667
-  0.2     1.00   0.7777778  0.9666667  0.5000000
-  0.2     5.00   0.5000000  1.0000000  0.0000000
-  0.2    10.00   0.5000000  1.0000000  0.0000000
-  0.5     0.00   0.9611111  0.8666667  0.8166667
-  0.5     0.05   0.9555556  0.9333333  0.8500000
-  0.5     0.10   0.9333333  0.9000000  0.8166667
-  0.5     0.20   0.8833333  0.8666667  0.7000000
-  0.5     0.25   0.8722222  0.9000000  0.6333333
-  0.5     0.30   0.8222222  0.9000000  0.5333333
-  0.5     0.35   0.7666667  0.8666667  0.5000000
-  0.5     0.40   0.7277778  0.8333333  0.5000000
-  0.5     1.00   0.5000000  1.0000000  0.0000000
-  0.5     5.00   0.5000000  1.0000000  0.0000000
-  0.5    10.00   0.5000000  1.0000000  0.0000000
-  0.7     0.00   0.9444444  0.9000000  0.8166667
-  0.7     0.05   0.9333333  0.9000000  0.8166667
-  0.7     0.10   0.9111111  0.8666667  0.7500000
-  0.7     0.20   0.8000000  0.9000000  0.5666667
-  0.7     0.25   0.7500000  0.8333333  0.5000000
-  0.7     0.30   0.6611111  0.8333333  0.4333333
-  0.7     0.35   0.5944444  0.9000000  0.1666667
-  0.7     0.40   0.5000000  1.0000000  0.0000000
-  0.7     1.00   0.5000000  1.0000000  0.0000000
-  0.7     5.00   0.5000000  1.0000000  0.0000000
-  0.7    10.00   0.5000000  1.0000000  0.0000000
-  0.9     0.00   0.9333333  0.9000000  0.8500000
-  0.9     0.05   0.9000000  0.8666667  0.7500000
-  0.9     0.10   0.8500000  0.8666667  0.6666667
-  0.9     0.20   0.7166667  0.8333333  0.5000000
-  0.9     0.25   0.6166667  0.8000000  0.3333333
-  0.9     0.30   0.5111111  1.0000000  0.0000000
-  0.9     0.35   0.5000000  1.0000000  0.0000000
-  0.9     0.40   0.5000000  1.0000000  0.0000000
-  0.9     1.00   0.5000000  1.0000000  0.0000000
-  0.9     5.00   0.5000000  1.0000000  0.0000000
-  0.9    10.00   0.5000000  1.0000000  0.0000000
-
-ROC was used to select the optimal model using the largest value.
-The final values used for the model were alpha = 0.1 and lambda = 0.1.</code></pre>
+#print(model)</code></pre>
 <pre class="r"><code>plot(model)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-41-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#predict on test data
@@ -1366,6 +898,8 @@ truth  0  1
     0  2  4
     1  5 14
 [1] 0.6666667</code></pre>
+<pre class="r"><code>
+roc_elastic_cn &lt;- ROCit::rocit(score=pred.y,class=test.y)</code></pre>
 <pre class="r"><code># Add to output
 res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
 Setting levels: control = 0, case = 1
@@ -1406,9 +940,7 @@ x_test&lt;- as.matrix(testing.df[,-1])
 y_test &lt;- as.matrix(as.numeric(testing.df[,1])-1)
 
 x_train_shape &lt;- length(colnames(x_train))</code></pre>
-<pre class="r"><code>#constraint_maxnorm(max_value = 2, axis = 0)
-# bias_regularizer = regularizer_l2(0.01)
-model &lt;- keras_model_sequential()
+<pre class="r"><code>model &lt;- keras_model_sequential()
 model %&gt;%
   layer_dense(units = 1500, activation = &#39;relu&#39;,
               input_shape = c(x_train_shape),
@@ -1439,321 +971,13 @@ model %&gt;% compile(
   loss = loss_fn,
   metrics = &quot;AUC&quot;
 )</code></pre>
-<pre class="r"><code>model %&gt;% fit(x_train, y_train, epochs = 150, batch_size =5)
-Epoch 1/150
-12/12 - 1s - loss: 2113.9067 - auc: 0.6238 - 1s/epoch - 84ms/step
-Epoch 2/150
-12/12 - 0s - loss: 2023.2312 - auc: 0.6351 - 66ms/epoch - 6ms/step
-Epoch 3/150
-12/12 - 0s - loss: 1935.0557 - auc: 0.7143 - 60ms/epoch - 5ms/step
-Epoch 4/150
-12/12 - 0s - loss: 1849.0638 - auc: 0.7935 - 63ms/epoch - 5ms/step
-Epoch 5/150
-12/12 - 0s - loss: 1765.3984 - auc: 0.6196 - 62ms/epoch - 5ms/step
-Epoch 6/150
-12/12 - 0s - loss: 1683.6586 - auc: 0.8405 - 62ms/epoch - 5ms/step
-Epoch 7/150
-12/12 - 0s - loss: 1604.3063 - auc: 0.6839 - 61ms/epoch - 5ms/step
-Epoch 8/150
-12/12 - 0s - loss: 1526.7941 - auc: 0.7845 - 65ms/epoch - 5ms/step
-Epoch 9/150
-12/12 - 0s - loss: 1451.5165 - auc: 0.7768 - 66ms/epoch - 5ms/step
-Epoch 10/150
-12/12 - 0s - loss: 1378.1769 - auc: 0.9196 - 62ms/epoch - 5ms/step
-Epoch 11/150
-12/12 - 0s - loss: 1306.9674 - auc: 0.9065 - 67ms/epoch - 6ms/step
-Epoch 12/150
-12/12 - 0s - loss: 1237.8754 - auc: 0.8512 - 67ms/epoch - 6ms/step
-Epoch 13/150
-12/12 - 0s - loss: 1170.8612 - auc: 0.8220 - 63ms/epoch - 5ms/step
-Epoch 14/150
-12/12 - 0s - loss: 1105.7782 - auc: 0.8196 - 68ms/epoch - 6ms/step
-Epoch 15/150
-12/12 - 0s - loss: 1042.8875 - auc: 0.7994 - 62ms/epoch - 5ms/step
-Epoch 16/150
-12/12 - 0s - loss: 981.8745 - auc: 0.7339 - 66ms/epoch - 6ms/step
-Epoch 17/150
-12/12 - 0s - loss: 922.7252 - auc: 0.8940 - 64ms/epoch - 5ms/step
-Epoch 18/150
-12/12 - 0s - loss: 865.6814 - auc: 0.9399 - 66ms/epoch - 6ms/step
-Epoch 19/150
-12/12 - 0s - loss: 810.7270 - auc: 0.8673 - 70ms/epoch - 6ms/step
-Epoch 20/150
-12/12 - 0s - loss: 757.5825 - auc: 0.8345 - 65ms/epoch - 5ms/step
-Epoch 21/150
-12/12 - 0s - loss: 706.3023 - auc: 0.8321 - 63ms/epoch - 5ms/step
-Epoch 22/150
-12/12 - 0s - loss: 656.9178 - auc: 0.9137 - 66ms/epoch - 6ms/step
-Epoch 23/150
-12/12 - 0s - loss: 609.5785 - auc: 0.8685 - 63ms/epoch - 5ms/step
-Epoch 24/150
-12/12 - 0s - loss: 563.9918 - auc: 0.9423 - 63ms/epoch - 5ms/step
-Epoch 25/150
-12/12 - 0s - loss: 520.2892 - auc: 0.9173 - 71ms/epoch - 6ms/step
-Epoch 26/150
-12/12 - 0s - loss: 478.5826 - auc: 0.9179 - 62ms/epoch - 5ms/step
-Epoch 27/150
-12/12 - 0s - loss: 438.5147 - auc: 0.9857 - 64ms/epoch - 5ms/step
-Epoch 28/150
-12/12 - 0s - loss: 400.5921 - auc: 0.8786 - 65ms/epoch - 5ms/step
-Epoch 29/150
-12/12 - 0s - loss: 364.1777 - auc: 0.9643 - 69ms/epoch - 6ms/step
-Epoch 30/150
-12/12 - 0s - loss: 329.7297 - auc: 0.9470 - 65ms/epoch - 5ms/step
-Epoch 31/150
-12/12 - 0s - loss: 297.1255 - auc: 0.9321 - 65ms/epoch - 5ms/step
-Epoch 32/150
-12/12 - 0s - loss: 266.2651 - auc: 0.9714 - 69ms/epoch - 6ms/step
-Epoch 33/150
-12/12 - 0s - loss: 237.2941 - auc: 0.9315 - 71ms/epoch - 6ms/step
-Epoch 34/150
-12/12 - 0s - loss: 210.0003 - auc: 0.9679 - 71ms/epoch - 6ms/step
-Epoch 35/150
-12/12 - 0s - loss: 184.5664 - auc: 0.9685 - 70ms/epoch - 6ms/step
-Epoch 36/150
-12/12 - 0s - loss: 160.7209 - auc: 0.9887 - 64ms/epoch - 5ms/step
-Epoch 37/150
-12/12 - 0s - loss: 138.6783 - auc: 0.9857 - 61ms/epoch - 5ms/step
-Epoch 38/150
-12/12 - 0s - loss: 118.4997 - auc: 0.9738 - 66ms/epoch - 6ms/step
-Epoch 39/150
-12/12 - 0s - loss: 100.0956 - auc: 0.9768 - 68ms/epoch - 6ms/step
-Epoch 40/150
-12/12 - 0s - loss: 83.3834 - auc: 0.9470 - 69ms/epoch - 6ms/step
-Epoch 41/150
-12/12 - 0s - loss: 68.3865 - auc: 0.9048 - 63ms/epoch - 5ms/step
-Epoch 42/150
-12/12 - 0s - loss: 54.9629 - auc: 0.9917 - 60ms/epoch - 5ms/step
-Epoch 43/150
-12/12 - 0s - loss: 43.3439 - auc: 0.9702 - 62ms/epoch - 5ms/step
-Epoch 44/150
-12/12 - 0s - loss: 33.3953 - auc: 0.9845 - 64ms/epoch - 5ms/step
-Epoch 45/150
-12/12 - 0s - loss: 25.2836 - auc: 0.9976 - 63ms/epoch - 5ms/step
-Epoch 46/150
-12/12 - 0s - loss: 18.8536 - auc: 0.9893 - 64ms/epoch - 5ms/step
-Epoch 47/150
-12/12 - 0s - loss: 13.9455 - auc: 0.9196 - 68ms/epoch - 6ms/step
-Epoch 48/150
-12/12 - 0s - loss: 10.5289 - auc: 0.9982 - 63ms/epoch - 5ms/step
-Epoch 49/150
-12/12 - 0s - loss: 8.3803 - auc: 0.9423 - 69ms/epoch - 6ms/step
-Epoch 50/150
-12/12 - 0s - loss: 6.8573 - auc: 0.9839 - 68ms/epoch - 6ms/step
-Epoch 51/150
-12/12 - 0s - loss: 5.9742 - auc: 0.9768 - 63ms/epoch - 5ms/step
-Epoch 52/150
-12/12 - 0s - loss: 5.4299 - auc: 0.9357 - 63ms/epoch - 5ms/step
-Epoch 53/150
-12/12 - 0s - loss: 5.0250 - auc: 0.9298 - 66ms/epoch - 5ms/step
-Epoch 54/150
-12/12 - 0s - loss: 4.7439 - auc: 0.9863 - 64ms/epoch - 5ms/step
-Epoch 55/150
-12/12 - 0s - loss: 4.5923 - auc: 0.9863 - 66ms/epoch - 6ms/step
-Epoch 56/150
-12/12 - 0s - loss: 4.4641 - auc: 0.9851 - 65ms/epoch - 5ms/step
-Epoch 57/150
-12/12 - 0s - loss: 4.3333 - auc: 0.9750 - 64ms/epoch - 5ms/step
-Epoch 58/150
-12/12 - 0s - loss: 4.2689 - auc: 0.9893 - 63ms/epoch - 5ms/step
-Epoch 59/150
-12/12 - 0s - loss: 4.2297 - auc: 0.9685 - 65ms/epoch - 5ms/step
-Epoch 60/150
-12/12 - 0s - loss: 4.1626 - auc: 0.9887 - 63ms/epoch - 5ms/step
-Epoch 61/150
-12/12 - 0s - loss: 4.1246 - auc: 0.9946 - 63ms/epoch - 5ms/step
-Epoch 62/150
-12/12 - 0s - loss: 4.0869 - auc: 0.9935 - 64ms/epoch - 5ms/step
-Epoch 63/150
-12/12 - 0s - loss: 4.0726 - auc: 0.9792 - 64ms/epoch - 5ms/step
-Epoch 64/150
-12/12 - 0s - loss: 4.0368 - auc: 0.9780 - 66ms/epoch - 5ms/step
-Epoch 65/150
-12/12 - 0s - loss: 3.9607 - auc: 1.0000 - 66ms/epoch - 6ms/step
-Epoch 66/150
-12/12 - 0s - loss: 3.9672 - auc: 1.0000 - 67ms/epoch - 6ms/step
-Epoch 67/150
-12/12 - 0s - loss: 3.9407 - auc: 0.9839 - 71ms/epoch - 6ms/step
-Epoch 68/150
-12/12 - 0s - loss: 3.8820 - auc: 0.9940 - 67ms/epoch - 6ms/step
-Epoch 69/150
-12/12 - 0s - loss: 3.9031 - auc: 0.9810 - 64ms/epoch - 5ms/step
-Epoch 70/150
-12/12 - 0s - loss: 3.8489 - auc: 0.9744 - 65ms/epoch - 5ms/step
-Epoch 71/150
-12/12 - 0s - loss: 3.8654 - auc: 0.9821 - 63ms/epoch - 5ms/step
-Epoch 72/150
-12/12 - 0s - loss: 3.8262 - auc: 0.9750 - 63ms/epoch - 5ms/step
-Epoch 73/150
-12/12 - 0s - loss: 3.8035 - auc: 0.9637 - 63ms/epoch - 5ms/step
-Epoch 74/150
-12/12 - 0s - loss: 3.7606 - auc: 0.9929 - 66ms/epoch - 5ms/step
-Epoch 75/150
-12/12 - 0s - loss: 3.7517 - auc: 0.9976 - 65ms/epoch - 5ms/step
-Epoch 76/150
-12/12 - 0s - loss: 3.7170 - auc: 0.9524 - 63ms/epoch - 5ms/step
-Epoch 77/150
-12/12 - 0s - loss: 3.7901 - auc: 0.9792 - 63ms/epoch - 5ms/step
-Epoch 78/150
-12/12 - 0s - loss: 3.7586 - auc: 0.9821 - 69ms/epoch - 6ms/step
-Epoch 79/150
-12/12 - 0s - loss: 3.6860 - auc: 0.9976 - 66ms/epoch - 5ms/step
-Epoch 80/150
-12/12 - 0s - loss: 3.7206 - auc: 0.9857 - 65ms/epoch - 5ms/step
-Epoch 81/150
-12/12 - 0s - loss: 3.7343 - auc: 0.9619 - 67ms/epoch - 6ms/step
-Epoch 82/150
-12/12 - 0s - loss: 3.7411 - auc: 0.9738 - 63ms/epoch - 5ms/step
-Epoch 83/150
-12/12 - 0s - loss: 3.6818 - auc: 0.9952 - 65ms/epoch - 5ms/step
-Epoch 84/150
-12/12 - 0s - loss: 3.6692 - auc: 0.9946 - 67ms/epoch - 6ms/step
-Epoch 85/150
-12/12 - 0s - loss: 3.6500 - auc: 0.9762 - 64ms/epoch - 5ms/step
-Epoch 86/150
-12/12 - 0s - loss: 3.6793 - auc: 0.9804 - 63ms/epoch - 5ms/step
-Epoch 87/150
-12/12 - 0s - loss: 3.6457 - auc: 0.9810 - 68ms/epoch - 6ms/step
-Epoch 88/150
-12/12 - 0s - loss: 3.5832 - auc: 0.9768 - 65ms/epoch - 5ms/step
-Epoch 89/150
-12/12 - 0s - loss: 3.6147 - auc: 0.9595 - 64ms/epoch - 5ms/step
-Epoch 90/150
-12/12 - 0s - loss: 3.6338 - auc: 0.9643 - 63ms/epoch - 5ms/step
-Epoch 91/150
-12/12 - 0s - loss: 3.6561 - auc: 1.0000 - 68ms/epoch - 6ms/step
-Epoch 92/150
-12/12 - 0s - loss: 3.6609 - auc: 0.9548 - 65ms/epoch - 5ms/step
-Epoch 93/150
-12/12 - 0s - loss: 3.6139 - auc: 0.9869 - 63ms/epoch - 5ms/step
-Epoch 94/150
-12/12 - 0s - loss: 3.5737 - auc: 0.9821 - 69ms/epoch - 6ms/step
-Epoch 95/150
-12/12 - 0s - loss: 3.6366 - auc: 0.9298 - 66ms/epoch - 5ms/step
-Epoch 96/150
-12/12 - 0s - loss: 3.6219 - auc: 0.9768 - 66ms/epoch - 6ms/step
-Epoch 97/150
-12/12 - 0s - loss: 3.6176 - auc: 0.9470 - 65ms/epoch - 5ms/step
-Epoch 98/150
-12/12 - 0s - loss: 3.5417 - auc: 0.9780 - 64ms/epoch - 5ms/step
-Epoch 99/150
-12/12 - 0s - loss: 3.4109 - auc: 0.9940 - 67ms/epoch - 6ms/step
-Epoch 100/150
-12/12 - 0s - loss: 3.4657 - auc: 0.9917 - 65ms/epoch - 5ms/step
-Epoch 101/150
-12/12 - 0s - loss: 3.4299 - auc: 0.9964 - 66ms/epoch - 5ms/step
-Epoch 102/150
-12/12 - 0s - loss: 3.4527 - auc: 0.9810 - 70ms/epoch - 6ms/step
-Epoch 103/150
-12/12 - 0s - loss: 3.3951 - auc: 0.9917 - 73ms/epoch - 6ms/step
-Epoch 104/150
-12/12 - 0s - loss: 3.4112 - auc: 0.9857 - 63ms/epoch - 5ms/step
-Epoch 105/150
-12/12 - 0s - loss: 3.4042 - auc: 0.9756 - 61ms/epoch - 5ms/step
-Epoch 106/150
-12/12 - 0s - loss: 3.4395 - auc: 0.9714 - 61ms/epoch - 5ms/step
-Epoch 107/150
-12/12 - 0s - loss: 3.4332 - auc: 0.9780 - 61ms/epoch - 5ms/step
-Epoch 108/150
-12/12 - 0s - loss: 3.3749 - auc: 0.9929 - 63ms/epoch - 5ms/step
-Epoch 109/150
-12/12 - 0s - loss: 3.4168 - auc: 0.9726 - 62ms/epoch - 5ms/step
-Epoch 110/150
-12/12 - 0s - loss: 3.4550 - auc: 0.9696 - 62ms/epoch - 5ms/step
-Epoch 111/150
-12/12 - 0s - loss: 3.4070 - auc: 0.9905 - 69ms/epoch - 6ms/step
-Epoch 112/150
-12/12 - 0s - loss: 3.2842 - auc: 1.0000 - 65ms/epoch - 5ms/step
-Epoch 113/150
-12/12 - 0s - loss: 3.3370 - auc: 0.9804 - 64ms/epoch - 5ms/step
-Epoch 114/150
-12/12 - 0s - loss: 3.3679 - auc: 0.9720 - 67ms/epoch - 6ms/step
-Epoch 115/150
-12/12 - 0s - loss: 3.2789 - auc: 0.9976 - 65ms/epoch - 5ms/step
-Epoch 116/150
-12/12 - 0s - loss: 3.2887 - auc: 0.9863 - 63ms/epoch - 5ms/step
-Epoch 117/150
-12/12 - 0s - loss: 3.1959 - auc: 1.0000 - 64ms/epoch - 5ms/step
-Epoch 118/150
-12/12 - 0s - loss: 3.2946 - auc: 0.9869 - 66ms/epoch - 5ms/step
-Epoch 119/150
-12/12 - 0s - loss: 3.3097 - auc: 0.9893 - 63ms/epoch - 5ms/step
-Epoch 120/150
-12/12 - 0s - loss: 3.3029 - auc: 0.9762 - 68ms/epoch - 6ms/step
-Epoch 121/150
-12/12 - 0s - loss: 3.2763 - auc: 1.0000 - 64ms/epoch - 5ms/step
-Epoch 122/150
-12/12 - 0s - loss: 3.2299 - auc: 1.0000 - 63ms/epoch - 5ms/step
-Epoch 123/150
-12/12 - 0s - loss: 3.1816 - auc: 0.9887 - 73ms/epoch - 6ms/step
-Epoch 124/150
-12/12 - 0s - loss: 3.2240 - auc: 0.9714 - 61ms/epoch - 5ms/step
-Epoch 125/150
-12/12 - 0s - loss: 3.2697 - auc: 0.9405 - 62ms/epoch - 5ms/step
-Epoch 126/150
-12/12 - 0s - loss: 3.2226 - auc: 0.9893 - 62ms/epoch - 5ms/step
-Epoch 127/150
-12/12 - 0s - loss: 3.2573 - auc: 0.9577 - 66ms/epoch - 6ms/step
-Epoch 128/150
-12/12 - 0s - loss: 3.1836 - auc: 0.9917 - 64ms/epoch - 5ms/step
-Epoch 129/150
-12/12 - 0s - loss: 3.1696 - auc: 1.0000 - 64ms/epoch - 5ms/step
-Epoch 130/150
-12/12 - 0s - loss: 3.1684 - auc: 0.9673 - 63ms/epoch - 5ms/step
-Epoch 131/150
-12/12 - 0s - loss: 3.0357 - auc: 1.0000 - 63ms/epoch - 5ms/step
-Epoch 132/150
-12/12 - 0s - loss: 3.0885 - auc: 0.9964 - 63ms/epoch - 5ms/step
-Epoch 133/150
-12/12 - 0s - loss: 3.0517 - auc: 0.9964 - 63ms/epoch - 5ms/step
-Epoch 134/150
-12/12 - 0s - loss: 3.1301 - auc: 0.9851 - 63ms/epoch - 5ms/step
-Epoch 135/150
-12/12 - 0s - loss: 3.1888 - auc: 0.9482 - 65ms/epoch - 5ms/step
-Epoch 136/150
-12/12 - 0s - loss: 3.1880 - auc: 0.9536 - 65ms/epoch - 5ms/step
-Epoch 137/150
-12/12 - 0s - loss: 3.2068 - auc: 0.9917 - 62ms/epoch - 5ms/step
-Epoch 138/150
-12/12 - 0s - loss: 3.1400 - auc: 0.9940 - 63ms/epoch - 5ms/step
-Epoch 139/150
-12/12 - 0s - loss: 3.0643 - auc: 0.9905 - 66ms/epoch - 6ms/step
-Epoch 140/150
-12/12 - 0s - loss: 3.0959 - auc: 0.9845 - 66ms/epoch - 5ms/step
-Epoch 141/150
-12/12 - 0s - loss: 3.1356 - auc: 0.9798 - 62ms/epoch - 5ms/step
-Epoch 142/150
-12/12 - 0s - loss: 3.1335 - auc: 0.9756 - 66ms/epoch - 6ms/step
-Epoch 143/150
-12/12 - 0s - loss: 3.2027 - auc: 0.9607 - 65ms/epoch - 5ms/step
-Epoch 144/150
-12/12 - 0s - loss: 3.1275 - auc: 0.9869 - 63ms/epoch - 5ms/step
-Epoch 145/150
-12/12 - 0s - loss: 3.2102 - auc: 0.9506 - 67ms/epoch - 6ms/step
-Epoch 146/150
-12/12 - 0s - loss: 3.1330 - auc: 0.9750 - 63ms/epoch - 5ms/step
-Epoch 147/150
-12/12 - 0s - loss: 3.1449 - auc: 0.9750 - 63ms/epoch - 5ms/step
-Epoch 148/150
-12/12 - 0s - loss: 3.1852 - auc: 0.9810 - 64ms/epoch - 5ms/step
-Epoch 149/150
-12/12 - 0s - loss: 3.1226 - auc: 0.9964 - 61ms/epoch - 5ms/step
-Epoch 150/150
-12/12 - 0s - loss: 3.0922 - auc: 0.9821 - 63ms/epoch - 5ms/step</code></pre>
-<pre class="r"><code>#history &lt;- model %&gt;% fit(
-#  x_train,y_train,
-#  epochs = 30, batch_size = 256, 
-#  validation_split = 0.2
-#)
-
-#plot(history)</code></pre>
+<pre class="r"><code>model %&gt;% fit(x_train, y_train, epochs = 150, batch_size =5)</code></pre>
 <pre class="r"><code>model %&gt;% evaluate(x_test,  y_test, verbose = 2)
-1/1 - 0s - loss: 4.5354 - auc: 0.9737 - 155ms/epoch - 155ms/step
+1/1 - 0s - loss: 4.5354 - auc: 0.9737 - 146ms/epoch - 146ms/step
      loss       auc 
 4.5353580 0.9736842 </code></pre>
-<pre class="r"><code>#model %&gt;% predict(x_test) %&gt;% k_argmax() #only for softmax
-b&lt;-model %&gt;% predict(x_test) #%&gt;% `&gt;`(0.5) %&gt;% k_cast(&quot;int32&quot;) #for sigmoid.0
-1/1 - 0s - 63ms/epoch - 63ms/step</code></pre>
+<pre class="r"><code>b&lt;-model %&gt;% predict(x_test) #%&gt;% `&gt;`(0.5) %&gt;% k_cast(&quot;int32&quot;) 
+1/1 - 0s - 64ms/epoch - 64ms/step</code></pre>
 <pre class="r"><code>b &lt;- as.numeric(b)
 b
  [1] 0.6603139 0.1790317 0.6191009 0.7149007 0.6164845 0.9392020 0.2831569
@@ -1777,6 +1001,8 @@ truth  0  1
     0  5  1
     1  0 19
 [1] 0.1666667</code></pre>
+<pre class="r"><code>
+roc_nnet_cn &lt;- ROCit::rocit(score=b,class=as.numeric(y_test))</code></pre>
 <pre class="r"><code># Add to output
 res.testing &lt;- rbind.data.frame(res.testing, c(pROC::auc(y_test, b), FNR(b, y_test), FPR(b, y_test)))
 Setting levels: control = 0, case = 1
@@ -1785,15 +1011,38 @@ matrix as response. Unexpected results may be produced, please pass a vector or
 factor.
 Setting direction: controls &lt; cases</code></pre>
 <pre class="r"><code>rownames(res.testing)[nrow(res.testing)] &lt;- &#39;Nnet&#39;</code></pre>
-<p>plot roc-auc curve</p>
-<pre class="r"><code>curve_values &lt;- pROC::roc(as.numeric(y_test), b)
-Setting levels: control = 0, case = 1
-Setting direction: controls &lt; cases</code></pre>
-<pre class="r"><code>plot(curve_values ,main =&quot;ROC curve -- Feedforward Nnet&quot;)</code></pre>
+</div>
+<div id="roc-auc-curve-for-all-models" class="section level1" number="9">
+<h1><span class="header-section-number">9</span> ROC-AUC curve for all models</h1>
+<pre class="r"><code>plot(roc_xgboost_cn$TPR ~ roc_xgboost_cn$FPR, type = &quot;n&quot;, 
+ xlab = &quot;1 - Specificity (FPR)&quot;, ylab = &quot;Sensitivity (TPR)&quot;)
+abline(0, 1, col = &quot;gray&quot;, lty = 2, lwd = 2)
+
+lines(roc_nnet_cn$TPR ~ roc_nnet_cn$FPR, col = 7, lwd = 2, lty = 1)  
+lines(roc_svmradial_cn$TPR ~ roc_svmradial_cn$FPR, col = 3, lwd = 2, lty = 1)  
+lines(roc_svmlinear_cn$TPR ~ roc_svmlinear_cn$FPR, col = 2, lwd = 2, lty = 1)
+lines(roc_rf_cn$TPR ~ roc_rf_cn$FPR, col = 5, lwd = 2, lty = 1)
+lines(roc_svmpoly_cn$TPR ~ roc_svmpoly_cn$FPR, col = 4, lwd = 2, lty = 1)
+lines(roc_elastic_cn$TPR ~ roc_elastic_cn$FPR, col = 6, lwd = 2, lty = 1)
+lines(roc_xgboost_cn$TPR -0.05 ~ roc_xgboost_cn$FPR, col = 1, lwd = 2, lty = 1)  
+
+
+legend(&quot;bottomright&quot;, col = c(1,2,3,4,5,6,7),
+       legend = c(paste(&quot;XGboost&quot;,&quot;AUC:&quot;,round(roc_xgboost_cn$AUC,2)),
+                  paste(&quot;SVM linear&quot;,&quot;AUC:&quot;,round(roc_svmlinear_cn$AUC,2)),
+                  paste(&quot;SVM rbf&quot;,&quot;AUC:&quot;,round(roc_svmradial_cn$AUC,2)),
+                  paste(&quot;SVM poly&quot;,&quot;AUC:&quot;,round(roc_svmpoly_cn$AUC,2)),
+                  paste(&quot;Random forest&quot;,&quot;AUC:&quot;,round(roc_rf_cn$AUC,2)),
+                  paste(&quot;Elastic net&quot;,&quot;AUC:&quot;,round(roc_elastic_cn$AUC,2)),
+                  paste(&quot;Neural network&quot;,&quot;AUC:&quot;,round(roc_nnet_cn$AUC,2))), 
+       lwd = 2, lty = 1,
+       cex = 0.8, 
+       pt.cex = 0.8, 
+       x.intersp = 1, y.intersp = 1)</code></pre>
 <p><img src="06_pr_cn_files/figure-html/unnamed-chunk-56-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 </div>
-<div id="results" class="section level1" number="9">
-<h1><span class="header-section-number">9</span> Results</h1>
+<div id="model-perfomancesresults-in-table" class="section level1" number="10">
+<h1><span class="header-section-number">10</span> Model perfomances/results in table</h1>
 <pre class="r"><code>(res.testing)
                    AUC       FNR       FPR
 XGBOOST      0.7368421 0.3684211 0.1666667
@@ -1805,8 +1054,9 @@ RandomForest 0.7456140 0.1052632 0.8333333
 ElasticNet   0.6929825 0.2631579 0.6666667
 Nnet         0.9736842 0.0000000 0.1666667</code></pre>
 </div>
-<div id="shap-value-global-explanation" class="section level1" number="10">
-<h1><span class="header-section-number">10</span> SHAP value (Global explanation)</h1>
+<div id="shap-value-global-explanation-logistic-regression-with-most-important-genes" class="section level1" number="11">
+<h1><span class="header-section-number">11</span> SHAP value (Global explanation) + logistic regression with most important genes</h1>
+<p>Extract feature importance values for each gene. Model considered is neural network.</p>
 <pre class="r"><code>library(kernelshap)
 library(shapviz)
 library(ggplot2)
@@ -1814,62 +1064,62 @@ library(patchwork)
 X &lt;- x_test 
 s &lt;- shapviz(kernelshap(model, X, bg_X = x_train))
 1/1 - 0s - 12ms/epoch - 12ms/step
-2/2 - 0s - 14ms/epoch - 7ms/step
+2/2 - 0s - 13ms/epoch - 7ms/step
 Kernel SHAP values by the hybrid strategy of degree 1
 
   |                                                                            
   |                                                                      |   0%2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |===                                                                   |   4%2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |======                                                                |   8%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |========                                                              |  12%2034/2034 - 3s - 3s/epoch - 2ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |===                                                                   |   4%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |======                                                                |   8%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |========                                                              |  12%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
   |===========                                                           |  16%2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
   |==============                                                        |  20%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |=================                                                     |  24%2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
+  |=================                                                     |  24%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |====================                                                  |  28%2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
+  |====================                                                  |  28%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
   |======================                                                |  32%2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |=========================                                             |  36%2034/2034 - 3s - 3s/epoch - 1ms/step
+  |=========================                                             |  36%2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 4s - 4s/epoch - 2ms/step
 
   |                                                                            
   |============================                                          |  40%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
@@ -1879,277 +1129,86 @@ Kernel SHAP values by the hybrid strategy of degree 1
 
   |                                                                            
   |==================================                                    |  48%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
-  |====================================                                  |  52%2034/2034 - 2s - 2s/epoch - 1ms/step
+  |====================================                                  |  52%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |=======================================                               |  56%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |==========================================                            |  60%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |=============================================                         |  64%2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |================================================                      |  68%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+
+  |                                                                            
+  |==================================================                    |  72%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+
+  |                                                                            
+  |=====================================================                 |  76%2034/2034 - 3s - 3s/epoch - 1ms/step
 2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |=======================================                               |  56%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |==========================================                            |  60%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |=============================================                         |  64%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |================================================                      |  68%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |==================================================                    |  72%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
-  |=====================================================                 |  76%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-
-  |                                                                            
   |========================================================              |  80%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |===========================================================           |  84%2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
+  |===========================================================           |  84%2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
-  |==============================================================        |  88%2034/2034 - 2s - 2s/epoch - 1ms/step
+  |==============================================================        |  88%2034/2034 - 3s - 3s/epoch - 1ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
 
   |                                                                            
   |================================================================      |  92%2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 2s - 2s/epoch - 1ms/step
 2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
   |===================================================================   |  96%2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
-2034/2034 - 3s - 3s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
+2034/2034 - 2s - 2s/epoch - 1ms/step
 
   |                                                                            
   |======================================================================| 100%</code></pre>
 <pre class="r"><code>sv_importance(s, kind = &quot;bee&quot;, show_numbers = TRUE) + theme_classic()</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-61-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-62-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>#sv_dependence(s, colnames(X), color_var = NULL) &amp;
 #  ylim(-4, 4)
 sv_importance(s, max_display=30)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-61-2.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-62-2.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>sv_waterfall(s, row_id = 3)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-61-3.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
-<pre class="r"><code>#pdf(&quot;beeswarm_features_cn.pdf&quot;)
-#sv_importance(s, kind = &quot;bee&quot;, show_numbers = TRUE) + theme_classic()
-#dev.off()</code></pre>
-<p>Mean shap value for each gene</p>
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-62-3.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p>Distribution of shapley values obtained from our model.</p>
 <pre class="r"><code>shap.value.list&lt;- colMeans(abs(s$S))
 ordered.shap.value.list &lt;- shap.value.list[order(-abs(shap.value.list))]
 histogram(ordered.shap.value.list, breaks = 50)</code></pre>
-<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-63-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
-<pre class="r"><code>names(ordered.shap.value.list)
-  [1] &quot;CTSW&quot;                   &quot;CD96&quot;                   &quot;AIF1L&quot;                 
-  [4] &quot;IFNGR1&quot;                 &quot;PTPRF&quot;                  &quot;TMSB4XP4&quot;              
-  [7] &quot;EIF3L&quot;                  &quot;ACAA2&quot;                  &quot;RMRP&quot;                  
- [10] &quot;MYCT1&quot;                  &quot;TIMM10B&quot;                &quot;TMSB4XP6&quot;              
- [13] &quot;SMTN&quot;                   &quot;RPS9&quot;                   &quot;CABP5&quot;                 
- [16] &quot;NACA&quot;                   &quot;RN7SL2&quot;                 &quot;CRYZL2P&quot;               
- [19] &quot;PALM2AKAP2&quot;             &quot;TPT1&quot;                   &quot;CCT3&quot;                  
- [22] &quot;E2F1&quot;                   &quot;DTX2P1-UPK3BP1-PMS2P11&quot; &quot;SOD1&quot;                  
- [25] &quot;NPEPPS&quot;                 &quot;PELP1&quot;                  &quot;RPS3&quot;                  
- [28] &quot;RPL37A&quot;                 &quot;WDR11-DT&quot;               &quot;RPS11&quot;                 
- [31] &quot;XPO5&quot;                   &quot;COX7C&quot;                  &quot;SF1&quot;                   
- [34] &quot;VAV3&quot;                   &quot;PPP1CB&quot;                 &quot;SYF2&quot;                  
- [37] &quot;LSMEM1&quot;                 &quot;PQBP1&quot;                  &quot;ZNF385D&quot;               
- [40] &quot;RNA5-8SP6&quot;              &quot;PRUNE2&quot;                 &quot;MEPCE&quot;                 
- [43] &quot;RPL39&quot;                  &quot;RPL4P5&quot;                 &quot;ZFYVE21&quot;               
- [46] &quot;COMT&quot;                   &quot;TPTEP1&quot;                 &quot;DAP&quot;                   
- [49] &quot;WASF1&quot;                  &quot;RPLP1&quot;                  &quot;RPL41&quot;                 
- [52] &quot;RPL37&quot;                  &quot;NBEAL1&quot;                 &quot;RPS3A&quot;                 
- [55] &quot;RPL15P3&quot;                &quot;SSBP3&quot;                  &quot;RPL17P7&quot;               
- [58] &quot;LINC02915&quot;              &quot;PARP4&quot;                  &quot;STX1A&quot;                 
- [61] &quot;ERP29&quot;                  &quot;RPL32&quot;                  &quot;DYNC2I1&quot;               
- [64] &quot;CERS2&quot;                  &quot;SCARNA10&quot;               &quot;H1-4&quot;                  
- [67] &quot;PDGFB&quot;                  &quot;ACADVL&quot;                 &quot;MYL12A&quot;                
- [70] &quot;ZFAND3&quot;                 &quot;KIF22&quot;                  &quot;RPS21&quot;                 
- [73] &quot;NPC2&quot;                   &quot;CD68&quot;                   &quot;PPIE&quot;                  
- [76] &quot;ECH1&quot;                   &quot;RPSA2&quot;                  &quot;OPHN1&quot;                 
- [79] &quot;NSRP1&quot;                  &quot;ACRBP&quot;                  &quot;POLR3GL&quot;               
- [82] &quot;RN7SK&quot;                  &quot;LRRC28&quot;                 &quot;LINC00324&quot;             
- [85] &quot;CYP1B1&quot;                 &quot;RPS18&quot;                  &quot;H4C12&quot;                 
- [88] &quot;MNDA&quot;                   &quot;RPL22&quot;                  &quot;QKI&quot;                   
- [91] &quot;GNAZ&quot;                   &quot;ZNF542P&quot;                &quot;PTPRS&quot;                 
- [94] &quot;RPS10&quot;                  &quot;RPN1&quot;                   &quot;RPS5&quot;                  
- [97] &quot;RNU1-1&quot;                 &quot;STARD8&quot;                 &quot;CHAMP1&quot;                
-[100] &quot;EIF2D&quot;                  &quot;RN7SL1&quot;                 &quot;SSX2IP&quot;                
-[103] &quot;H2BC4&quot;                  &quot;FCER1G&quot;                 &quot;RNA5SP150&quot;             
-[106] &quot;CYRIB&quot;                  &quot;GRHL1&quot;                  &quot;EFHC2&quot;                 
-[109] &quot;HNRNPH3&quot;                &quot;TRNR&quot;                   &quot;RBM23&quot;                 
-[112] &quot;RPL10A&quot;                 &quot;RPL36AP37&quot;              &quot;CD9&quot;                   
-[115] &quot;PFDN5&quot;                  &quot;TUBB1&quot;                  &quot;RPS23P8&quot;               
-[118] &quot;MTND1P23&quot;               &quot;NDRG3&quot;                  &quot;HLA-DQB1&quot;              
-[121] &quot;TRNM&quot;                   &quot;EEF1A1P6&quot;               &quot;RPS24&quot;                 
-[124] &quot;RN7SL674P&quot;              &quot;RAB2A&quot;                  &quot;AP2A2&quot;                 
-[127] &quot;CLDN5&quot;                  &quot;SEMA4D&quot;                 &quot;TPGS2&quot;                 
-[130] &quot;H2BC3&quot;                  &quot;NLN&quot;                    &quot;DERA&quot;                  
-[133] &quot;RPL14&quot;                  &quot;TRNP&quot;                   &quot;TLE4&quot;                  
-[136] &quot;EEF1B2P3&quot;               &quot;EEF1A1P13&quot;              &quot;TRIR&quot;                  
-[139] &quot;DPYSL2&quot;                 &quot;RPL38&quot;                  &quot;TATDN1&quot;                
-[142] &quot;CMC2&quot;                   &quot;NPIPB5&quot;                 &quot;YY1AP1&quot;                
-[145] &quot;EEF1G&quot;                  &quot;EEF1A1&quot;                 &quot;SNORD3A&quot;               
-[148] &quot;SP2&quot;                    &quot;H3C2&quot;                   &quot;PRDX2&quot;                 
-[151] &quot;SNORD3C&quot;                &quot;NFKBIZ&quot;                 &quot;RPLP2&quot;                 
-[154] &quot;RN7SL4P&quot;                &quot;RNVU1-7&quot;                &quot;SMANTIS&quot;               
-[157] &quot;RPL10P16&quot;               &quot;RPL22P1&quot;                &quot;IGHG1&quot;                 
-[160] &quot;RPL4&quot;                   &quot;PICALM&quot;                 &quot;RPL13P12&quot;              
-[163] &quot;RPS15&quot;                  &quot;TXN&quot;                    &quot;RACK1&quot;                 
-[166] &quot;EFNB2&quot;                  &quot;C1QBP&quot;                  &quot;GTPBP2&quot;                
-[169] &quot;MRPL46&quot;                 &quot;H2BC6&quot;                  &quot;RPL13&quot;                 
-[172] &quot;SLC18A2-AS1&quot;            &quot;RPL30&quot;                  &quot;H3C3&quot;                  
-[175] &quot;SLC6A4&quot;                 &quot;LINC00989&quot;              &quot;IFITM3&quot;                
-[178] &quot;CLCN3&quot;                  &quot;RPL8&quot;                   &quot;SLC25A6&quot;               
-[181] &quot;DDX23&quot;                  &quot;RPL7&quot;                   &quot;PNKD&quot;                  
-[184] &quot;PHB2&quot;                   &quot;RNASEK&quot;                 &quot;RNY3&quot;                  
-[187] &quot;AIDA&quot;                   &quot;LIMS3&quot;                  &quot;RPL36&quot;                 
-[190] &quot;TRNT&quot;                   &quot;SNRPF&quot;                  &quot;TBL1X&quot;                 
-[193] &quot;NUDT4&quot;                  &quot;PANX1&quot;                  &quot;RN7SL128P&quot;             
-[196] &quot;RPS2P46&quot;                &quot;ZFP36L1&quot;                &quot;UBXN7&quot;                 
-[199] &quot;RNY3P1&quot;                 &quot;RPL23A&quot;                 &quot;HDDC2&quot;                 
-[202] &quot;LYPLAL1&quot;                &quot;C1QB&quot;                   &quot;EHMT2&quot;                 
-[205] &quot;RPL27A&quot;                 &quot;H2BC12&quot;                 &quot;H4C3&quot;                  
-[208] &quot;GRK5&quot;                   &quot;ABHD14B&quot;                &quot;SEPTIN11&quot;              
-[211] &quot;IK&quot;                     &quot;CD52&quot;                   &quot;RAB27B&quot;                
-[214] &quot;MAF&quot;                    &quot;H2AC11&quot;                 &quot;EEF2&quot;                  
-[217] &quot;RN7SL151P&quot;              &quot;RPL13AP7&quot;               &quot;RN7SL752P&quot;             
-[220] &quot;JMJD8&quot;                  &quot;HABP4&quot;                  &quot;SH3BGRL3&quot;              
-[223] &quot;RPS6&quot;                   &quot;TNPO1&quot;                  &quot;MTMR2&quot;                 
-[226] &quot;SIK3&quot;                   &quot;EIF2AK1&quot;                &quot;TRA2B&quot;                 
-[229] &quot;RPL3&quot;                   &quot;GPI&quot;                    &quot;TRNG&quot;                  
-[232] &quot;PLEK&quot;                   &quot;NET1&quot;                   &quot;RPL23&quot;                 
-[235] &quot;RPLP0P9&quot;                &quot;TRAK2&quot;                  &quot;RPS27&quot;                 
-[238] &quot;GIMAP7&quot;                 &quot;RPL13A&quot;                 &quot;RNA5SP429&quot;             
-[241] &quot;TRNI&quot;                   &quot;CD3D&quot;                   &quot;PNRC2&quot;                 
-[244] &quot;P2RX1&quot;                  &quot;THBS1&quot;                  &quot;MOB3C&quot;                 
-[247] &quot;MAPK1&quot;                  &quot;H2AC8&quot;                  &quot;RAC1&quot;                  
-[250] &quot;TMCC2&quot;                  &quot;ZRSR2&quot;                  &quot;RGL1&quot;                  
-[253] &quot;RPL21&quot;                  &quot;RPL31&quot;                  &quot;VPS8&quot;                  
-[256] &quot;WHAMM&quot;                  &quot;NT5C3AP1&quot;               &quot;ZFPM1&quot;                 
-[259] &quot;TADA3&quot;                  &quot;ASH2L&quot;                  &quot;DENND2C&quot;               
-[262] &quot;RNY1&quot;                   &quot;MAFB&quot;                   &quot;PTPRM&quot;                 
-[265] &quot;FAM153CP&quot;               &quot;HPSE&quot;                   &quot;PCGF5&quot;                 
-[268] &quot;ATP5MJ&quot;                 &quot;VTRNA1-1&quot;               &quot;EIF3G&quot;                 
-[271] &quot;ALDH1A1&quot;                &quot;SRGAP2&quot;                 &quot;TARS3&quot;                 
-[274] &quot;RPS4X&quot;                  &quot;FAU&quot;                    &quot;STMP1&quot;                 
-[277] &quot;RNU11&quot;                  &quot;GET3&quot;                   &quot;SLC39A8&quot;               
-[280] &quot;RPL35&quot;                  &quot;RPL36AL&quot;                &quot;RNU5A-1&quot;               
-[283] &quot;DYNLL2&quot;                 &quot;ZC3H6&quot;                  &quot;TMEM164&quot;               
-[286] &quot;ZNF22&quot;                  &quot;YTHDC1&quot;                 &quot;SDC4&quot;                  
-[289] &quot;RNA5SP202&quot;              &quot;RPS3AP26&quot;               &quot;H2BC9&quot;                 
-[292] &quot;TFDP1&quot;                  &quot;CEBPB&quot;                  &quot;NUTF2&quot;                 
-[295] &quot;RPS28&quot;                  &quot;GP5&quot;                    &quot;RPL24&quot;                 
-[298] &quot;FAM91A1&quot;                &quot;LIMS1&quot;                  &quot;GP1BA&quot;                 
-[301] &quot;AP2B1&quot;                  &quot;H3-3A&quot;                  &quot;RPS27AP16&quot;             
-[304] &quot;BAG4&quot;                   &quot;RNA5SP149&quot;              &quot;GTF2B&quot;                 
-[307] &quot;PID1&quot;                   &quot;MTHFD2L&quot;                &quot;RPS13&quot;                 
-[310] &quot;EFNB1&quot;                  &quot;UBE2J1&quot;                 &quot;STARD3&quot;                
-[313] &quot;EEF1A1P5&quot;               &quot;SLC2A1&quot;                 &quot;LINC00892&quot;             
-[316] &quot;TSPYL2&quot;                 &quot;PDK4&quot;                   &quot;RPS23&quot;                 
-[319] &quot;RPS15A&quot;                 &quot;H2BC18&quot;                 &quot;CMTM6&quot;                 
-[322] &quot;ORC4&quot;                   &quot;RAP1A&quot;                  &quot;TRNQ&quot;                  
-[325] &quot;DAAM1&quot;                  &quot;RN7SL3&quot;                 &quot;EIF3D&quot;                 
-[328] &quot;FHOD1&quot;                  &quot;SERPINB9&quot;               &quot;MAGED2&quot;                
-[331] &quot;CLNS1A&quot;                 &quot;RPL27&quot;                  &quot;RNU5B-1&quot;               
-[334] &quot;H2AC14&quot;                 &quot;H3-3B&quot;                  &quot;RNGTT&quot;                 
-[337] &quot;MPIG6B&quot;                 &quot;PPIB&quot;                   &quot;IGHA1&quot;                 
-[340] &quot;MEGF9&quot;                  &quot;UBE2L6&quot;                 &quot;CGNL1&quot;                 
-[343] &quot;ADAM10&quot;                 &quot;S100A6&quot;                 &quot;NFE2&quot;                  
-[346] &quot;MTMR10&quot;                 &quot;RPS17&quot;                  &quot;EXOC6B&quot;                
-[349] &quot;UBXN1&quot;                  &quot;RPL11&quot;                  &quot;RPL19&quot;                 
-[352] &quot;PAK2&quot;                   &quot;TNFAIP8L1&quot;              &quot;CEP162&quot;                
-[355] &quot;SGMS1&quot;                  &quot;ATP6AP1&quot;                &quot;ODC1&quot;                  
-[358] &quot;TRNN&quot;                   &quot;TRNC&quot;                   &quot;TSPAN18&quot;               
-[361] &quot;RAB4A&quot;                  &quot;UBE2B&quot;                  &quot;TSG101&quot;                
-[364] &quot;RPL7A&quot;                  &quot;HMGB1P8&quot;                &quot;ZNF609&quot;                
-[367] &quot;ROCK2&quot;                  &quot;EEF1D&quot;                  &quot;RPS12&quot;                 
-[370] &quot;SMS&quot;                    &quot;LRP12&quot;                  &quot;H4C5&quot;                  
-[373] &quot;EEF1B2&quot;                 &quot;FHDC1&quot;                  &quot;C19orf33&quot;              
-[376] &quot;ZSCAN16-AS1&quot;            &quot;SLFN14&quot;                 &quot;RPS7&quot;                  
-[379] &quot;RPS16&quot;                  &quot;NEXN-AS1&quot;               &quot;DNAAF11&quot;               
-[382] &quot;KCNK6&quot;                  &quot;IFITM2&quot;                 &quot;LIMD1-AS1&quot;             
-[385] &quot;CEP250&quot;                 &quot;ASAP2&quot;                  &quot;C12orf57&quot;              
-[388] &quot;TRNE&quot;                   &quot;BCCIP&quot;                  &quot;CLK4&quot;                  
-[391] &quot;RN7SL396P&quot;              &quot;EIF3K&quot;                  &quot;RPL18A&quot;                
-[394] &quot;RN7SL5P&quot;                &quot;RPL34&quot;                  &quot;DNM3&quot;                  
-[397] &quot;CREG1&quot;                  &quot;AP1S2&quot;                  &quot;RPS8&quot;                  
-[400] &quot;FBL&quot;                    &quot;MT1X&quot;                   &quot;VAMP7&quot;                 
-[403] &quot;RPL18&quot;                  &quot;ATP5IF1&quot;                &quot;PRKAB2&quot;                
-[406] &quot;HNRNPA3P6&quot;              &quot;RPL23AP2&quot;               &quot;NOP53&quot;                 
-[409] &quot;RPL23AP42&quot;              &quot;RPS19&quot;                  &quot;TRIOBP&quot;                
-[412] &quot;PCYT1B&quot;                 &quot;NINJ1&quot;                  &quot;SCAPER&quot;                
-[415] &quot;BLTP3A&quot;                 &quot;NDUFB1&quot;                 &quot;PEA15&quot;                 
-[418] &quot;RNA5SP145&quot;              &quot;SLC2A3&quot;                 &quot;GDAP2&quot;                 
-[421] &quot;TNRC6C&quot;                 &quot;RPS25&quot;                  &quot;CUX1&quot;                  
-[424] &quot;FBXW4&quot;                  &quot;ADAM9&quot;                  &quot;TUBA1C&quot;                
-[427] &quot;CISD2&quot;                  &quot;MFAP1&quot;                  &quot;H2AC20&quot;                
-[430] &quot;STAT1&quot;                  &quot;SNHG20&quot;                 &quot;LINC01962&quot;             
-[433] &quot;ERMAP&quot;                  &quot;CD247&quot;                  &quot;RAB31&quot;                 
-[436] &quot;IL7R&quot;                   &quot;RAP1GDS1&quot;               &quot;TRNV&quot;                  
-[439] &quot;LINC02884&quot;              &quot;TRNL2&quot;                  &quot;TNFSF4&quot;                
-[442] &quot;ENO2&quot;                   &quot;ZRANB2&quot;                 &quot;SAMD4A-AS1&quot;            
-[445] &quot;GPATCH1&quot;                &quot;DAPP1&quot;                  &quot;TRND&quot;                  
-[448] &quot;KLF9&quot;                   &quot;PPP2R2D&quot;                &quot;C12orf76&quot;              
-[451] &quot;MPL&quot;                    &quot;DCTN4&quot;                  &quot;F2RL3&quot;                 
-[454] &quot;RPS20&quot;                  &quot;SNTB1&quot;                  &quot;TRNL1&quot;                 
-[457] &quot;TOMM7&quot;                  &quot;HPS1&quot;                   &quot;IGF1R&quot;                 
-[460] &quot;ZNF44&quot;                  &quot;H2BC7&quot;                  &quot;TCEA3&quot;                 
-[463] &quot;RPL28&quot;                  &quot;TCF25&quot;                  &quot;SOS1&quot;                  
-[466] &quot;TRNH&quot;                   &quot;ACOT7&quot;                  &quot;TRNS2&quot;                 
-[469] &quot;BBLN&quot;                   &quot;MLXIP&quot;                  &quot;WDR44&quot;                 
-[472] &quot;CAVIN2&quot;                 &quot;RNA5S9&quot;                 &quot;UBA52&quot;                 
-[475] &quot;ADCY3&quot;                  &quot;SC5D&quot;                   &quot;TSPAN33&quot;               
-[478] &quot;NID1&quot;                   &quot;CYB5R3&quot;                 &quot;RPL10&quot;                 
-[481] &quot;FERMT3&quot;                 &quot;DHX16&quot;                  &quot;PCNT&quot;                  
-[484] &quot;WWC3&quot;                   &quot;CMTM3&quot;                  &quot;ZNF101&quot;                
-[487] &quot;APBB1IP&quot;                &quot;LGALS8&quot;                 &quot;GTF3C4&quot;                
-[490] &quot;EIF3H&quot;                  &quot;RPL29&quot;                  &quot;H4C2&quot;                  
-[493] &quot;LDLRAD3&quot;                &quot;RARG&quot;                   &quot;RPS29&quot;                 
-[496] &quot;RPS14&quot;                  &quot;RPSA&quot;                   &quot;RPL9&quot;                  
-[499] &quot;GOLGA2&quot;                 &quot;AP1B1&quot;                  &quot;PHF14&quot;                 
-[502] &quot;PDE3A&quot;                  &quot;MITD1&quot;                  &quot;VKORC1&quot;                
-[505] &quot;SEPTIN4&quot;                &quot;RNY4&quot;                   &quot;RN7SKP71&quot;              
-[508] &quot;UBE2V1&quot;                 &quot;RPPH1&quot;                  &quot;NFIC&quot;                  
-[511] &quot;BEND7&quot;                  &quot;ATOX1&quot;                  &quot;S100A11&quot;               
-[514] &quot;C12orf75&quot;               &quot;SFMBT2&quot;                 &quot;RPL12&quot;                 
-[517] &quot;CPQ&quot;                    &quot;H2AC13&quot;                 &quot;RAB7A&quot;                 
-[520] &quot;CDC42BPA&quot;               &quot;TAF3&quot;                   &quot;SRC&quot;                   
-[523] &quot;AFG3L2&quot;                 &quot;KCND3&quot;                  &quot;SAV1&quot;                  
-[526] &quot;RPS27A&quot;                 &quot;MFAP3L&quot;                 &quot;RPLP0&quot;                 
-[529] &quot;FCGR2A&quot;                 &quot;RPL7P9&quot;                 &quot;H3C11&quot;                 
-[532] &quot;CDYL&quot;                   &quot;GNAS&quot;                   &quot;EPOR&quot;                  
-[535] &quot;CLIP1&quot;                  &quot;NBPF14&quot;                 &quot;SPN&quot;                   
-[538] &quot;XK&quot;                     &quot;LEF1&quot;                   &quot;MED16&quot;                 
-[541] &quot;CFL1&quot;                   &quot;NF1&quot;                    &quot;DNAJB6&quot;                
-[544] &quot;DGKH&quot;                   &quot;PROSER2&quot;                &quot;SNN&quot;                   
-[547] &quot;IRAK2&quot;                  &quot;MARCKS&quot;                 &quot;SLC22A23&quot;              
-[550] &quot;LINC01278&quot;              &quot;ZCCHC7&quot;                 &quot;TUBA4A&quot;                
-[553] &quot;CCDC9&quot;                  &quot;CTNNA1&quot;                 &quot;HIF1A&quot;                 
-[556] &quot;PBX1&quot;                   &quot;IL6ST&quot;                  &quot;PHACTR2&quot;               
-[559] &quot;DDX11L16&quot;               &quot;GSTM2&quot;                  &quot;DICER1&quot;                </code></pre>
-<p>Logistic regression with top 3 most important genes by shap.</p>
-<pre class="r"><code>shap.cutoff &lt;- 6
+<p><img src="06_pr_cn_files/figure-html/unnamed-chunk-64-1.png" width="100%"  class="widefigure" style="display: block; margin: auto;" /></p>
+<p>Logistic regression with top 3 most important genes by SHAP.</p>
+<pre class="r"><code>shap.cutoff &lt;- 3
 
 new.train &lt;- training.df[,c(&quot;Tumor&quot;,names(ordered.shap.value.list)[1:shap.cutoff])]
 new.test &lt;- testing.df[,c(&quot;Tumor&quot;,names(ordered.shap.value.list)[1:shap.cutoff])]
@@ -2162,46 +1221,40 @@ Call:
 glm(formula = Tumor ~ ., family = &quot;binomial&quot;, data = new.train)
 
 Coefficients:
-            Estimate Std. Error z value Pr(&gt;|z|)  
-(Intercept)   0.2381     0.9460   0.252   0.8012  
-CTSW          5.1808     2.5782   2.009   0.0445 *
-CD96          3.4575     2.1812   1.585   0.1129  
-AIF1L         1.8421     1.4668   1.256   0.2092  
-IFNGR1        3.1401     1.5358   2.045   0.0409 *
-PTPRF        -6.0612     3.0610  -1.980   0.0477 *
-TMSB4XP4     -4.1677     1.9517  -2.135   0.0327 *
+            Estimate Std. Error z value Pr(&gt;|z|)   
+(Intercept) -0.01305    0.35996  -0.036  0.97108   
+CTSW         0.78221    0.48859   1.601  0.10939   
+CD96         1.49858    0.57762   2.594  0.00948 **
+AIF1L        1.39691    0.50626   2.759  0.00579 **
 ---
 Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 
 (Dispersion parameter for binomial family taken to be 1)
 
     Null deviance: 80.336  on 57  degrees of freedom
-Residual deviance: 13.900  on 51  degrees of freedom
-AIC: 27.9
+Residual deviance: 50.019  on 54  degrees of freedom
+AIC: 58.019
 
-Number of Fisher Scoring iterations: 9</code></pre>
+Number of Fisher Scoring iterations: 5</code></pre>
 <pre class="r"><code>predicted.proba.logistic.shap.test &lt;- predict(logistic.shap, new.test[-1], type=&quot;response&quot;)
 pROC::auc(new.test[,1], predicted.proba.logistic.shap.test)
 Setting levels: control = no, case = yes
 Setting direction: controls &lt; cases
-Area under the curve: 0.7018</code></pre>
+Area under the curve: 0.7632</code></pre>
 <pre class="r"><code>
 FNR(predicted.proba.logistic.shap.test, new.test[,1])
      class.pred
 truth  0  1
   no   5  1
-  yes  8 11
-[1] 0.4210526</code></pre>
+  yes  6 13
+[1] 0.3157895</code></pre>
 <pre class="r"><code>FPR(predicted.proba.logistic.shap.test, new.test[,1])
      class.pred
 truth  0  1
   no   5  1
-  yes  8 11
+  yes  6 13
 [1] 0.1666667</code></pre>
-<pre class="r"><code>
-names(ordered.shap.value.list)[1:shap.cutoff]
-[1] &quot;CTSW&quot;     &quot;CD96&quot;     &quot;AIF1L&quot;    &quot;IFNGR1&quot;   &quot;PTPRF&quot;    &quot;TMSB4XP4&quot;</code></pre>
-<p>Trial with 3 first genes without ordering by shap (unfinished: I would like to test random combinations and compute averaged metrics)</p>
+<p>Trial with 3 first genes without ordering by SHAP</p>
 <pre class="r"><code>trial.train &lt;- training.df[,1:shap.cutoff]
 trial.test &lt;- testing.df[,1:shap.cutoff]
 
@@ -2210,24 +1263,24 @@ logistic.shap &lt;- glm(Tumor ~., family = &quot;binomial&quot;, data = trial.tr
 predicted.proba.logistic.shap.test &lt;- predict(logistic.shap, trial.test[-1], type=&quot;response&quot;)
 pROC::auc(trial.test[,1], predicted.proba.logistic.shap.test)
 Setting levels: control = no, case = yes
-Setting direction: controls &gt; cases
-Area under the curve: 0.614</code></pre>
+Setting direction: controls &lt; cases
+Area under the curve: 0.5088</code></pre>
 <pre class="r"><code>
 FNR(predicted.proba.logistic.shap.test, trial.test[,1])
      class.pred
 truth  0  1
   no   0  6
-  yes  9 10
-[1] 0.4736842</code></pre>
+  yes  8 11
+[1] 0.4210526</code></pre>
 <pre class="r"><code>FPR(predicted.proba.logistic.shap.test, trial.test[,1])
      class.pred
 truth  0  1
   no   0  6
-  yes  9 10
+  yes  8 11
 [1] 1</code></pre>
 </div>
-<div id="session-information" class="section level1" number="11">
-<h1><span class="header-section-number">11</span> Session information</h1>
+<div id="session-information" class="section level1" number="12">
+<h1><span class="header-section-number">12</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
 R version 4.4.0 (2024-04-24)
 Platform: x86_64-pc-linux-gnu
@@ -2262,12 +1315,12 @@ other attached packages:
 [13] IRanges_2.38.0              S4Vectors_0.42.0           
 [15] BiocGenerics_0.50.0         MatrixGenerics_1.16.0      
 [17] matrixStats_1.3.0           randomForest_4.7-1.1       
-[19] xgboost_1.7.7.1             caret_6.0-94               
-[21] lattice_0.22-5              ggplot2_3.5.1              
-[23] dplyr_1.1.4                 lime_0.5.3                 
-[25] glmnet_4.1-8                Matrix_1.6-5               
-[27] kableExtra_1.4.0            knitr_1.46                 
-[29] BiocStyle_2.32.0           
+[19] xgboost_1.7.7.1             ROCit_2.1.2                
+[21] caret_6.0-94                lattice_0.22-5             
+[23] ggplot2_3.5.1               dplyr_1.1.4                
+[25] lime_0.5.3                  glmnet_4.1-8               
+[27] Matrix_1.6-5                kableExtra_1.4.0           
+[29] knitr_1.46                  BiocStyle_2.32.0           
 
 loaded via a namespace (and not attached):
   [1] rstudioapi_0.16.0       jsonlite_1.8.8          shape_1.4.6            
@@ -2310,6 +1363,9 @@ loaded via a namespace (and not attached):
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
 <div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-Block2022" class="csl-entry">
+Block, Timothy, Daniel Zezulinski, David Kaplan, Jingqiao Lu, Samantha Zanine, Tingting Zhan, Cataldo Doria, and Aejaz Sayeed. 2022. <span>“Circulating Messenger RNA Variants as a Potential Biomarker for Surveillance of Hepatocellular Carcinoma.”</span> <em>Frontiers in Oncology</em> 12. <a href="https://doi.org/10.3389/fonc.2022.963641">https://doi.org/10.3389/fonc.2022.963641</a>.
+</div>
 <div id="ref-Roskams2022" class="csl-entry">
 Roskams-Hieter, Breeshey, Hyun Ji Kim, Pavana Anur, Josiah T. Wagner, Rowan Callahan, Elias Spiliotopoulos, Charles Ward Kirschbaum, et al. 2022. <span>“Plasma Cell-Free RNA Profiling Distinguishes Cancers from Pre-Malignant Conditions in Solid and Hematologic Malignancies.”</span> <em>Npj Precision Oncology</em> 6. <a href="https://doi.org/10.1038/s41698-022-00270-y">https://doi.org/10.1038/s41698-022-00270-y</a>.
 </div>

@@ -30,6 +30,7 @@ library(lime)
 library(dplyr)
 library(ggplot2)
 library(caret)
+library(ROCit)
 library(xgboost)
 library(randomForest) 
 set.seed(111)
@@ -74,7 +75,7 @@ DEgenes.trainingR <- readRDS(file.path("_processed_data",
 
 Create a subset with the differential expressed genes from the training dataset from @Roskams2022.
 
-Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set.
+Train-testing subset creation: Intersection between differential expressed genes from training set from @Roskams2022 and lowly expressed genes from testing set [@Block2022].
 
 ```{r}
 set.seed(111)
@@ -99,7 +100,6 @@ dim(seB.intercept)
 training.df <- data.frame(Tumor = seR.intercept$Tumor,
                           scale(t(assays(seR.intercept)$logCPM), scale = TRUE, center = TRUE))
 len <- length(training.df)
-#colnames(training.df)[2:len] <- rowData(seR.intercept)[["Symbol"]]
 ```
 
 ### Testing data
@@ -108,7 +108,6 @@ len <- length(training.df)
 testing.df <- data.frame(Tumor = seB.intercept$Tumor,
                           scale(t(assays(seB.intercept)$logCPM), scale = TRUE, center = TRUE))
 len <- length(testing.df)
-#colnames(testing.df)[2:len]  <- rowData(seB.intercept)[["Symbol"]]
 ```
 
 # Performance metrics 
@@ -151,10 +150,9 @@ modelLookup("xgbTree")
 
 
 ```{r}
-# CV technique which will be passed into the train() function
+# CV grid search
 train_control = trainControl(method = "cv", number = 10, search = "grid",
-                             ## Evaluate performance using 
-                             ## the following function
+
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -162,46 +160,22 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
 
 # tuning grid
 set.seed(111)
-#xgboostGrid <-  expand.grid(max_depth = c(3, 5, 7, 9), 
-#                        nrounds = (1:10)*20,    # number of trees
-#                        eta = c(0.2,0.3,0.4),
-#                        gamma = c(0.5,1),
-#                        subsample = c(0.5, 0.6, 0.7), # common value: between 0.5 and 1
-#                        min_child_weight = c(1,2,3),
-#                        colsample_bytree = c(0.5, 0.6, 0.7) # common value: between 0.5 and 1
-#                        )
 
 xgboostGrid <- expand.grid(max_depth = c(4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.2,0.4),gamma = c(0.6),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.7))
-
-# auc = 0.64 fnr= 0.47 fpr = 0. max_depth = c(3, 5, 7, 9), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(1),min_child_weight = c(1),colsample_bytree = c(0.8)
-# auc = 0.71 fnr= 0.47 fpr = 0.16. max_depth = c(3, 4, 5, 6, 7)
-# auc = 0.75 fnr= 0.47 fpr = 0.16. colsample_bytree = c(0.7)
-# auc = 0.58, fnr = 0.52, fpr=0. min_child_weight = c(2)
-# auc = 0.68, fnr = 0.47, fpr=0. min_child_weight = c(3)
-# auc = 0.56, fnr=0.57, fpr=0.eta = c(0.2,0.3,0.4, 0.5),gamma = c(0.5,1) colsample_bytree = c(0.7,0.8)
-# auc = 0.73, fnr=0.47, fpr=0.subsample = c(0.8)
-# auc = 0.57, fnr=0.47, fpr=0.33.subsample = c(0.8)
-#auc = 0.52, fnr=0.57, fpr=0. max_depth = c(4, 5, 6, 7), nrounds = (1:10)*20,eta = c(0.2,0.3,0.4),gamma = c(0.5),subsample = c(0.8),min_child_weight = c(1),colsample_bytree = c(0.7))
-# auc = 0.74, fnr = 0.52, fpr=0.eta = c(0.2,0.4)
 
 
 # hyperparaemeter search for XGboost classifier tree model
 model = caret::train(Tumor~., data = training.df,
-              ######ALTERNATIVE#######
-              #x = trainMNX,
-              #y = trainMNY,
-              ########################
               method = "xgbTree",
               trControl = train_control,
               metric = "ROC",
               tuneGrid = xgboostGrid,
               verbosity = 0,
               verbose = TRUE,
-              #num.threads = 16,
-              #nthreads = 16 #cores in use
+              #num.threads = 18,
               )
 
-print(model)
+#print(model)
 ```
 
 ```{r}
@@ -209,7 +183,7 @@ plot(model)
 ```
 
 ```{r}
-#predict on test data
+# predict on test data
 pred.y <- predict(model, testing.df, type = "prob")[,2]
 
 # out of sample performance metrics
@@ -219,6 +193,8 @@ pROC::auc(test.y, pred.y)
 
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
+
+roc_xgboost_cn <- ROCit::rocit(score=pred.y,class=test.y)
 ```
 
 ```{r, results = "hide"}
@@ -236,10 +212,7 @@ modelLookup("ada")
 ```
 
 ```{r, eval=FALSE}
-# CV technique which will be passed into the train() function
 train_control = trainControl(method = "cv", number = 10, search = "grid",
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -272,7 +245,7 @@ model = caret::train(Tumor~., data = training.df,
 print(model)
 ```
 
-```{r, eval = FALSE}
+```{r, eval = FALSE, echo =FALSE}
 plot(model)
 ```
 
@@ -288,6 +261,7 @@ pROC::auc(test.y, pred.y)
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
 ```
+
 ```{r, results = "hide"}
 # Add to output
 res.testing <- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pred.y, test.y), FPR(pred.y, test.y)))
@@ -305,8 +279,6 @@ modelLookup("svmLinearWeights")
 
 ```{r}
 train_control = trainControl(method = "cv", number = 10, search = "grid",
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -318,14 +290,6 @@ svmgrid <-  expand.grid(cost = c(0.01,0.015, 0.02),
                         weight = c(0.45) 
                         )
 
-#svmgrid <-  expand.grid(cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10))
-
-# auc = 0.70, fnr = 0.2, fpr = 0.33. cost = c(0.01, 0.05,0.5,1,3, 5, 10), weight = c(0.01, 0.05,0.5,1,3,5,10)
-# auc = 0.72, fnr = 0.31, fpr = 0.33. (cost = c(0.01,0.015, 0.02),weight = c(0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5)
-#empitjora. cost = c(0.015, 0.02)
-#auc = 0.73, fnr=0.31, fpr=0.33. cost = c(0.01,0.015, 0.02), weight = c(0.4, 0.5) 
-#auc = 0.74, fnr=0.31, fpr=0.33. weight = c(0.45)
-
 
 
 # training a svm classifier with liearn kernel model while tuning parameters
@@ -336,7 +300,7 @@ model = caret::train(Tumor~., data = training.df,
               tuneGrid = svmgrid)
 
 # summarizing the results
-print(model)
+#print(model)
 ```
 
 ```{r}
@@ -354,6 +318,8 @@ pROC::auc(test.y, pred.y)
 
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
+
+roc_svmlinear_cn <- ROCit::rocit(score=pred.y,class=test.y)
 ```
 ```{r, results = "hide"}
 # Add to output
@@ -369,10 +335,8 @@ rownames(res.testing)[nrow(res.testing)] <- 'SVMLinear'
 modelLookup("svmRadial")
 ```
 
-```{r}
+```{r, results='hide'}
 train_control = trainControl(method = "cv", number = 10, search = "grid",
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -380,15 +344,6 @@ train_control = trainControl(method = "cv", number = 10, search = "grid",
 
 set.seed(50)
 svmgrid <-  expand.grid(sigma=c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10))
-# Customzing the tuning grid
-#svmgrid <-  expand.grid(sigma = c(0.01, 0.05,0.5,1,3, 5, 10),
-#                        C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
-#                        )
-
-# auc = 0.67. sigma = 0.01 and C = 3. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,3,5,10)
-# auc = 0.67. sigma = 0.01 and C = 2. sigma = c(0.01, 0.05,0.5,1,3, 5, 10), C = c(0.01, 0.05,0.5,1,2,3,4,5,10)
-# auc = 0.67. sigma = 0.01 and C = 1.1. sigma = c(0.01, 0.05,0.5,1,3, 5, 10),C = c(1, 1.1, 1.2, 1.3, 1.4,1.6,1.8)
-
 
 # training a svm with rbf kernel classifier model while tuning parameters
 model = caret::train(Tumor~., data = training.df,
@@ -398,7 +353,7 @@ model = caret::train(Tumor~., data = training.df,
               tuneGrid = svmgrid)
 
 # summarizing the results
-print(model)
+#print(model)
 ```
 
 ```{r}
@@ -416,6 +371,8 @@ pROC::auc(test.y, pred.y)
 
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
+
+roc_svmradial_cn <- ROCit::rocit(score=pred.y,class=test.y)
 ```
 
 ```{r, results = "hide"}
@@ -433,8 +390,6 @@ modelLookup("svmPoly")
 
 ```{r}
 train_control = trainControl(method = "cv", number = 10, search = "grid",
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -453,7 +408,7 @@ model = caret::train(Tumor~., data = training.df,
               metric = "ROC",
               tuneGrid = svmgrid)
 
-print(model)
+#print(model)
 ```
 
 ```{r}
@@ -472,6 +427,8 @@ pROC::auc(test.y, pred.y)
 
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
+
+roc_svmpoly_cn <- ROCit::rocit(score=pred.y,class=test.y)
 ```
 
 ```{r, results = "hide"}
@@ -490,8 +447,6 @@ modelLookup("rf")
 
 ```{r}
 train_control = trainControl(method = "cv", number = 10, search = "grid",
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
@@ -512,7 +467,7 @@ model = caret::train(Tumor~., data = training.df,
               nodesize = 1, #default for classification
               tuneGrid = rfgrid)
 
-print(model)
+#print(model)
 ```
 
 ```{r}
@@ -530,6 +485,8 @@ pROC::auc(test.y, pred.y)
 
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
+
+roc_rf_cn <- ROCit::rocit(score=pred.y,class=test.y)
 ```
 
 ```{r, results = "hide"}
@@ -538,7 +495,7 @@ res.testing <- rbind.data.frame(res.testing, c(pROC::auc(test.y, pred.y), FNR(pr
 rownames(res.testing)[nrow(res.testing)] <- 'RandomForest'
 ```
 
-```{r}
+```{r, echo=FALSE}
 #feature_importance <- randomForest::importance(model)
 #sorted_importance <- feature_importance[order(-feature_importance[, #"MeanDecreaseGini"]),                                        ]
 #print(sorted_importance)
@@ -553,22 +510,16 @@ modelLookup("glmnet")
 
 ```{r}
 train_control = trainControl(method = "cv", number = 10, search = "grid",
-                             ## Evaluate performance using 
-                             ## the following function
                              summaryFunction = twoClassSummary,
                              allowParallel = TRUE,
                              # Estimate class probabilities
                              classProbs=TRUE)
 
 set.seed(111)
-netgrid <-  expand.grid(alpha = c(0.1, 0.2, 0.5, 0.7, 0.9), # every time model selected 0 auc was 1
-                        lambda = c(0,0.05,0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 1, 5, 10) # 0 is logistic
+netgrid <-  expand.grid(alpha = c(0.1, 0.2, 0.5, 0.7, 0.9), 
+                        lambda = c(0,0.05,0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 1, 5, 10) 
                         )
 
-# auc = 0.59. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1),lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5,1). alpha = 0.005 and lambda = 1.
-# auc = 0.70. lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5). alpha = 0.005 and lambda = 0.5.
-# auc = 0.68. alpha = c(0.01, 0.015, 0.1, 0.2, 0.5, 0.7, 1) alpha = 0.01 and lambda = 0.5.
-# auc = 0.70. alpha = c(0, 0.005, 0.01, 0.015, 0.1, 0.2, 0.5), lambda = c(0.01, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4). alpha = 0.005 and lambda = 0.4.
 
 # training a elastic net classifier tree model while tuning parameters
 model = caret::train(Tumor~., data = training.df,
@@ -578,7 +529,7 @@ model = caret::train(Tumor~., data = training.df,
               tuneGrid = netgrid)
 
 # summarizing the results
-print(model)
+#print(model)
 ```
 
 ```{r}
@@ -596,6 +547,8 @@ pROC::auc(test.y, pred.y)
 
 FNR(pred.y, test.y)
 FPR(pred.y, test.y)
+
+roc_elastic_cn <- ROCit::rocit(score=pred.y,class=test.y)
 ```
 
 ```{r, results = "hide"}
@@ -643,8 +596,6 @@ x_train_shape <- length(colnames(x_train))
 
 
 ```{r}
-#constraint_maxnorm(max_value = 2, axis = 0)
-# bias_regularizer = regularizer_l2(0.01)
 model <- keras_model_sequential()
 model %>%
   layer_dense(units = 1500, activation = 'relu',
@@ -682,11 +633,11 @@ model %>% compile(
 )
 ```
 
-```{r}
+```{r, results = "hide"}
 model %>% fit(x_train, y_train, epochs = 150, batch_size =5)
 ```
 
-```{r}
+```{r, echo = FALSE}
 #history <- model %>% fit(
 #  x_train,y_train,
 #  epochs = 30, batch_size = 256, 
@@ -702,8 +653,7 @@ model %>% evaluate(x_test,  y_test, verbose = 2)
 ```
 
 ```{r}
-#model %>% predict(x_test) %>% k_argmax() #only for softmax
-b<-model %>% predict(x_test) #%>% `>`(0.5) %>% k_cast("int32") #for sigmoid.0
+b<-model %>% predict(x_test) #%>% `>`(0.5) %>% k_cast("int32") 
 b <- as.numeric(b)
 b
 ```
@@ -713,6 +663,8 @@ pROC::auc(as.numeric(y_test), b)
 
 FNR(b, y_test)
 FPR(b, y_test)
+
+roc_nnet_cn <- ROCit::rocit(score=b,class=as.numeric(y_test))
 ```
 
 ```{r, results = "hide"}
@@ -721,10 +673,52 @@ res.testing <- rbind.data.frame(res.testing, c(pROC::auc(y_test, b), FNR(b, y_te
 rownames(res.testing)[nrow(res.testing)] <- 'Nnet'
 ```
 
-plot roc-auc curve
+# ROC-AUC curve for all models
+
 ```{r}
-curve_values <- pROC::roc(as.numeric(y_test), b)
-plot(curve_values ,main ="ROC curve -- Feedforward Nnet")
+plot(roc_xgboost_cn$TPR ~ roc_xgboost_cn$FPR, type = "n", 
+ xlab = "1 - Specificity (FPR)", ylab = "Sensitivity (TPR)")
+abline(0, 1, col = "gray", lty = 2, lwd = 2)
+
+lines(roc_nnet_cn$TPR ~ roc_nnet_cn$FPR, col = 7, lwd = 2, lty = 1)  
+lines(roc_svmradial_cn$TPR ~ roc_svmradial_cn$FPR, col = 3, lwd = 2, lty = 1)  
+lines(roc_svmlinear_cn$TPR ~ roc_svmlinear_cn$FPR, col = 2, lwd = 2, lty = 1)
+lines(roc_rf_cn$TPR ~ roc_rf_cn$FPR, col = 5, lwd = 2, lty = 1)
+lines(roc_svmpoly_cn$TPR ~ roc_svmpoly_cn$FPR, col = 4, lwd = 2, lty = 1)
+lines(roc_elastic_cn$TPR ~ roc_elastic_cn$FPR, col = 6, lwd = 2, lty = 1)
+lines(roc_xgboost_cn$TPR -0.05 ~ roc_xgboost_cn$FPR, col = 1, lwd = 2, lty = 1)  
+
+
+legend("bottomright", col = c(1,2,3,4,5,6,7),
+       legend = c(paste("XGboost","AUC:",round(roc_xgboost_cn$AUC,2)),
+                  paste("SVM linear","AUC:",round(roc_svmlinear_cn$AUC,2)),
+                  paste("SVM rbf","AUC:",round(roc_svmradial_cn$AUC,2)),
+                  paste("SVM poly","AUC:",round(roc_svmpoly_cn$AUC,2)),
+                  paste("Random forest","AUC:",round(roc_rf_cn$AUC,2)),
+                  paste("Elastic net","AUC:",round(roc_elastic_cn$AUC,2)),
+                  paste("Neural network","AUC:",round(roc_nnet_cn$AUC,2))), 
+       lwd = 2, lty = 1,
+       cex = 0.8, 
+       pt.cex = 0.8, 
+       x.intersp = 1, y.intersp = 1)
+```
+
+```{r, eval = FALSE, echo = FALSE}
+library(plotly)
+
+# Create a basic plot with plotly
+p <- plot_ly() %>%
+  add_trace(x = ~roc_xgboost_cn$FPR, y = ~roc_xgboost_cn$TPR - 0.009, type = 'scatter', mode = 'lines', name = 'XGboost', line = list(color = '#FF4136')) %>%
+  add_trace(x = ~roc_svmlinear_cn$FPR, y = ~roc_svmlinear_cn$TPR, type = 'scatter', mode = 'lines', name = 'SVM Linear', line = list(color = '#0074D9')) %>%
+  add_trace(x = ~roc_svmradial_cn$FPR, y = ~roc_svmradial_cn$TPR, type = 'scatter', mode = 'lines', name = 'SVM Rbf', line = list(color = '#2ECC40')) %>%
+  add_trace(x = ~roc_svmpoly_cn$FPR, y = ~roc_svmpoly_cn$TPR, type = 'scatter', mode = 'lines', name = 'SVM Poly', line = list(color = '#FF851B')) %>%
+  add_trace(x = ~roc_rf_cn$FPR, y = ~roc_rf_cn$TPR, type = 'scatter', mode = 'lines', name = 'Random Forest', line = list(color = '#7FDBFF')) %>%
+  add_trace(x = ~roc_elastic_cn$FPR, y = ~roc_elastic_cn$TPR, type = 'scatter', mode = 'lines', name = 'Elastic Net', line = list(color = '#B10DC9')) %>%
+  add_trace(x = ~roc_nnet_cn$FPR, y = ~roc_nnet_cn$TPR, type = 'scatter', mode = 'lines', name = 'Neural Network', line = list(color = '#85144B')) %>%
+  layout(title = 'ROC Curves', xaxis = list(title = '1 - Specificity (FPR)'), yaxis = list(title = 'Sensitivity (TPR)'))
+
+# Save the plot as an HTML file
+htmlwidgets::saveWidget(p, "roc_curves_interactive.html")
 ```
 
 
@@ -787,14 +781,16 @@ plot_explanations (explanation) +
 #dev.off()
 ```
 
-# Results
+# Model perfomances/results in table
 
 ```{r}
 (res.testing)
 ```
 
 
-# SHAP value (Global explanation)
+# SHAP value (Global explanation) + logistic regression with most important genes
+
+Extract feature importance values for each gene. Model considered is neural network.
 
 ```{r}
 library(kernelshap)
@@ -810,26 +806,27 @@ sv_importance(s, max_display=30)
 sv_waterfall(s, row_id = 3)
 ```
 
-```{r}
+```{r, results='hide', echo =FALSE}
 #pdf("beeswarm_features_cn.pdf")
 #sv_importance(s, kind = "bee", show_numbers = TRUE) + theme_classic()
 #dev.off()
 ```
 
-Mean shap value for each gene
+Distribution of shapley values obtained from our model.
 ```{r}
 shap.value.list<- colMeans(abs(s$S))
 ordered.shap.value.list <- shap.value.list[order(-abs(shap.value.list))]
 histogram(ordered.shap.value.list, breaks = 50)
 ```
 
-```{r}
+```{r, results='hide', echo =FALSE}
 names(ordered.shap.value.list)
 ```
 
-Logistic regression with top 3 most important genes by shap.
+Logistic regression with top 3 most important genes by SHAP.
+
 ```{r}
-shap.cutoff <- 6
+shap.cutoff <- 3
 
 new.train <- training.df[,c("Tumor",names(ordered.shap.value.list)[1:shap.cutoff])]
 new.test <- testing.df[,c("Tumor",names(ordered.shap.value.list)[1:shap.cutoff])]
@@ -845,13 +842,9 @@ pROC::auc(new.test[,1], predicted.proba.logistic.shap.test)
 
 FNR(predicted.proba.logistic.shap.test, new.test[,1])
 FPR(predicted.proba.logistic.shap.test, new.test[,1])
-
-names(ordered.shap.value.list)[1:shap.cutoff]
 ```
 
-
-
-Trial with 3 first genes without ordering by shap (unfinished: I would like to test random combinations and compute averaged metrics)
+Trial with 3 first genes without ordering by SHAP
 
 ```{r}
 trial.train <- training.df[,1:shap.cutoff]

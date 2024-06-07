@@ -175,32 +175,30 @@ The estimation of missing data for `Sex` covariate uses a KNN imputer (k = 3) ba
 library(SummarizedExperiment)
 library(edgeR)
 
-## llegim cataleg de genes amb expressio especifica de sexe documentada
 MSY_genes <- readRDS("MSYgenes.rds")
 XIE_genes <- readRDS("XIEgenes.rds")
 
-## filterem aquells que no surten a les nostres dades
 MSY_genes <- MSY_genes[MSY_genes %in% rownames(seB.filt.testing)]
 XIE_genes <- XIE_genes[XIE_genes %in% rownames(seB.filt.testing)]
 
-## una possible aproximacio al problema seria calcular la mitjana
-## d'expressio a cada mostra separadament pels gens MSY i XIE
 msyexp <- colMeans(assays(seB.filt.testing)$logCPM[MSY_genes, ])
 xieexp <- colMeans(assays(seB.filt.testing)$logCPM[XIE_genes, ])
 ```
 
 ```{r, echo = FALSE}
-## visualitzem per cada mostra la seva expressio en MSY vs XIE
-## posant M per mostres "male", F per "female" i O per "missing"
+## Visualize for each sample its expression in MSY vs XIE
+## M for "male", F for "female" and O for "missing"
 rng <- range(c(msyexp, xieexp))
-plot(msyexp, xieexp, pch="", xlim=rng, ylim=rng, las=1)
+plot(msyexp, xieexp, pch="", xlim=rng, ylim=rng, las=1,
+     xlab="Average MSY expression",
+     ylab="Average XIE expression")
 lab <- c("F", "M")[as.integer(factor(seB.filt.testing$Sex))]
 lab[is.na(lab)] <- "O"
 points(msyexp, xieexp, pch=lab)
 abline(0, 1)
 ```
 
-From Robert: Since cancer can cause chromosomal rearrangements, it could be that the signal we expect to see in the samples analyzed is distorted, and it should also be taken into account that these molecules of extracellular RNA are found in plasma and so they can come from a heterogeneous set of tissues that can give rise to more variability.
+Since cancer can cause chromosomal rearrangements, it could be that the signal we expect to see in the samples analyzed is distorted, and it should also be taken into account that these molecules of extracellular RNA are found in plasma and so they can come from a heterogeneous set of tissues that can give rise to more variability.
 
 In any case, there are two clusters, one of "male" and the other "female" samples. In the "female" cluster there are two samples labeled as males that can be great candidates for having sex reported incorrectly, and it is quite clear what gender the "missing" could correspond to.
 
@@ -225,8 +223,10 @@ dgeB.filt.testing$samples$Sex <- data.imputation$Sex
 
 ```{r, echo = FALSE}
 rng <- range(c(msyexp, xieexp))
-plot(msyexp, xieexp, pch="", xlim=rng, ylim=rng, las=1)
-lab <- c("F", "M")[as.integer(factor(seB.filt.testing$Sex))] # no needed to convert into an integer factor because it already is after imputation
+plot(msyexp, xieexp, pch="", xlim=rng, ylim=rng, las=1,
+     xlab="Average MSY expression",
+     ylab="Average XIE expression")
+lab <- c("F", "M")[as.integer(factor(seB.filt.testing$Sex))]
 lab[is.na(lab)] <- "O"
 points(msyexp, xieexp, pch=lab)
 abline(0, 1)

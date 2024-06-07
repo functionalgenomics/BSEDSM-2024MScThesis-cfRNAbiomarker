@@ -10,7 +10,6 @@
 
 
 
-<meta name="date" content="2024-05-31" />
 
 <title>Differential expression analysis of preeclampsia data</title>
 
@@ -75,7 +74,6 @@ if (window.hljs) {
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
-  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -94,7 +92,7 @@ div.csl-indent {
 }
 </style>
 
-<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/home/adam/R/x86_64-pc-linux-gnu-library/4.4/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -390,7 +388,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 31, 2024</h4>
+<h4 class="date">junio 7, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a differential expression analysis of the filtered and normalized RNA-seq expression profiles of the preeclampsia data.</p>
 
@@ -440,9 +438,9 @@ Iteration (out of 5 ):1  2  3  4  5  </code></pre>
 may have multiple measurements from the same mother, we use a mixed-effects
 models with the mother identifier as a blocking factor.</p>
 <pre><code>First sample weights (min/max) 0.3037416/2.0772686
-First intra-block correlation  0.173168
-Final sample weights (min/max) 0.2754864/1.9840236
-Final intra-block correlation  0.1735757</code></pre>
+First intra-block correlation  0.1731239
+Final sample weights (min/max) 0.2754911/1.9840362
+Final intra-block correlation  0.1735756</code></pre>
 <div class="figure" style="text-align: center"><span style="display:block;" id="fig:voomMtraining"></span>
 <img src="02_de_pe_files/figure-html/voomMtraining-1.png" alt="Mean-variance trend in the training data from Moufarrej et al. (2022)." width="100%"  class="widefigure" />
 <p class="caption">
@@ -455,8 +453,8 @@ examine the extent of differential expression (DE) with an FDR &lt; 5%.</p>
 res.training &lt;- decideTests(fit.training, p.value=0.05)
 summary(res.training)
        (Intercept) Preeclampsiayes SamplingGA                              
-Down             0             452        196 2272 2459 2537 1404 1435  509
-NotSig           0            4306       4987  645 1171 1367 2551 2585 4175
+Down             0             452        196 2272 2459 2537 1404 1436  509
+NotSig           0            4306       4987  645 1171 1367 2551 2584 4175
 Up            5344             586        161 2427 1714 1440 1389 1324  660
                      
 Down     94  356  261
@@ -627,18 +625,23 @@ Figure 10: <span class="caption-title">Comparison DE analyis across datasets</sp
 <h1><span class="header-section-number">6</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
 R version 4.4.0 (2024-04-24)
-Platform: x86_64-apple-darwin20
-Running under: macOS Ventura 13.5.1
+Platform: x86_64-pc-linux-gnu
+Running under: Ubuntu 22.04.4 LTS
 
 Matrix products: default
-BLAS:   /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRblas.0.dylib 
-LAPACK: /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
 
 locale:
-[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
 
 time zone: Europe/Madrid
-tzcode source: internal
+tzcode source: system (glibc)
 
 attached base packages:
 [1] stats4    stats     graphics  grDevices utils     datasets  methods  
@@ -647,10 +650,10 @@ attached base packages:
 other attached packages:
  [1] plotrix_3.8-4               sva_3.52.0                 
  [3] BiocParallel_1.38.0         genefilter_1.86.0          
- [5] mgcv_1.9-1                  nlme_3.1-164               
+ [5] mgcv_1.9-1                  nlme_3.1-163               
  [7] edgeR_4.2.0                 limma_3.60.2               
  [9] SummarizedExperiment_1.34.0 Biobase_2.64.0             
-[11] GenomicRanges_1.56.0        GenomeInfoDb_1.40.0        
+[11] GenomicRanges_1.56.0        GenomeInfoDb_1.40.1        
 [13] IRanges_2.38.0              S4Vectors_0.42.0           
 [15] BiocGenerics_0.50.0         MatrixGenerics_1.16.0      
 [17] matrixStats_1.3.0           kableExtra_1.4.0           
@@ -659,31 +662,31 @@ other attached packages:
 loaded via a namespace (and not attached):
  [1] viridisLite_0.4.2       blob_1.2.4              Biostrings_2.72.0      
  [4] fastmap_1.2.0           XML_3.99-0.16.1         digest_0.6.35          
- [7] lifecycle_1.0.4         survival_3.5-8          statmod_1.5.0          
-[10] KEGGREST_1.44.0         RSQLite_2.3.6           magrittr_2.0.3         
+ [7] lifecycle_1.0.4         survival_3.5-8          statmod_1.4.37         
+[10] KEGGREST_1.44.0         RSQLite_2.3.7           magrittr_2.0.3         
 [13] compiler_4.4.0          rlang_1.1.3             sass_0.4.9             
 [16] tools_4.4.0             yaml_2.3.8              S4Arrays_1.4.1         
-[19] bit_4.0.5               DelayedArray_0.30.1     xml2_1.3.6             
+[19] bit_4.0.4               DelayedArray_0.30.1     xml2_1.3.6             
 [22] abind_1.4-5             grid_4.4.0              xtable_1.8-4           
-[25] colorspace_2.1-0        scales_1.3.0            tinytex_0.51           
+[25] colorspace_2.1-0        scales_1.3.0            tinytex_0.49           
 [28] cli_3.6.2               rmarkdown_2.27          crayon_1.5.2           
 [31] rstudioapi_0.16.0       httr_1.4.7              DBI_1.2.2              
-[34] cachem_1.1.0            stringr_1.5.1           zlibbioc_1.50.0        
+[34] cachem_1.0.8            stringr_1.5.1           zlibbioc_1.50.0        
 [37] splines_4.4.0           parallel_4.4.0          AnnotationDbi_1.66.0   
 [40] BiocManager_1.30.23     XVector_0.44.0          vctrs_0.6.5            
-[43] Matrix_1.7-0            jsonlite_1.8.8          bookdown_0.39          
-[46] bit64_4.0.5             systemfonts_1.1.0       locfit_1.5-9.9         
+[43] Matrix_1.6-5            jsonlite_1.8.8          bookdown_0.39          
+[46] bit64_4.0.5             systemfonts_1.0.5       locfit_1.5-9.9         
 [49] jquerylib_0.1.4         annotate_1.82.0         glue_1.7.0             
-[52] codetools_0.2-20        stringi_1.8.4           UCSC.utils_1.0.0       
-[55] munsell_0.5.1           htmltools_0.5.8.1       GenomeInfoDbData_1.2.12
-[58] R6_2.5.1                evaluate_0.23           lattice_0.22-6         
-[61] highr_0.10              png_0.1-8               memoise_2.0.1          
+[52] codetools_0.2-19        stringi_1.8.3           UCSC.utils_1.0.0       
+[55] munsell_0.5.0           htmltools_0.5.8.1       GenomeInfoDbData_1.2.12
+[58] R6_2.5.1                evaluate_0.23           lattice_0.22-5         
+[61] highr_0.9               png_0.1-8               memoise_2.0.1          
 [64] bslib_0.7.0             Rcpp_1.0.12             svglite_2.1.3          
-[67] SparseArray_1.4.3       xfun_0.44              </code></pre>
+[67] SparseArray_1.4.8       xfun_0.44              </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
-<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-law2014voom" class="csl-entry">
 Law, Charity W, Yunshun Chen, Wei Shi, and Gordon K Smyth. 2014. <span>“Voom: Precision Weights Unlock Linear Model Analysis Tools for RNA-Seq Read Counts.”</span> <em>Genome Biology</em> 15: 1–17.
 </div>

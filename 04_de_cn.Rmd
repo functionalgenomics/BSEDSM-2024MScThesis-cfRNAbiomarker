@@ -255,7 +255,6 @@ commonDEgenes.name <- rowData(seR.filt.training)$Symbol[mask]
 commonDEgenes.name
 ```
 
-
 # Session information
 
 ```{r, child="_session-info.Rmd"}

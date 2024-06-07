@@ -10,7 +10,6 @@
 
 
 
-<meta name="date" content="2024-05-31" />
 
 <title>Quality assessment of cancer data</title>
 
@@ -77,7 +76,6 @@ if (window.hljs) {
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
-  margin-bottom: 0em;
 }
 .hanging div.csl-entry {
   margin-left:2em;
@@ -96,7 +94,7 @@ div.csl-indent {
 }
 </style>
 
-<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/home/adam/R/x86_64-pc-linux-gnu-library/4.4/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -392,7 +390,7 @@ function toggle_visibility(id1) {
 <p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span> and Adam Olivares Canal<span class="affil-mark">1**</span></p>
 <p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics</p>
 <p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a></p>
-<h4 class="date">May 31, 2024</h4>
+<h4 class="date">junio 7, 2024</h4>
 <h4 class="abstract">Abstract</h4>
 <p>Here we perform a first exploratory analysis and quality assessment of the cfRNA expression profiles of the cancer data.</p>
 
@@ -626,7 +624,7 @@ Figure 2: <span class="caption-title">Biological coefficient of variation (BCV)<
 </div>
 <p>Table <a href="#tab:hypervargenesMtrainingcn">1</a> below shows the top-20 hypervariable genes
 with lowest prior degrees of freedom for the last model.</p>
-<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
+<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="color: black; margin-left: auto; margin-right: auto; color: black; margin-left: auto; margin-right: auto;">
 <caption>
 <span id="tab:hypervargenesMtrainingcn">Table 1: </span>Top-20 hypervariable genes for the model Tumor + Sex + SVs.
 </caption>
@@ -969,7 +967,7 @@ summary(dgeB.filt.testing.PEGASVs$prior.df)
 Figure 3: <span class="caption-title">Biological coefficient of variation (BCV)</span><br>BCV values as function of the average gene expression in log-CPM units.
 </p>
 </div>
-<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
+<div class='horizontal-scroll'><table class="table table-striped table-hover table-responsive table" style="color: black; margin-left: auto; margin-right: auto; color: black; margin-left: auto; margin-right: auto;">
 <caption>
 <span id="tab:hypervargenesDsubset">Table 2: </span>Top-20 hypervariable genes for the model Tumor + Sex + SVs.
 </caption>
@@ -1278,18 +1276,23 @@ serpin family G member 1
 <h1><span class="header-section-number">5</span> Session information</h1>
 <pre class="r"><code>sessionInfo()
 R version 4.4.0 (2024-04-24)
-Platform: x86_64-apple-darwin20
-Running under: macOS Ventura 13.5.1
+Platform: x86_64-pc-linux-gnu
+Running under: Ubuntu 22.04.4 LTS
 
 Matrix products: default
-BLAS:   /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRblas.0.dylib 
-LAPACK: /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
 
 locale:
-[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
 
 time zone: Europe/Madrid
-tzcode source: internal
+tzcode source: system (glibc)
 
 attached base packages:
 [1] stats4    grid      stats     graphics  grDevices utils     datasets 
@@ -1298,10 +1301,10 @@ attached base packages:
 other attached packages:
  [1] plotrix_3.8-4               sva_3.52.0                 
  [3] BiocParallel_1.38.0         genefilter_1.86.0          
- [5] mgcv_1.9-1                  nlme_3.1-164               
+ [5] mgcv_1.9-1                  nlme_3.1-163               
  [7] edgeR_4.2.0                 limma_3.60.2               
  [9] SummarizedExperiment_1.34.0 Biobase_2.64.0             
-[11] GenomicRanges_1.56.0        GenomeInfoDb_1.40.0        
+[11] GenomicRanges_1.56.0        GenomeInfoDb_1.40.1        
 [13] IRanges_2.38.0              S4Vectors_0.42.0           
 [15] BiocGenerics_0.50.0         MatrixGenerics_1.16.0      
 [17] matrixStats_1.3.0           VIM_6.2.2                  
@@ -1310,37 +1313,37 @@ other attached packages:
 
 loaded via a namespace (and not attached):
  [1] DBI_1.2.2               rlang_1.1.3             magrittr_2.0.3         
- [4] e1071_1.7-14            compiler_4.4.0          RSQLite_2.3.6          
- [7] png_0.1-8               systemfonts_1.1.0       vctrs_0.6.5            
+ [4] e1071_1.7-14            compiler_4.4.0          RSQLite_2.3.7          
+ [7] png_0.1-8               systemfonts_1.0.5       vctrs_0.6.5            
 [10] stringr_1.5.1           crayon_1.5.2            fastmap_1.2.0          
 [13] XVector_0.44.0          rmarkdown_2.27          UCSC.utils_1.0.0       
-[16] tinytex_0.51            bit_4.0.5               xfun_0.44              
-[19] zlibbioc_1.50.0         cachem_1.1.0            jsonlite_1.8.8         
-[22] blob_1.2.4              highr_0.10              DelayedArray_0.30.1    
+[16] tinytex_0.49            bit_4.0.4               xfun_0.44              
+[19] zlibbioc_1.50.0         cachem_1.0.8            jsonlite_1.8.8         
+[22] blob_1.2.4              highr_0.9               DelayedArray_0.30.1    
 [25] parallel_4.4.0          R6_2.5.1                bslib_0.7.0            
-[28] stringi_1.8.4           vcd_1.4-12              ranger_0.16.0          
+[28] stringi_1.8.3           vcd_1.4-12              ranger_0.16.0          
 [31] car_3.1-2               boot_1.3-30             lmtest_0.9-40          
 [34] jquerylib_0.1.4         Rcpp_1.0.12             bookdown_0.39          
-[37] zoo_1.8-12              Matrix_1.7-0            splines_4.4.0          
+[37] zoo_1.8-12              Matrix_1.6-5            splines_4.4.0          
 [40] nnet_7.3-19             rstudioapi_0.16.0       abind_1.4-5            
-[43] yaml_2.3.8              codetools_0.2-20        lattice_0.22-6         
+[43] yaml_2.3.8              codetools_0.2-19        lattice_0.22-5         
 [46] KEGGREST_1.44.0         evaluate_0.23           survival_3.5-8         
 [49] proxy_0.4-27            xml2_1.3.6              Biostrings_2.72.0      
-[52] BiocManager_1.30.23     carData_3.0-5           sp_2.1-4               
-[55] munsell_0.5.1           scales_1.3.0            laeken_0.5.3           
+[52] BiocManager_1.30.23     carData_3.0-5           sp_1.6-0               
+[55] munsell_0.5.0           scales_1.3.0            laeken_0.5.3           
 [58] xtable_1.8-4            class_7.3-22            glue_1.7.0             
-[61] tools_4.4.0             robustbase_0.99-2       data.table_1.15.4      
+[61] tools_4.4.0             robustbase_0.99-2       data.table_1.15.0      
 [64] annotate_1.82.0         locfit_1.5-9.9          XML_3.99-0.16.1        
 [67] AnnotationDbi_1.66.0    GenomeInfoDbData_1.2.12 cli_3.6.2              
 [70] S4Arrays_1.4.1          viridisLite_0.4.2       svglite_2.1.3          
 [73] DEoptimR_1.1-3          sass_0.4.9              digest_0.6.35          
-[76] SparseArray_1.4.3       memoise_2.0.1           htmltools_0.5.8.1      
-[79] lifecycle_1.0.4         httr_1.4.7              statmod_1.5.0          
-[82] bit64_4.0.5             MASS_7.3-60.2          </code></pre>
+[76] SparseArray_1.4.8       memoise_2.0.1           htmltools_0.5.8.1      
+[79] lifecycle_1.0.4         httr_1.4.7              statmod_1.4.37         
+[82] bit64_4.0.5             MASS_7.3-60.0.1        </code></pre>
 </div>
 <div id="references" class="section level1 unnumbered">
 <h1>References</h1>
-<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-Block2022" class="csl-entry">
 Block, Timothy, Daniel Zezulinski, David Kaplan, Jingqiao Lu, Samantha Zanine, Tingting Zhan, Cataldo Doria, and Aejaz Sayeed. 2022. <span>“Circulating Messenger RNA Variants as a Potential Biomarker for Surveillance of Hepatocellular Carcinoma.”</span> <em>Frontiers in Oncology</em> 12. <a href="https://doi.org/10.3389/fonc.2022.963641">https://doi.org/10.3389/fonc.2022.963641</a>.
 </div>
