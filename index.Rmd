@@ -1,6 +1,67 @@
 ---
 title: "Biomarker discovery in cfRNA data"
+author:
+- name: Berta Canal Simón
+  affiliation:
+  - &id Barcelona School of Economics
+  email: berta.canal@bse.eu
+- name: Adam Olivares Canal
+  affiliation: *id
+  email: adam.olivares@bse.eu
+- name: Robert Castelo (MSc Thesis Supervisor)
+  affiliation:
+  - Dept. of Medicine and Life Sciences, Universitat Pompeu Fabra
+  email: robert.castelo@upf.edu
+date: "`r format(Sys.time(), '%B %e, %Y')`"
+abstract: >
+  Liquid biopsies offer a less invasive alternative to traditional tissue
+  biopsies for disease diagnosis by detecting biomarkers in body fluids. This
+  project aims to use differential expression analysis to identify predictive
+  genes and train machine learning models, en- hancing early diagnosis models
+  for preeclampsia and liver cancer using cell-free RNA data present in plasma.
+  Comparing to baseline models from previous studies, our results reveal a
+  significant improvement in early liver cancer prediction, but not in
+  preeclampsia. This underscores the potential of liquid biopsies in
+  identifying biomarkers but also highlights the need for further research to
+  address current limitations.
+output:
+  BiocStyle::html_document:
+    toc: false
+    number_sections: false
 ---
 
+# Preprocessing of raw sequencing data
+
 This is the supporting website for the data analyses of the master's thesis
-project entitled "Biomarker discovery in cfRNA data".
+project entitled "Biomarker discovery in cfRNA data" at the Master Program
+of Data Science Methodology from the
+[Barcelona School of Economics](https://bse.eu/study/masters-programs/data-science-methodology),
+in the academic year 2023-24. The analyses presented here are based on gene
+expression data stored in tables of counts obtained from RNA sequencing
+(RNA-seq) experiments conducted in the following publications:
+
+* Moufarrej, Mira N, Sevahn K Vorperian, Ronald J Wong, Ana A Campos, Cecele
+  C Quaintance, Rene V Sit, Michelle Tan, et al. 2022. "Early Prediction of
+  Preeclampsia in Pregnancy with Cell-Free RNA." *Nature* 602 (7898): 689–94.
+  https://doi.org/10.1038/s41586-022-04410-z
+* Del Vecchio, Giorgia, Qingjiao Li, Wenyuan Li, Shanthie Thamotharan, Anela
+  Tosevska, Marco Morselli, Kyunghyun Sung, et al. 2021. "Cell-Free DNA
+  Methylation and Transcriptomic Signature Prediction of Pregnancies with
+  Adverse Outcomes." *Epigenetics* 16 (6): 642–61.
+  https://doi.org/10.1080/15592294.2020.1816774
+* Roskams-Hieter, Breeshey, Hyun Ji Kim, Pavana Anur, Josiah T. Wagner, Rowan
+  Callahan, Elias Spiliotopoulos, Charles Ward Kirschbaum, et al. 2022. "Plasma
+  Cell-Free RNA Profiling Distinguishes Cancers from Pre-Malignant Conditions in
+  Solid and Hematologic Malignancies." *Npj Precision Oncology* 6.
+  https://doi.org/10.1038/s41698-022-00270-y
+* Block, Timothy, Daniel Zezulinski, David Kaplan, Jingqiao Lu, Samantha Zanine,
+  Tingting Zhan, Cataldo Doria, and Aejaz Sayeed. 2022. "Circulating Messenger
+  RNA Variants as a Potential Biomarker for Surveillance of Hepatocellular
+  Carcinoma." *Frontiers in Oncology* 12.
+  https://doi.org/10.3389/fonc.2022.963641
+
+The tables of counts were obtained by processing the raw FASTQ files deposited
+by the authors of the previous publications at the
+[Gene Expression Omnibus (GEO)](https://www.ncbi.nlm.nih.gov/geo) repository.
+The processing of these FASTQ files was performed by Beatriz Calvo-Serra and
+Robert Castelo.

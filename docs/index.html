@@ -10,7 +10,7 @@
 
 
 
-<meta name="date" content="2024-04-22" />
+<meta name="date" content="2024-06-09" />
 
 <title>Biomarker discovery in cfRNA data</title>
 
@@ -29,9 +29,6 @@
        h6 {font-size: 12px;}
        code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
        </style>
-<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
-<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
-<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
@@ -58,10 +55,20 @@ if (window.hljs) {
 
 
 
+<style type="text/css">
+  p.abstract{
+    text-align: center;
+    font-weight: bold;
+  }
+  div.abstract{
+    margin: auto;
+    width: 90%;
+  }
+</style>
 
 
 
-<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.3-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+<link rel="stylesheet" href="/Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
 
 
 
@@ -220,66 +227,6 @@ $(document).ready(function () {
 
 
 
-<style type="text/css">
-
-#TOC {
-  margin: 25px 0px 20px 0px;
-}
-@media (max-width: 768px) {
-#TOC {
-  position: relative;
-  width: 100%;
-}
-}
-
-@media print {
-
-}
-
-.toc-content {
-  padding-left: 30px;
-  padding-right: 40px;
-}
-
-div.main-container {
-  max-width: 1200px;
-}
-
-div.tocify {
-  width: 20%;
-  max-width: 246px;
-  max-height: 85%;
-}
-
-@media (min-width: 768px) and (max-width: 991px) {
-  div.tocify {
-    width: 25%;
-  }
-}
-
-@media (max-width: 767px) {
-  div.tocify {
-    width: 100%;
-    max-width: none;
-  }
-}
-
-.tocify ul, .tocify li {
-  line-height: 20px;
-}
-
-.tocify-subheader .tocify-item {
-  font-size: 0.90em;
-}
-
-.tocify .list-group-item {
-  border-radius: 0px;
-}
-
-
-</style>
-
-
 
 <script>
 function toggle_visibility(id1) {
@@ -294,16 +241,6 @@ function toggle_visibility(id1) {
 
 
 <div class="container-fluid main-container">
-
-
-<!-- setup 3col/9col grid for toc_float and main content  -->
-<div class="row">
-<div class="col-xs-12 col-sm-4 col-md-3">
-<div id="TOC" class="tocify">
-</div>
-</div>
-
-<div class="toc-content col-xs-12 col-sm-8 col-md-9">
 
 
 
@@ -354,18 +291,55 @@ function toggle_visibility(id1) {
 
 
 <h1 class="title toc-ignore">Biomarker discovery in cfRNA data</h1>
-<h4 class="date">22 April 2024</h4>
+<p class="author-name">Berta Canal Simón<span class="affil-mark">1*</span>, Adam Olivares Canal<span class="affil-mark">1**</span> and Robert Castelo (MSc Thesis Supervisor)<span class="affil-mark">2***</span></p>
+<p class="author-affiliation"><span class="affil-mark">1</span>Barcelona School of Economics<br><span class="affil-mark">2</span>Dept. of Medicine and Life Sciences, Universitat Pompeu Fabra</p>
+<p class="author-email"><span class="affil-mark">*</span><a href="mailto:berta.canal@bse.eu">berta.canal@bse.eu</a><br><span class="affil-mark">**</span><a href="mailto:adam.olivares@bse.eu">adam.olivares@bse.eu</a><br><span class="affil-mark">***</span><a href="mailto:robert.castelo@upf.edu">robert.castelo@upf.edu</a></p>
+<h4 class="date">June 9, 2024</h4>
+<h4 class="abstract">Abstract</h4>
+<p>Liquid biopsies offer a less invasive alternative to traditional tissue biopsies for disease diagnosis by detecting biomarkers in body fluids. This project aims to use differential expression analysis to identify predictive genes and train machine learning models, en- hancing early diagnosis models for preeclampsia and liver cancer using cell-free RNA data present in plasma. Comparing to baseline models from previous studies, our results reveal a significant improvement in early liver cancer prediction, but not in preeclampsia. This underscores the potential of liquid biopsies in identifying biomarkers but also highlights the need for further research to address current limitations.</p>
 
 </div>
 
 
+<div id="preprocessing-of-raw-sequencing-data" class="section level1">
+<h1>Preprocessing of raw sequencing data</h1>
 <p>This is the supporting website for the data analyses of the master’s thesis
-project entitled “Biomarker discovery in cfRNA data”.</p>
-
-
-
+project entitled “Biomarker discovery in cfRNA data” at the Master Program
+of Data Science Methodology from the
+<a href="https://bse.eu/study/masters-programs/data-science-methodology">Barcelona School of Economics</a>,
+in the academic year 2023-24. The analyses presented here are based on gene
+expression data stored in tables of counts obtained from RNA sequencing
+(RNA-seq) experiments conducted in the following publications:</p>
+<ul>
+<li>Moufarrej, Mira N, Sevahn K Vorperian, Ronald J Wong, Ana A Campos, Cecele
+C Quaintance, Rene V Sit, Michelle Tan, et al. 2022. “Early Prediction of
+Preeclampsia in Pregnancy with Cell-Free RNA.” <em>Nature</em> 602 (7898): 689–94.
+<a href="https://doi.org/10.1038/s41586-022-04410-z" class="uri">https://doi.org/10.1038/s41586-022-04410-z</a></li>
+<li>Del Vecchio, Giorgia, Qingjiao Li, Wenyuan Li, Shanthie Thamotharan, Anela
+Tosevska, Marco Morselli, Kyunghyun Sung, et al. 2021. “Cell-Free DNA
+Methylation and Transcriptomic Signature Prediction of Pregnancies with
+Adverse Outcomes.” <em>Epigenetics</em> 16 (6): 642–61.
+<a href="https://doi.org/10.1080/15592294.2020.1816774" class="uri">https://doi.org/10.1080/15592294.2020.1816774</a></li>
+<li>Roskams-Hieter, Breeshey, Hyun Ji Kim, Pavana Anur, Josiah T. Wagner, Rowan
+Callahan, Elias Spiliotopoulos, Charles Ward Kirschbaum, et al. 2022. “Plasma
+Cell-Free RNA Profiling Distinguishes Cancers from Pre-Malignant Conditions in
+Solid and Hematologic Malignancies.” <em>Npj Precision Oncology</em> 6.
+<a href="https://doi.org/10.1038/s41698-022-00270-y" class="uri">https://doi.org/10.1038/s41698-022-00270-y</a></li>
+<li>Block, Timothy, Daniel Zezulinski, David Kaplan, Jingqiao Lu, Samantha Zanine,
+Tingting Zhan, Cataldo Doria, and Aejaz Sayeed. 2022. “Circulating Messenger
+RNA Variants as a Potential Biomarker for Surveillance of Hepatocellular
+Carcinoma.” <em>Frontiers in Oncology</em> 12.
+<a href="https://doi.org/10.3389/fonc.2022.963641" class="uri">https://doi.org/10.3389/fonc.2022.963641</a></li>
+</ul>
+<p>The tables of counts were obtained by processing the raw FASTQ files deposited
+by the authors of the previous publications at the
+<a href="https://www.ncbi.nlm.nih.gov/geo">Gene Expression Omnibus (GEO)</a> repository.
+The processing of these FASTQ files was performed by Beatriz Calvo-Serra and
+Robert Castelo.</p>
 </div>
-</div>
+
+
+
 
 </div>
 
@@ -398,35 +372,6 @@ $(document).ready(function () {
 
 <!-- code folding -->
 
-<script>
-$(document).ready(function ()  {
-
-    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
-    $('.unlisted.unnumbered').addClass('toc-ignore')
-
-    // move toc-ignore selectors from section div to header
-    $('div.section.toc-ignore')
-        .removeClass('toc-ignore')
-        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
-
-    // establish options
-    var options = {
-      selectors: "h1,h2,h3",
-      theme: "bootstrap3",
-      context: '.toc-content',
-      hashGenerator: function (text) {
-        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
-      },
-      ignoreSelector: ".toc-ignore",
-      scrollTo: 0
-    };
-    options.showAndHide = true;
-    options.smoothScroll = true;
-
-    // tocify
-    var toc = $("#TOC").tocify(options).data("toc-tocify");
-});
-</script>
 
 <script type="text/x-mathjax-config">
   MathJax.Hub.Config({
